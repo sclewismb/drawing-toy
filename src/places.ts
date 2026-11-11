@@ -14,6 +14,12 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   sofa: { url: 'props/sofa.svg', size: 1.2 },
   fridge: { url: 'props/fridge.svg', size: 1.1 },
   table: { url: 'props/table.svg', size: 1 },
+  stool: { url: 'props/stool.svg', size: 0.6 },
+  couch: { url: 'props/couch.svg', size: 1.7 },
+  armchair: { url: 'props/armchair.svg', size: 0.85 },
+  trampoline: { url: 'props/trampoline.svg', size: 0.8 },
+  'bed-tiedye': { url: 'props/bed-tiedye.svg', size: 1.45 },
+  daybed: { url: 'props/daybed.svg', size: 1.4 },
   // fire station
   'fire-engine': { url: 'props/fire-engine.svg', size: 1.5 },
   helmet: { url: 'props/helmet.svg', size: 0.6 },
@@ -33,11 +39,24 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   ball: { url: 'props/ball.svg', size: 0.45 },
 };
 
-export type PlaceId = 'house' | 'fire' | 'police' | 'school' | 'park';
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | RoomId;
+/** Rooms inside the family house. Their names are set on the iPad, not here. */
+export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
+export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
+
+/** What's on the street, left to right. The house opens the house view. */
+export const STREET: { id: PlaceId | 'house'; building: string }[] = [
+  { id: 'house', building: 'buildings/house.svg' },
+  { id: 'fire', building: 'buildings/fire.svg' },
+  { id: 'police', building: 'buildings/police.svg' },
+  { id: 'school', building: 'buildings/school.svg' },
+  { id: 'park', building: 'buildings/park.svg' },
+];
 
 export interface PlaceDef {
   id: PlaceId;
-  building: string; // picture on the street
+  /** Rooms belong to the house: "back" goes to the house, not the street. */
+  parent?: 'house';
   toys: string[]; // built-in names that belong here
   /** What's here the very first time (positions as fractions of the screen). */
   start: { name: string; x: number; y: number }[];
@@ -61,35 +80,271 @@ function windowWithSky(g: Graphics, x: number, y: number, ww: number, wh: number
   g.moveTo(x + ww / 2, y).lineTo(x + ww / 2, y + wh).moveTo(x, y + wh / 2).lineTo(x + ww, y + wh / 2).stroke({ width: 6, color: INK });
 }
 
+function heart(g: Graphics, cx: number, cy: number, s: number, color: number) {
+  g.circle(cx - s * 0.5, cy - s * 0.2, s * 0.6).circle(cx + s * 0.5, cy - s * 0.2, s * 0.6).fill(color);
+  g.poly([cx - s * 1.08, cy, cx + s * 1.08, cy, cx, cy + s * 1.2]).fill(color);
+}
+
+function star(g: Graphics, cx: number, cy: number, r: number, color: number) {
+  const pts: number[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    pts.push(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  g.poly(pts).fill(color).stroke({ width: 3, color: INK });
+}
+
+/** A small seeded random generator, so decorations land in the same place every time. */
+function seeded(seed: number) {
+  let s = seed;
+  return () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+}
+
+function darkWoodFloor(g: Graphics, w: number, h: number, top: number) {
+  g.rect(0, h * top, w, h * (1 - top)).fill(0x3b2620);
+  for (let y = h * top + 24; y < h; y += 30) g.moveTo(0, y).lineTo(w, y);
+  g.stroke({ width: 2, color: 0x2a1b17 });
+  g.rect(0, h * top - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+}
+
+function blinds(g: Graphics, x: number, y: number, ww: number, wh: number, frame: number) {
+  g.rect(x, y, ww, wh).fill(0xf4f4f4).stroke({ width: 10, color: frame });
+  for (let yy = y + 10; yy < y + wh - 6; yy += 18) g.rect(x + 5, yy, ww - 10, 8).fill(0xc9cdd2);
+}
+
+function frame(g: Graphics, x: number, y: number, fw: number, fh: number) {
+  g.rect(x, y, fw, fh).fill(0xf1f1f1).stroke({ width: 7, color: 0x1f1f1f });
+}
+
+function butterfly(g: Graphics, x: number, y: number, s: number, color: number, tilt: number) {
+  const dx = Math.cos(tilt) * s, dy = Math.sin(tilt) * s;
+  g.ellipse(x - dx * 0.6, y - dy * 0.6 - s * 0.2, s * 0.6, s * 0.8).ellipse(x + dx * 0.6, y + dy * 0.6 - s * 0.2, s * 0.6, s * 0.8).fill(color);
+  g.ellipse(x - dx * 0.5, y - dy * 0.5 + s * 0.5, s * 0.4, s * 0.5).ellipse(x + dx * 0.5, y + dy * 0.5 + s * 0.5, s * 0.4, s * 0.5).fill(color);
+  g.rect(x - 1.5, y - s * 0.7, 3, s * 1.6).fill(INK);
+}
+
 export const PLACES: PlaceDef[] = [
   {
-    id: 'house',
-    building: 'buildings/house.svg',
-    toys: ['bed', 'sofa', 'fridge', 'table'],
+    // First bedroom (its name is set on the iPad): geometric painted wall, daybed.
+    id: 'bedroom-a',
+    parent: 'house',
+    toys: ['daybed', 'ball', 'books'],
     start: [
-      { name: 'bed', x: 0.22, y: 0.76 },
-      { name: 'sofa', x: 0.55, y: 0.74 },
-      { name: 'fridge', x: 0.86, y: 0.62 },
-      { name: 'table', x: 0.5, y: 0.9 },
+      { name: 'daybed', x: 0.66, y: 0.79 },
+      { name: 'ball', x: 0.4, y: 0.9 },
     ],
     drawBackdrop(g, w, h) {
-      floorAndWall(g, w, h, 0xffe5d9, 0xc68b59);
-      for (let x = 30; x < w; x += 60) g.rect(x, 0, 14, h * 0.72 - 8).fill({ color: 0xffffff, alpha: 0.45 });
-      for (let y = h * 0.78; y < h; y += h * 0.07) g.moveTo(0, y).lineTo(w, y).stroke({ width: 3, color: 0xa0522d, alpha: 0.5 });
-      windowWithSky(g, w * 0.08, h * 0.12, w * 0.22, h * 0.3);
-      // a framed heart picture
-      const fx = w * 0.62, fy = h * 0.14, fw = w * 0.14, fh = h * 0.2;
-      g.roundRect(fx, fy, fw, fh, 6).fill(0xfff8e7).stroke({ width: 8, color: 0xc68b59 });
-      const cx = fx + fw / 2, cy = fy + fh / 2, s = Math.min(fw, fh) * 0.22;
-      g.circle(cx - s * 0.5, cy - s * 0.2, s * 0.6).circle(cx + s * 0.5, cy - s * 0.2, s * 0.6).fill(0xe5383b);
-      g.poly([cx - s * 1.08, cy, cx + s * 1.08, cy, cx, cy + s * 1.2]).fill(0xe5383b);
-      // rug
-      g.ellipse(w * 0.5, h * 0.88, w * 0.3, h * 0.07).fill({ color: 0x4ea8ff, alpha: 0.55 });
+      const floor = 0.74;
+      g.rect(0, 0, w, h * floor).fill(0xe4e6ea);
+      // the painted feature wall
+      const x0 = w * 0.48, fy = h * floor;
+      g.poly([x0, 0, w * 0.62, 0, w * 0.56, fy, x0, fy]).fill(0xd4e94a);
+      g.poly([w * 0.62, 0, w, 0, w * 0.56, fy]).fill(0xfbfbfb);
+      g.poly([w, 0, w, fy, w * 0.56, fy]).fill(0x9fd8e8);
+      g.moveTo(w * 0.62, 0).lineTo(w * 0.56, fy).moveTo(w, 0).lineTo(w * 0.56, fy).stroke({ width: 6, color: 0xffffff });
+      g.moveTo(x0, 0).lineTo(x0, fy).stroke({ width: 3, color: 0xc9cdd2 });
+      // grey carpet
+      g.rect(0, fy, w, h - fy).fill(0x5f5a57);
+      g.rect(0, fy - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+      // window with blackout blind and a spotty valance
+      const wx = w * 0.15, wy = h * 0.16, ww = w * 0.24, wh = h * 0.34;
+      g.rect(wx, wy, ww, wh).fill(0x1f1f1f).stroke({ width: 6, color: INK });
+      g.rect(wx - 14, wy - 30, ww + 28, h * 0.11).fill(0xf6f7f2).stroke({ width: 4, color: INK });
+      g.rect(wx - 14, wy - 30 + h * 0.11 - 14, ww + 28, 8).fill(0x9fd8e8);
+      g.rect(wx - 14, wy - 30 + h * 0.11 - 6, ww + 28, 6).fill(0xd4e94a);
+      const rnd = seeded(7);
+      for (let i = 0; i < 40; i++) g.circle(wx - 10 + rnd() * (ww + 20), wy - 24 + rnd() * (h * 0.11 - 26), 2.5).fill(0x6c757d);
+      g.moveTo(wx - 24, wy - 30).lineTo(wx + ww + 24, wy - 30).stroke({ width: 5, color: 0x6c757d });
+      // turquoise dresser with a lamp
+      const dx = w * 0.0, dy = h * 0.46, dw = w * 0.17, dh = fy - dy;
+      g.rect(dx, dy, dw, dh).fill(0x8ecdd0).stroke({ width: 5, color: INK });
+      g.rect(dx, dy, dw + 10, 16).fill(0xa8dadc).stroke({ width: 4, color: INK });
+      for (let i = 1; i < 3; i++) g.moveTo(dx, dy + (dh * i) / 3).lineTo(dx + dw, dy + (dh * i) / 3).stroke({ width: 3, color: INK });
+      g.rect(dx + dw * 0.45, dy - h * 0.12, 8, h * 0.12).fill(0xf6f7f2).stroke({ width: 2, color: INK });
+      g.poly([dx + dw * 0.18, dy - h * 0.12, dx + dw * 0.82, dy - h * 0.12, dx + dw * 0.72, dy - h * 0.22, dx + dw * 0.28, dy - h * 0.22])
+        .fill(0xfff1c1)
+        .stroke({ width: 4, color: INK });
+      g.poly([dx + dw * 0.38, dy - h * 0.14, dx + dw * 0.46, dy - h * 0.19, dx + dw * 0.5, dy - h * 0.14]).fill(0xf4a261); // a little fox
+    },
+  },
+  {
+    // Second bedroom (its name is set on the iPad): turquoise wall, butterflies, tie-dye bed.
+    id: 'bedroom-b',
+    parent: 'house',
+    toys: ['bed-tiedye', 'flower', 'books', 'ball'],
+    start: [
+      { name: 'bed-tiedye', x: 0.48, y: 0.78 },
+      { name: 'books', x: 0.88, y: 0.66 },
+    ],
+    drawBackdrop(g, w, h) {
+      const floor = 0.74, fy = h * floor;
+      g.rect(0, 0, w * 0.45, fy).fill(0x7fdde0);
+      g.rect(w * 0.45, 0, w * 0.55, fy).fill(0xf6f6f8);
+      g.moveTo(w * 0.45, 0).lineTo(w * 0.45, fy).stroke({ width: 3, color: 0xc9cdd2 });
+      g.rect(0, fy, w, h - fy).fill(0x6b625c);
+      g.rect(0, fy - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+      // window with sheer white curtains
+      const wx = w * 0.18, wy = h * 0.12, ww = w * 0.2, wh = h * 0.38;
+      g.rect(wx, wy, ww, wh).fill(0xdff3ff).stroke({ width: 6, color: 0xffffff });
+      g.moveTo(wx - 30, wy - 8).lineTo(wx + ww + 30, wy - 8).stroke({ width: 5, color: 0x1f1f1f });
+      g.rect(wx - 26, wy - 6, ww * 0.45, wh + h * 0.2).fill({ color: 0xffffff, alpha: 0.85 });
+      g.rect(wx + ww * 0.6, wy - 6, ww * 0.45, wh + h * 0.2).fill({ color: 0xffffff, alpha: 0.85 });
+      // stripy framed art
+      const art = (x: number, y: number, fw: number, fh: number) => {
+        frame(g, x, y, fw, fh);
+        const cols = [0x3a3a3a, 0xff8fa3, 0x2a9d8f, 0xe9ecef, 0x1d3557];
+        cols.forEach((c, i) => g.rect(x + 8, y + 8 + ((fh - 16) * i) / cols.length, fw - 16, (fh - 16) / cols.length).fill(c));
+      };
+      art(w * 0.03, h * 0.16, w * 0.11, h * 0.18);
+      art(w * 0.4 - w * 0.035, h * 0.18, w * 0.035, h * 0.08);
+      art(w * 0.4 - w * 0.035, h * 0.3, w * 0.035, h * 0.08);
+      // a big swoop of butterflies on the white wall
+      const rnd = seeded(11);
+      const colours = [0xff8fb1, 0xb07de8, 0x7fdde0, 0xffd166, 0x9ad0f5, 0xffb3c6, 0xc3b1ff];
+      for (let i = 0; i < 70; i++) {
+        const t = rnd();
+        const x = w * (0.5 + 0.46 * t) + (rnd() - 0.5) * w * 0.06;
+        const y = h * (0.42 - 0.34 * t) + (rnd() - 0.5) * h * 0.22;
+        butterfly(g, x, y, 7 + rnd() * 6, colours[i % colours.length], (rnd() - 0.5) * 0.8);
+      }
+      // a few drawings pinned up
+      g.rect(w * 0.52, h * 0.1, w * 0.04, h * 0.1).fill(0x9fd8e8).stroke({ width: 3, color: INK });
+      g.rect(w * 0.86, h * 0.36, w * 0.08, h * 0.1).fill(0xffffff).stroke({ width: 3, color: INK });
+      g.rect(w * 0.7, h * 0.46, w * 0.06, h * 0.07).fill(0x7bd36b).stroke({ width: 3, color: INK });
+      // white desk with a purple sparkly lamp
+      const dx = w * 0.82, dy = h * 0.52;
+      g.rect(dx, dy, w * 0.18, 16).fill(0xffffff).stroke({ width: 4, color: INK });
+      g.rect(dx + 10, dy + 16, 12, fy - dy - 16).fill(0xffffff).stroke({ width: 3, color: INK });
+      g.rect(w - 22, dy + 16, 12, fy - dy - 16).fill(0xffffff).stroke({ width: 3, color: INK });
+      g.ellipse(dx + w * 0.13, dy - h * 0.07, w * 0.03, h * 0.06).fill(0xd0a8ff).stroke({ width: 3, color: INK });
+      for (let i = 0; i < 6; i++) g.circle(dx + w * 0.13 + (rnd() - 0.5) * w * 0.04, dy - h * 0.07 + (rnd() - 0.5) * h * 0.08, 2.5).fill(0xffffff);
+      // round black side table and the purple fluffy rug
+      g.ellipse(w * 0.7, h * 0.62, w * 0.04, h * 0.015).fill(0x1f1f1f);
+      g.moveTo(w * 0.68, h * 0.62).lineTo(w * 0.67, fy).moveTo(w * 0.72, h * 0.62).lineTo(w * 0.73, fy).stroke({ width: 4, color: 0x1f1f1f });
+      g.ellipse(w * 0.14, h * 0.9, w * 0.14, h * 0.08).fill(0xc8a2e8).stroke({ width: 4, color: 0xa77bd1 });
+    },
+  },
+  {
+    // Lounge room: grey walls, big window with blinds, TV, pictures, grey couch.
+    id: 'lounge',
+    parent: 'house',
+    toys: ['couch', 'armchair', 'trampoline', 'ball'],
+    start: [
+      { name: 'couch', x: 0.68, y: 0.7 },
+      { name: 'armchair', x: 0.16, y: 0.76 },
+      { name: 'trampoline', x: 0.44, y: 0.88 },
+    ],
+    drawBackdrop(g, w, h) {
+      const floor = 0.72;
+      g.rect(0, 0, w, h * floor).fill(0xe9ecef);
+      darkWoodFloor(g, w, h, floor);
+      // shaggy rug
+      g.roundRect(w * 0.26, h * 0.78, w * 0.6, h * 0.17, 10).fill(0xd6ccc2);
+      const rnd = seeded(5);
+      for (let i = 0; i < 120; i++) {
+        const x = w * (0.27 + rnd() * 0.58), y = h * (0.79 + rnd() * 0.15);
+        g.moveTo(x, y).lineTo(x + 3, y + 6);
+      }
+      g.stroke({ width: 2, color: 0xbdb2a7 });
+      // big window with blinds on the right
+      blinds(g, w * 0.66, h * 0.1, w * 0.32, h * 0.4, 0xffffff);
+      g.moveTo(w * 0.82, h * 0.1).lineTo(w * 0.82, h * 0.5).stroke({ width: 6, color: 0xffffff });
+      // a big picture of a black-and-white dog
+      frame(g, w * 0.02, h * 0.08, w * 0.11, h * 0.42);
+      const cx = w * 0.075, cy = h * 0.28, r = Math.min(w * 0.04, h * 0.08);
+      g.circle(cx, cy, r).fill(0xffffff).stroke({ width: 3, color: INK });
+      g.ellipse(cx - r * 0.8, cy - r * 0.6, r * 0.45, r * 0.7).ellipse(cx + r * 0.8, cy - r * 0.6, r * 0.45, r * 0.7).fill(0x1f1f1f);
+      g.poly([cx - r * 0.6, cy - r * 0.9, cx - r * 0.1, cy - r * 0.9, cx - r * 0.15, cy + r * 0.2, cx - r * 0.7, cy - r * 0.1]).fill(0x1f1f1f);
+      g.circle(cx - r * 0.35, cy - r * 0.15, 3).circle(cx + r * 0.35, cy - r * 0.15, 3).circle(cx, cy + r * 0.35, 5).fill(0x1f1f1f);
+      // TV on a dark wood stand
+      g.rect(w * 0.15, h * 0.5, w * 0.17, h * 0.22 - 6).fill(0x3e2723).stroke({ width: 4, color: INK });
+      g.rect(w * 0.155, h * 0.24, w * 0.16, h * 0.24).fill(0x111111).stroke({ width: 4, color: INK });
+      g.rect(w * 0.165, h * 0.26, w * 0.14, h * 0.2).fill(0x2b2d42);
+      // tall mirror
+      g.rect(w * 0.35, h * 0.14, w * 0.06, h * 0.34).fill(0xcfe3ee).stroke({ width: 8, color: 0x3e2723 });
+      g.moveTo(w * 0.36, h * 0.2).lineTo(w * 0.39, h * 0.16).stroke({ width: 4, color: 0xffffff, alpha: 0.8 });
+      // three black-and-white pictures
+      const pics = [0.44, 0.52, 0.6];
+      pics.forEach((px, i) => {
+        frame(g, w * px, h * 0.12, w * 0.075, h * 0.13);
+        const fx = w * px, fy = h * 0.12, fw = w * 0.075, fh = h * 0.13;
+        if (i === 0) g.rect(fx + fw * 0.2, fy + fh * 0.35, fw * 0.15, fh * 0.45).rect(fx + fw * 0.65, fy + fh * 0.35, fw * 0.15, fh * 0.45).fill(0x6c757d);
+        if (i === 1) g.circle(fx + fw / 2, fy + fh / 2, fh * 0.28).fill(0x8d8d8d);
+        if (i === 2) g.poly([fx + 8, fy + fh - 8, fx + fw * 0.4, fy + fh * 0.4, fx + fw - 8, fy + fh - 8]).fill(0x6c757d);
+      });
+      // floor lamp
+      g.rect(w * 0.635, h * 0.36, 6, h * 0.36 - 6).fill(0x6c757d);
+      g.poly([w * 0.605, h * 0.38, w * 0.67, h * 0.38, w * 0.655, h * 0.29, w * 0.62, h * 0.29]).fill(0xffffff).stroke({ width: 3, color: INK });
+    },
+  },
+  {
+    // Kitchen: white cupboards, tiled splashback, three black pendant lights, island.
+    id: 'kitchen',
+    parent: 'house',
+    toys: ['fridge', 'stool', 'table'],
+    start: [
+      { name: 'fridge', x: 0.1, y: 0.58 },
+      { name: 'stool', x: 0.32, y: 0.9 },
+      { name: 'stool', x: 0.47, y: 0.9 },
+      { name: 'stool', x: 0.62, y: 0.9 },
+    ],
+    drawBackdrop(g, w, h) {
+      const floor = 0.74, fy = h * floor;
+      g.rect(0, 0, w, fy).fill(0xeef1f4);
+      darkWoodFloor(g, w, h, floor);
+      const white = 0xfbfbf8;
+      const cupboard = (x: number, y: number, cw: number, ch: number, handle: 'v' | 'h') => {
+        g.rect(x, y, cw, ch).fill(white).stroke({ width: 3, color: 0xadb5bd });
+        g.rect(x + 6, y + 6, cw - 12, ch - 12).stroke({ width: 2, color: 0xced4da });
+        if (handle === 'v') g.rect(x + cw - 14, y + ch * 0.35, 4, ch * 0.3).fill(0x8d99ae);
+        else g.rect(x + cw * 0.3, y + 12, cw * 0.4, 4).fill(0x8d99ae);
+      };
+      // subway-tile splashback
+      g.rect(w * 0.2, h * 0.3, w * 0.6, h * 0.17).fill(0xffffff);
+      for (let r = 0, y = h * 0.3; y < h * 0.47; r++, y += 16) {
+        g.moveTo(w * 0.2, y).lineTo(w * 0.8, y);
+        for (let x = w * 0.2 + (r % 2) * 20; x < w * 0.8; x += 40) g.moveTo(x, y).lineTo(x, y + 16);
+      }
+      g.stroke({ width: 1.5, color: 0xadb5bd });
+      // window with blinds over the sink
+      blinds(g, w * 0.42, h * 0.15, w * 0.18, h * 0.22, 0xffffff);
+      // upper cupboards and microwave
+      cupboard(w * 0.2, h * 0.08, w * 0.11, h * 0.22, 'v');
+      cupboard(w * 0.31, h * 0.08, w * 0.11, h * 0.22, 'v');
+      cupboard(w * 0.6, h * 0.08, w * 0.06, h * 0.22, 'v');
+      g.rect(w * 0.66, h * 0.08, w * 0.14, h * 0.1).fill(white).stroke({ width: 3, color: 0xadb5bd });
+      g.roundRect(w * 0.66, h * 0.18, w * 0.14, h * 0.1, 4).fill(0xc0c4c8).stroke({ width: 3, color: INK });
+      g.rect(w * 0.675, h * 0.195, w * 0.09, h * 0.07).fill(0x495057);
+      // counter and lower cupboards
+      g.rect(w * 0.2, h * 0.47, w * 0.6, h * 0.025).fill(0xffffff).stroke({ width: 3, color: 0xadb5bd });
+      for (let i = 0; i < 4; i++) cupboard(w * (0.2 + i * 0.1), h * 0.495, w * 0.1, fy - h * 0.495, 'h');
+      // steel oven
+      g.roundRect(w * 0.6, h * 0.47, w * 0.12, fy - h * 0.47, 4).fill(0xc0c4c8).stroke({ width: 4, color: INK });
+      g.roundRect(w * 0.615, h * 0.56, w * 0.09, h * 0.12, 4).fill(0x343a40);
+      g.rect(w * 0.6, h * 0.47, w * 0.12, h * 0.035).fill(0x212529);
+      cupboard(w * 0.72, h * 0.495, w * 0.08, fy - h * 0.495, 'h');
+      // tall pantry cupboards on the right
+      cupboard(w * 0.82, h * 0.08, w * 0.08, fy - h * 0.08, 'v');
+      cupboard(w * 0.9, h * 0.08, w * 0.08, fy - h * 0.08, 'v');
+      // tap
+      g.moveTo(w * 0.51, h * 0.47).lineTo(w * 0.51, h * 0.41).lineTo(w * 0.535, h * 0.41).stroke({ width: 5, color: 0x8d99ae });
+      // island: white top, dark base
+      g.rect(w * 0.22, h * 0.6, w * 0.5, fy + h * 0.1 - h * 0.6).fill(0x1b1f2e).stroke({ width: 5, color: 0xffffff });
+      g.rect(w * 0.2, h * 0.58, w * 0.54, h * 0.03).fill(0xffffff).stroke({ width: 3, color: INK });
+      // three black pendant lights
+      for (const px of [0.3, 0.47, 0.64]) {
+        g.moveTo(w * px, 0).lineTo(w * px, h * 0.16).stroke({ width: 3, color: 0x1f1f1f });
+        g.poly([w * px - 26, h * 0.24, w * px + 26, h * 0.24, w * px + 14, h * 0.16, w * px - 14, h * 0.16]).fill(0x2b2b2b).stroke({ width: 3, color: INK });
+        g.ellipse(w * px, h * 0.24, 22, 5).fill(0xfff3c4);
+      }
+      // a black-and-white picture on the left wall
+      frame(g, w * 0.01, h * 0.12, w * 0.12, h * 0.2);
+      g.moveTo(w * 0.04, h * 0.3).quadraticCurveTo(w * 0.07, h * 0.12, w * 0.1, h * 0.3).fill(0x9a9a9a);
     },
   },
   {
     id: 'fire',
-    building: 'buildings/fire.svg',
     toys: ['fire-engine', 'helmet', 'hydrant'],
     start: [
       { name: 'fire-engine', x: 0.62, y: 0.76 },
@@ -115,7 +370,6 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'police',
-    building: 'buildings/police.svg',
     toys: ['police-car', 'police-hat', 'cone'],
     start: [
       { name: 'police-car', x: 0.35, y: 0.8 },
@@ -145,7 +399,6 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'school',
-    building: 'buildings/school.svg',
     toys: ['school-desk', 'globe', 'books'],
     start: [
       { name: 'school-desk', x: 0.3, y: 0.82 },
@@ -184,7 +437,6 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'park',
-    building: 'buildings/park.svg',
     toys: ['bench', 'slide', 'flower', 'ball'],
     start: [
       { name: 'monster', x: 0.25, y: 0.68 },

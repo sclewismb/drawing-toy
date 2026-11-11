@@ -53,7 +53,7 @@ class TouchMap {
 }
 
 /**
- * One of Matilda's drawings, living in the scene.
+ * One of the drawings, living in the scene.
  *
  * Layers (outside to inside):
  *   Character (this)  - position, rotation and pinch size. Moved by gestures.

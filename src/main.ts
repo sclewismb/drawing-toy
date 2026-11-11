@@ -8,7 +8,9 @@ import { GestureController } from './gestures';
 import { Library } from './library';
 import { loadImage } from './loadImage';
 import { setupGrownUpShare } from './photoShare';
-import { BUILTIN, PLACES, placeById, type PlaceId } from './places';
+import { setupHouseSettings } from './houseSettings';
+import { HouseView, ROOM_FURNITURE } from './houseView';
+import { BUILTIN, PLACES, placeById, STREET, type PlaceId, type RoomId } from './places';
 import { SOUND_FOR } from './reactions';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
@@ -80,15 +82,47 @@ const builtinUrl = (name: string) => base + BUILTIN[name].url;
 const library = await Library.load();
 void storage.askToKeep();
 
-// --- The street ---
+// --- The street, and the family house with its rooms ---
 const buildingPictures = new Map<string, HTMLCanvasElement>();
-await Promise.all(PLACES.map(async (p) => buildingPictures.set(p.building, await svgPicture(base + p.building))));
+await Promise.all(STREET.map(async (s) => buildingPictures.set(s.building, await svgPicture(base + s.building))));
 const street = new StreetView(buildingPictures);
+const furniturePictures = new Map<string, HTMLCanvasElement>();
+const furnitureNames = [...new Set(Object.values(ROOM_FURNITURE).flat())];
+await Promise.all(furnitureNames.map(async (n) => furniturePictures.set(n, await svgPicture(builtinUrl(n)))));
+const houseView = new HouseView(furniturePictures);
 const weather = new Weather();
-app.stage.addChild(world, street, weather, sparkles, fade);
+app.stage.addChild(world, street, houseView, weather, sparkles, fade);
 
-/** Which place we're in; null = on the street. */
+/** What's showing: the street, the house (choose a room), or a place. */
+type Screen = 'street' | 'house' | 'place';
+let screen: Screen = 'street';
+/** Which place we're in (only when screen is 'place'). */
 let current: PlaceId | null = null;
+
+// --- The house's sign and room names: typed in on this iPad, saved only here ---
+interface HouseSettings {
+  sign: string;
+  rooms: Partial<Record<RoomId, string>>;
+}
+let houseSettings: HouseSettings = { sign: '', rooms: {} };
+try {
+  houseSettings = { ...houseSettings, ...((await storage.getSetting<HouseSettings>('house')) ?? {}) };
+} catch {
+  /* fine */
+}
+function applyHouseSettings() {
+  street.setHouseSign(houseSettings.sign);
+  houseView.setNames(houseSettings.rooms);
+}
+setupHouseSettings({
+  get: () => houseSettings,
+  save(s) {
+    houseSettings = s;
+    applyHouseSettings();
+    void storage.setSetting('house', s).catch(() => {});
+  },
+  open: (fn) => (street.onHouseHold = fn),
+});
 
 // --- Seasons: picked on the street; colours the street and the park, with
 // blossom, butterflies, leaves or snow.
@@ -97,13 +131,14 @@ let season: Season = savedSeason && SEASONS.includes(savedSeason) ? savedSeason 
 const seasonButtons = [...document.querySelectorAll<HTMLButtonElement>('#seasons button')];
 
 function showWeather() {
-  weather.visible = current === null || !!placeById(current)?.outdoors;
+  weather.visible = screen !== 'place' || !!(current && placeById(current)?.outdoors);
 }
 
 function setSeason(s: Season, withSound = true) {
   season = s;
   for (const b of seasonButtons) b.classList.toggle('on', b.dataset.season === s);
   street.layout(app.screen.width, app.screen.height, season);
+  houseView.layout(app.screen.width, app.screen.height, season);
   drawBackdrop();
   weather.set(s);
   if (withSound) sfx.season(s);
@@ -252,13 +287,18 @@ async function showPlace(id: PlaceId) {
   if (!saved) void saveNow();
 }
 
-/** Street or place: show the right things and buttons. */
-function setOnStreet(onStreet: boolean) {
-  street.visible = onStreet;
-  world.visible = !onStreet;
+/** Show one screen (street, house or a place) and the right buttons for it. */
+function setScreen(s: Screen) {
+  screen = s;
+  street.visible = s === 'street';
+  houseView.visible = s === 'house';
+  world.visible = s === 'place';
   showWeather();
-  document.body.classList.toggle('on-street', onStreet);
-  if (onStreet) {
+  const inRoom = s === 'place' && !!current && placeById(current)?.parent === 'house';
+  document.body.classList.toggle('on-street', s === 'street');
+  document.body.classList.toggle('in-house', s === 'house');
+  document.body.classList.toggle('in-room', inRoom);
+  if (s !== 'place') {
     gallery.close();
     gestures.select(null);
   }
@@ -267,54 +307,94 @@ function setOnStreet(onStreet: boolean) {
 const animate = (ms: number, fn: (t: number) => void) => new Promise<void>((resolve) => tween(ms, fn, resolve));
 let switching = false;
 
-/** Zoom into a building and open its place. */
+type Zoomable = { setZoom: (at: { x: number; y: number }, amount: number) => void };
+const viewFor = (s: Screen): Zoomable | null => (s === 'street' ? street : s === 'house' ? houseView : null);
+
+/** Zoom into something on this screen, then show the next screen. */
+async function zoomIn(at: { x: number; y: number }, open: () => Promise<void> | void) {
+  const view = viewFor(screen);
+  await animate(380, (t) => {
+    view?.setZoom(at, t);
+    drawFade(ease.inOutSine(t));
+  });
+  await open();
+  view?.setZoom(at, 0);
+  await animate(300, (t) => drawFade(1 - t));
+}
+
+/** Fade out, show the outer screen, and zoom back out from where we were. */
+async function zoomOut(to: 'street' | 'house', at: () => { x: number; y: number }, before: () => void) {
+  await animate(220, (t) => drawFade(t));
+  before();
+  setScreen(to);
+  const view = viewFor(to)!;
+  const point = at();
+  await animate(420, (t) => {
+    view.setZoom(point, 1 - t);
+    drawFade(1 - t);
+  });
+}
+
+function rememberPlace(id: PlaceId | null) {
+  try {
+    if (id) sessionStorage.setItem('place', id);
+    else sessionStorage.removeItem('place');
+  } catch {
+    /* fine */
+  }
+}
+
+/** Open a place (from the street, or a room from the house). */
 async function enterPlace(id: PlaceId, at: { x: number; y: number }) {
   if (switching) return;
   switching = true;
   sfx.dingDong();
-  await animate(380, (t) => {
-    street.setZoom(at, t);
-    drawFade(ease.inOutSine(t));
+  await zoomIn(at, async () => {
+    await showPlace(id);
+    setScreen('place');
   });
-  await showPlace(id);
-  setOnStreet(false);
-  street.setZoom(at, 0);
-  try {
-    sessionStorage.setItem('place', id);
-  } catch {
-    /* fine */
-  }
-  await animate(300, (t) => drawFade(1 - t));
+  rememberPlace(id);
   switching = false;
 }
 
-/** Save, then zoom back out to the street. */
-async function goToStreet() {
-  if (switching || !current) return;
+/** From the street into the house: choose a room. */
+async function enterHouse(at: { x: number; y: number }) {
+  if (switching) return;
+  switching = true;
+  sfx.dingDong();
+  await zoomIn(at, () => setScreen('house'));
+  switching = false;
+}
+
+/** The back button: a room goes back to the house, everything else to the street. */
+async function goBack() {
+  if (switching) return;
   switching = true;
   sfx.zoomOut();
-  await saveNow();
-  await animate(220, (t) => drawFade(t));
-  const at = street.buildingCentre(current);
-  clearCharacters();
-  current = null;
-  backdrop.clear();
-  setOnStreet(true);
-  try {
-    sessionStorage.removeItem('place');
-  } catch {
-    /* fine */
+  if (screen === 'place' && current) {
+    await saveNow();
+    const from = current;
+    const toHouse = placeById(from)?.parent === 'house';
+    await zoomOut(
+      toHouse ? 'house' : 'street',
+      () => (toHouse ? houseView.roomCentre(from as RoomId) : street.buildingCentre(from)),
+      () => {
+        clearCharacters();
+        current = null;
+        backdrop.clear();
+      },
+    );
+    rememberPlace(null);
+  } else if (screen === 'house') {
+    await zoomOut('street', () => street.buildingCentre('house'), () => {});
   }
-  await animate(420, (t) => {
-    street.setZoom(at, 1 - t);
-    drawFade(1 - t);
-  });
   switching = false;
 }
 
 street.onBuildingTap = () => gallery.close();
-street.onEnter = (id, at) => void enterPlace(id, at);
-document.getElementById('map-button')!.addEventListener('click', () => void goToStreet());
+street.onEnter = (id, at) => void (id === 'house' ? enterHouse(at) : enterPlace(id, at));
+houseView.onEnter = (id, at) => void enterPlace(id, at);
+document.getElementById('map-button')!.addEventListener('click', () => void goBack());
 
 // --- The toy box: a shelf of every character and toy, and somewhere to put them away ---
 const gallery = setupGallery({
@@ -444,6 +524,7 @@ fileInput.addEventListener('change', async () => {
 // When the iPad rotates: redraw, and pull everyone back on screen.
 app.renderer.on('resize', () => {
   street.layout(app.screen.width, app.screen.height, season);
+  houseView.layout(app.screen.width, app.screen.height, season);
   weather.resize(app.screen.width, app.screen.height);
   drawBackdrop();
   for (const ch of characters.children as Character[]) gestures.keepOnScreen(ch);
@@ -453,7 +534,8 @@ app.renderer.on('resize', () => {
 // --- Start on the street (or back in the same place after an update refresh) ---
 weather.resize(app.screen.width, app.screen.height);
 setSeason(season, false);
-setOnStreet(true);
+applyHouseSettings();
+setScreen('street');
 let resumePlace: string | null = null;
 try {
   resumePlace = sessionStorage.getItem('place');
@@ -462,7 +544,7 @@ try {
 }
 if (resumePlace && placeById(resumePlace)) {
   await showPlace(resumePlace as PlaceId);
-  setOnStreet(false);
+  setScreen('place');
 }
 
 // Offline support and updates. Only in the built app: during development it
@@ -493,7 +575,8 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 // Handy for testing in the browser console during development.
 if (import.meta.env.DEV) {
   Object.assign(window, {
-    app, gestures, characters, library, storage, street, saveNow, enterPlace, goToStreet,
+    app, gestures, characters, library, storage, street, houseView, saveNow, enterPlace, enterHouse, goBack,
+    screen: () => screen,
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
   });
 }

@@ -299,14 +299,84 @@
         transform: scale(0.9);
       }
 
-      /* On the street: only the buildings, no camera/toy box. */
+      /* On the street: only the buildings, no camera/toy box.
+         In the house (choosing a room): just the back button. */
       body.on-street #camera,
       body.on-street #toybox,
       body.on-street #shelf,
       body.on-street #grownup,
       body.on-street #map-button,
+      body.in-house #camera,
+      body.in-house #toybox,
+      body.in-house #shelf,
+      body.in-house #grownup,
       body:not(.on-street) #seasons {
         display: none !important;
+      }
+      /* The back button shows where it goes: the house (from a room) or the street. */
+      #map-button .to-house,
+      body.in-room #map-button .to-street {
+        display: none;
+      }
+      body.in-room #map-button .to-house {
+        display: block;
+      }
+
+      /* Grown-up box: house sign and room names (saved on this iPad only). */
+      #house-settings {
+        border: 4px solid #3a3a3a;
+        border-radius: 22px;
+        padding: 22px 24px;
+        width: min(460px, calc(100vw - 48px));
+        font: 16px/1.4 system-ui, -apple-system, sans-serif;
+        color: #222;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      }
+      #house-settings::backdrop {
+        background: rgba(0, 0, 0, 0.35);
+      }
+      #house-settings h2 {
+        margin: 0 0 4px;
+        font-size: 20px;
+      }
+      #house-settings p {
+        margin: 0 0 14px;
+        color: #555;
+        font-size: 14px;
+      }
+      #house-settings label {
+        display: block;
+        margin: 10px 0 4px;
+        font-weight: 600;
+      }
+      #house-settings input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 12px;
+        font-size: 17px;
+        border: 2px solid #bbb;
+        border-radius: 10px;
+        -webkit-user-select: text;
+        user-select: text;
+        touch-action: manipulation;
+      }
+      #house-settings .buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      #house-settings button {
+        font-size: 17px;
+        padding: 10px 18px;
+        border-radius: 12px;
+        border: 2px solid #3a3a3a;
+        background: #fff;
+      }
+      #house-settings button[type='submit'] {
+        background: #4ea8ff;
+        color: #fff;
+        font-weight: 700;
       }
 
       /* The shelf of characters, floating above the bottom buttons. */
@@ -427,8 +497,15 @@
       </svg>
       <input type="file" accept="image/*" />
     </label>
-    <button id="map-button" type="button" aria-label="Back to the street">
-      <svg viewBox="0 0 64 64" width="58" height="58" aria-hidden="true">
+    <button id="map-button" type="button" aria-label="Back">
+      <svg class="to-house" viewBox="0 0 64 64" width="58" height="58" aria-hidden="true">
+        <path d="M8 30 L32 10 L56 30 Z" fill="#33333b" stroke="#3a3a3a" stroke-width="3" stroke-linejoin="round" />
+        <rect x="13" y="30" width="38" height="26" fill="#eadbc8" stroke="#3a3a3a" stroke-width="3" />
+        <rect x="27" y="38" width="10" height="18" fill="#fff" stroke="#1f1f1f" stroke-width="3" />
+        <rect x="16" y="35" width="8" height="8" fill="#f2f2f2" stroke="#1f1f1f" stroke-width="2.5" />
+        <rect x="40" y="35" width="8" height="8" fill="#f2f2f2" stroke="#1f1f1f" stroke-width="2.5" />
+      </svg>
+      <svg class="to-street" viewBox="0 0 64 64" width="58" height="58" aria-hidden="true">
         <rect x="4" y="46" width="56" height="12" rx="3" fill="#5c5c5c" stroke="#3a3a3a" stroke-width="3" />
         <path d="M12 51 H20 M28 51 H36 M44 51 H52" stroke="#fff" stroke-width="3" stroke-linecap="round" />
         <rect x="8" y="26" width="20" height="18" fill="#ffb4a2" stroke="#3a3a3a" stroke-width="3" />
@@ -438,6 +515,26 @@
         <rect x="42" y="32" width="8" height="12" fill="#2b4c8c" stroke="#3a3a3a" stroke-width="2.5" />
       </svg>
     </button>
+    <dialog id="house-settings">
+      <form method="dialog">
+        <h2>Our house</h2>
+        <p>For grown-ups. These words are saved on this iPad only and never leave it.</p>
+        <label for="hs-sign">Sign in front of the house</label>
+        <input id="hs-sign" name="sign" type="text" maxlength="40" autocomplete="off" placeholder="For example: Our House" />
+        <label for="hs-a">Room with the triangle wall</label>
+        <input id="hs-a" data-room="bedroom-a" type="text" maxlength="30" autocomplete="off" placeholder="Name of this bedroom" />
+        <label for="hs-b">Room with the butterflies</label>
+        <input id="hs-b" data-room="bedroom-b" type="text" maxlength="30" autocomplete="off" placeholder="Name of this bedroom" />
+        <label for="hs-l">Lounge room</label>
+        <input id="hs-l" data-room="lounge" type="text" maxlength="30" autocomplete="off" placeholder="Lounge Room" />
+        <label for="hs-k">Kitchen</label>
+        <input id="hs-k" data-room="kitchen" type="text" maxlength="30" autocomplete="off" placeholder="Kitchen" />
+        <div class="buttons">
+          <button type="button" data-cancel>Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
     <div id="seasons">
       <button type="button" data-season="spring" aria-label="Spring">
         <svg viewBox="0 0 48 48" width="46" height="46" aria-hidden="true">

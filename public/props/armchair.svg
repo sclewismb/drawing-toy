@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 260" width="240" height="260">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="44" y="226" width="16" height="26" fill="#3a3a3a"/>
+    <rect x="180" y="226" width="16" height="26" fill="#3a3a3a"/>
+    <path d="M40 140 Q30 30 120 22 Q210 30 200 140 Z" fill="#f1f3f8"/>
+    <rect x="44" y="150" width="152" height="80" rx="16" fill="#f1f3f8"/>
+    <path d="M14 120 Q14 96 40 100 Q60 104 58 130 L58 230 H24 Q14 230 14 214 Z" fill="#f1f3f8"/>
+    <path d="M226 120 Q226 96 200 100 Q180 104 182 130 L182 230 H216 Q226 230 226 214 Z" fill="#f1f3f8"/>
+  </g>
+  <!-- blue pattern -->
+  <g fill="none" stroke="#2b4c8c" stroke-width="5" stroke-linecap="round">
+    <path d="M90 60 q30 -26 60 0 q-30 26 -60 0z M120 80 v40 M98 100 h44"/>
+    <path d="M80 176 q20 -16 40 0 q-20 16 -40 0z M130 176 q20 -16 40 0 q-20 16 -40 0z"/>
+    <path d="M26 150 q10 -14 20 0 q-10 14 -20 0z M194 150 q10 -14 20 0 q-10 14 -20 0z"/>
+  </g>
+  <g fill="#2b4c8c"><circle cx="120" cy="140" r="5"/><circle cx="72" cy="208" r="4"/><circle cx="168" cy="208" r="4"/></g>
+</svg>
