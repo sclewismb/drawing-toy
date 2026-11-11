@@ -1,6 +1,6 @@
 {
-  "name": "Drawing Toy",
-  "short_name": "Drawing Toy",
+  "name": "Lewis World",
+  "short_name": "Lewis World",
   "description": "Turn paper drawings into characters you can play with.",
   "start_url": "./",
   "scope": "./",
