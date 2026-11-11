@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 340" width="320" height="340">
+  <g stroke="#222" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- waving arm (only on one side, so flipping is visible) -->
+    <path d="M250 170 Q290 130 285 80" fill="none"/>
+    <circle cx="285" cy="72" r="14" fill="#b07de8"/>
+    <!-- legs -->
+    <path d="M120 270 L112 318 L92 320" fill="none"/>
+    <path d="M190 270 L198 318 L220 320" fill="none"/>
+    <!-- wobbly body -->
+    <path d="M70 200 C55 120 90 40 160 38 C235 36 270 110 255 195 C245 260 210 285 160 284 C105 283 80 255 70 200 Z" fill="#b07de8"/>
+    <!-- eyes -->
+    <circle cx="128" cy="130" r="26" fill="#fff"/>
+    <circle cx="196" cy="122" r="20" fill="#fff"/>
+    <circle cx="134" cy="134" r="10" fill="#222"/>
+    <circle cx="200" cy="126" r="8" fill="#222"/>
+    <!-- toothy smile -->
+    <path d="M112 196 Q160 240 214 190" fill="#fff"/>
+    <path d="M135 205 L140 222 M160 210 L160 228 M185 205 L180 222" fill="none" stroke-width="5"/>
+  </g>
+  <!-- cheeks -->
+  <circle cx="98" cy="180" r="12" fill="#ff8fb1" opacity="0.8"/>
+  <circle cx="228" cy="172" r="10" fill="#ff8fb1" opacity="0.8"/>
+</svg>
