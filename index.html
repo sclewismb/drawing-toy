@@ -20,19 +20,25 @@
     <meta name="theme-color" content="#bfe8ff" />
     <!-- Keep it out of search engines; it's a family app -->
     <meta name="robots" content="noindex, nofollow" />
-    <style>html,body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;background:#bfe8ff;height:100%;margin:0;overflow:hidden}canvas{display:block}</style>
-    <script type="module" crossorigin src="./assets/index-DoVMbvXk.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/CanvasPool-CvhLfrak.js">
-    <link rel="modulepreload" crossorigin href="./assets/Filter-CIgZyiAQ.js">
-    <link rel="modulepreload" crossorigin href="./assets/canvasUtils-DvJBlGrX.js">
-    <link rel="modulepreload" crossorigin href="./assets/Cache-BNS9ZNya.js">
-    <link rel="modulepreload" crossorigin href="./assets/init-BcqN3o_C.js">
-    <link rel="modulepreload" crossorigin href="./assets/GCManagedHash-F-1f8LIp.js">
-    <link rel="modulepreload" crossorigin href="./assets/RenderTargetSystem-Bn4-LJ-s.js">
-    <link rel="modulepreload" crossorigin href="./assets/getTextureBatchBindGroup-BmBjbjg6.js">
-    <link rel="modulepreload" crossorigin href="./assets/GraphicsContext-CdBhnW5n.js">
-    <link rel="modulepreload" crossorigin href="./assets/CanvasRenderer-BzYFVUBg.js">
+    <style>html,body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;background:#bfe8ff;height:100%;margin:0;overflow:hidden}canvas{display:block}#camera{left:max(16px, env(safe-area-inset-left));bottom:max(16px, env(safe-area-inset-bottom));box-sizing:border-box;z-index:10;-webkit-tap-highlight-color:transparent;background:#fff;border:4px solid #3a3a3a;border-radius:50%;place-items:center;width:92px;height:92px;transition:transform .1s;display:grid;position:fixed;box-shadow:0 5px #0000002e}#camera:active{transform:scale(.9)}#camera input{opacity:0;cursor:pointer;width:100%;height:100%;position:absolute;inset:0}#camera.busy{pointer-events:none}#camera.busy svg{animation:.5s ease-in-out infinite wiggle}#camera.nope{animation:.45s shake}@keyframes wiggle{0%,to{transform:rotate(-12deg)scale(1.05)}50%{transform:rotate(12deg)scale(.95)}}@keyframes shake{0%,to{translate:0}20%,60%{translate:-10px}40%,80%{translate:10px}}</style>
+    <script type="module" crossorigin src="./assets/index-CZxMEpfj.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/CanvasPool-B1MOiLaR.js">
+    <link rel="modulepreload" crossorigin href="./assets/canvasUtils-DGSOs_Mg.js">
+    <link rel="modulepreload" crossorigin href="./assets/init-Cjy2Qf7W.js">
+    <link rel="modulepreload" crossorigin href="./assets/RenderTargetSystem-BBvGRHIO.js">
+    <link rel="modulepreload" crossorigin href="./assets/getTextureBatchBindGroup-BHFMc0qq.js">
+    <link rel="modulepreload" crossorigin href="./assets/CanvasRenderer-Bgl_BWMk.js">
   </head>
   <body>
+    <label id="camera" aria-label="Add a drawing">
+      <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+        <path d="M21 19 L25 10 H39 L43 19" fill="#ff7a59" stroke="#3a3a3a" stroke-width="4" stroke-linejoin="round" />
+        <rect x="5" y="18" width="54" height="38" rx="9" fill="#ff7a59" stroke="#3a3a3a" stroke-width="4" />
+        <circle cx="32" cy="37" r="12" fill="#bfe8ff" stroke="#3a3a3a" stroke-width="4" />
+        <circle cx="28" cy="33" r="3.5" fill="#fff" />
+        <circle cx="50" cy="26" r="3" fill="#ffe066" />
+      </svg>
+      <input type="file" accept="image/*" />
+    </label>
   </body>
 </html>
