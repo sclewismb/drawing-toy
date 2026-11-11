@@ -116,6 +116,12 @@ export const SHELVES: Partial<Record<PlaceId, [x0: number, x1: number, y: number
     [0.41, 0.59, 0.5], // till counter
     [1.4, 1.56, 0.56], // the jack-in-the-box's table
   ],
+  ninja: [
+    [0.82, 0.94, 0.3], // the top of the warped wall
+  ],
+  niagara: [
+    [1.04, 1.76, 0.36], // the bridge
+  ],
 };
 
 const GRAVITY = 0.0028; // pixels per ms, per ms

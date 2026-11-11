@@ -3,6 +3,7 @@ import { drawClockFace } from './clock';
 import { backyardSky } from './backyard';
 import { fairSky } from './fair';
 import { zooSky } from './zoo';
+import { niagaraSky } from './destinations';
 import { CRITTERS } from './critters';
 import type { SkyDef } from './sky';
 import { hillDots, PALETTE, type Season } from './seasons';
@@ -83,6 +84,8 @@ export const FLOOR: Record<PlaceId, number> = {
   restaurant: 0.72,
   toyshop: 0.72,
   zoo: 0.66,
+  ninja: 0.74,
+  niagara: 0.8,
 };
 
 /**
@@ -120,6 +123,16 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
     { name: 'grandma', x: 0.9, y: 0.86 },
     { name: 'duck', x: 1.0, y: 0.92 },
   ],
+  ninja: [
+    { name: 'kid-boy', x: 0.3, y: 0.86 },
+    { name: 'kid-girl', x: 1.0, y: 0.86 },
+    { name: 'grownup', x: -0.1, y: 0.84 },
+  ],
+  niagara: [
+    { name: 'kid-girl', x: 0.3, y: 0.9 },
+    { name: 'grandma', x: 0.7, y: 0.9 },
+    { name: 'duck', x: 1.2, y: 0.92 },
+  ],
   fair: [
     { name: 'kid-girl', x: -0.2, y: 0.82 },
     { name: 'kid-boy', x: 0.3, y: 0.84 },
@@ -132,7 +145,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
   ],
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -154,6 +167,8 @@ export const STREET: {
   { id: 'toyshop', building: 'buildings/toyshop.svg' },
   { id: 'zoo', building: 'buildings/zoo.svg' },
   { id: 'fair', building: 'buildings/fair.svg' },
+  { id: 'ninja', building: 'buildings/ninja.svg' },
+  { id: 'niagara', building: 'buildings/niagara.svg' },
 ];
 
 export interface PlaceDef {
@@ -659,6 +674,16 @@ PLACES.push(
     start: [],
     outdoors: true,
     sky: (w, h, season) => zooSky(w, h, season),
+    drawBackdrop: allDrawnElsewhere,
+  },
+  // the ninja kids gym and Niagara Falls (drawn in destinations.ts)
+  { id: 'ninja', toys: ['ball', 'trampoline', 'bench'], start: [{ name: 'ball', x: 0.45, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
+  {
+    id: 'niagara',
+    toys: ['balloon', 'kite', 'ball', 'teddy'],
+    start: [{ name: 'kite', x: 1.0, y: 0.45 }],
+    outdoors: true,
+    sky: (w, h, season) => niagaraSky(w, h, season),
     drawBackdrop: allDrawnElsewhere,
   },
 );

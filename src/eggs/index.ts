@@ -5,6 +5,7 @@ import { bedroomA, bedroomB } from './bedrooms';
 import { fair } from './fair';
 import { restaurant, toyshop, vet } from './shops';
 import { zoo } from './zoo';
+import { niagara, ninjaGym } from './destinations';
 import type { Cleanups, EggKit } from './common';
 import { kitchen, lounge } from './house';
 import { fireStation, park, policeStation, school } from './town';
@@ -30,6 +31,8 @@ const PLACE_EGGS: Record<PlaceId, (kit: EggKit, cleanups: Cleanups) => void> = {
   restaurant,
   toyshop,
   zoo,
+  ninja: ninjaGym,
+  niagara,
 };
 
 const run = (build: (cleanups: Cleanups) => void) => {

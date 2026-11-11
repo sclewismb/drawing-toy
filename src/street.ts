@@ -35,6 +35,8 @@ const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number
   toyshop: { fx: 0.735, side: 'above' },
   zoo: { fx: 0.825, side: 'above', size: 1.3 },
   fair: { fx: 0.94, side: 'above', size: 1.45 },
+  ninja: { fx: 1.065, side: 'above' },
+  niagara: { fx: 1.17, side: 'above', size: 1.5 },
 };
 
 /**
@@ -202,8 +204,11 @@ export class StreetView extends Container {
     const pal = PALETTE[season];
     const winter = season === 'winter';
     const u = Math.min(w, h); // a size that suits both ways up
-    const M = Math.max(w * 2.6, h * 3.8); // the map's width
-    const P = (fx: number, fy: number) => ({ x: fx * M, y: fy * h });
+    // Places are set out by fractions of B; the map carries on past it (to the
+    // gym and Niagara Falls at the far end), so it's M wide in all.
+    const B = Math.max(w * 2.6, h * 3.8);
+    const M = B * 1.24;
+    const P = (fx: number, fy: number) => ({ x: fx * B, y: fy * h });
     const g = this.bg.clear();
     const keep = this.camera.x / Math.max(1, this.geom.w || M);
     this.camera.setRoom(0, M, w, h);
@@ -226,7 +231,7 @@ export class StreetView extends Container {
     this.swaying.clear();
     const city = winter ? 0xc5d3e0 : 0xa9c4dc;
     const rnd = seeded(5);
-    for (let x = M * 0.42; x < M * 0.6; x += u * 0.035) {
+    for (let x = B * 0.42; x < B * 0.6; x += u * 0.035) {
       const bh = h * (0.06 + rnd() * 0.1);
       g.rect(x, h * 0.33 - bh, u * 0.03, bh).fill({ color: city, alpha: 0.8 });
     }
@@ -238,38 +243,38 @@ export class StreetView extends Container {
       for (const p of s) g.lineTo(p.x, p.y);
       g.lineTo(M, h).closePath().fill(color);
     };
-    hill([P(0, 0.44), P(0.06, 0.36), P(0.14, 0.3), P(0.24, 0.34), P(0.33, 0.37), P(0.42, 0.31), P(0.52, 0.35), P(0.62, 0.33), P(0.72, 0.3), P(0.82, 0.36), P(0.9, 0.32), P(1, 0.36)], pal.hillBack);
+    hill([P(0, 0.44), P(0.06, 0.36), P(0.14, 0.3), P(0.24, 0.34), P(0.33, 0.37), P(0.42, 0.31), P(0.52, 0.35), P(0.62, 0.33), P(0.72, 0.3), P(0.82, 0.36), P(0.9, 0.32), P(1, 0.36), P(1.1, 0.3), P(1.18, 0.34), P(1.25, 0.32)], pal.hillBack);
     // patchwork fields on the far hill
     const fieldCols = winter ? [0xf4f7fa, 0xe9eff5] : season === 'autumn' ? [0xe9c46a, 0xd4a373] : [0xc7e59f, 0xe9d985];
     for (const [i, [fx, fy]] of [[0.04, 0.43], [0.08, 0.4], [0.12, 0.375], [0.75, 0.37], [0.79, 0.385]].entries()) {
-      const x = M * fx, y = h * fy, fw = u * 0.12, fh = h * 0.035;
+      const x = B * fx, y = h * fy, fw = u * 0.12, fh = h * 0.035;
       g.poly([x, y, x + fw, y - fh * 0.4, x + fw * 1.05, y + fh * 0.6, x + fw * 0.05, y + fh]).fill(fieldCols[i % 2]).stroke({ width: 2, color: 0xa47e4b });
     }
-    hill([P(0, 0.56), P(0.08, 0.5), P(0.18, 0.55), P(0.27, 0.5), P(0.36, 0.54), P(0.46, 0.49), P(0.56, 0.45), P(0.66, 0.5), P(0.76, 0.48), P(0.86, 0.5), P(0.95, 0.46), P(1, 0.5)], pal.hillFront);
-    hill([P(0, 0.8), P(0.12, 0.78), P(0.25, 0.84), P(0.38, 0.8), P(0.5, 0.83), P(0.63, 0.79), P(0.76, 0.84), P(0.88, 0.8), P(1, 0.82)], pal.grass);
-    for (const [cx, seed] of [[0.15, 7], [0.4, 8], [0.62, 9], [0.88, 10]]) hillDots(g, M * cx, h * 0.97, M * 0.08, h * 0.14, pal.dots, seed);
+    hill([P(0, 0.56), P(0.08, 0.5), P(0.18, 0.55), P(0.27, 0.5), P(0.36, 0.54), P(0.46, 0.49), P(0.56, 0.45), P(0.66, 0.5), P(0.76, 0.48), P(0.86, 0.5), P(0.95, 0.46), P(1.04, 0.5), P(1.12, 0.47), P(1.25, 0.5)], pal.hillFront);
+    hill([P(0, 0.8), P(0.12, 0.78), P(0.25, 0.84), P(0.38, 0.8), P(0.5, 0.83), P(0.63, 0.79), P(0.76, 0.84), P(0.88, 0.8), P(1, 0.82), P(1.12, 0.8), P(1.25, 0.83)], pal.grass);
+    for (const [cx, seed] of [[0.15, 7], [0.4, 8], [0.62, 9], [0.88, 10], [1.13, 11]]) hillDots(g, B * cx, h * 0.97, B * 0.08, h * 0.14, pal.dots, seed);
 
     // --- the pond, with a little jetty ---
-    const pond = { x: M * 0.045, y: h * 0.89, rx: u * 0.13, ry: h * 0.065 };
+    const pond = { x: B * 0.045, y: h * 0.89, rx: u * 0.13, ry: h * 0.065 };
     g.ellipse(pond.x, pond.y, pond.rx + 6, pond.ry + 6).fill(winter ? 0xe3edf5 : 0xc9b48a);
     g.ellipse(pond.x, pond.y, pond.rx, pond.ry).fill(winter ? 0xd6eef8 : 0x6ec6ff).stroke({ width: 3, color: winter ? 0xb7d3e6 : 0x4a9fd8 });
     g.rect(pond.x + pond.rx * 0.45, pond.y - pond.ry * 0.9, pond.rx * 0.45, 10).fill(0xa47e4b).stroke({ width: 2, color: INK });
 
     // --- trees far away along the hill, and the tunnel ---
     const treeG = winter ? 0x6a9a7f : 0x52b788, treeD = winter ? 0x557f69 : 0x2d6a4f;
-    for (let fx = 0.02; fx < 1; fx += 0.035) {
+    for (let fx = 0.02; fx < 1.24; fx += 0.035) {
       if ((fx > 0.4 && fx < 0.62) || rnd() < 0.3) continue; // (the city is there)
-      const x = M * fx, y = h * (0.36 + rnd() * 0.06), r = u * 0.018;
+      const x = B * fx, y = h * (0.36 + rnd() * 0.06), r = u * 0.018;
       g.circle(x, y, r).fill(treeG).stroke({ width: 2, color: INK });
       if (winter) g.ellipse(x, y - r * 0.5, r * 0.6, r * 0.3).fill(0xffffff);
     }
-    const tunnel = { x: M * 0.303, y: h * 0.5, r: u * 0.05 };
+    const tunnel = { x: B * 0.303, y: h * 0.5, r: u * 0.05 };
     g.moveTo(tunnel.x - tunnel.r - 10, tunnel.y).arc(tunnel.x, tunnel.y, tunnel.r + 10, Math.PI, 0).lineTo(tunnel.x - tunnel.r - 10, tunnel.y).fill(0xadb5bd).stroke({ width: 3, color: INK });
     g.moveTo(tunnel.x - tunnel.r, tunnel.y).arc(tunnel.x, tunnel.y, tunnel.r, Math.PI, 0).lineTo(tunnel.x - tunnel.r, tunnel.y).fill(0x1f1f1f);
 
     // --- the roads: a long one winding along, and one up to the tunnel ---
     const roadW = u * 0.045;
-    const road = spline([P(-0.02, 0.73), P(0.05, 0.71), P(0.14, 0.71), P(0.23, 0.74), P(0.32, 0.76), P(0.4, 0.77), P(0.48, 0.71), P(0.57, 0.66), P(0.66, 0.7), P(0.74, 0.73), P(0.82, 0.73), P(0.9, 0.7), P(0.97, 0.69), P(1.02, 0.71)], 16);
+    const road = spline([P(-0.02, 0.73), P(0.05, 0.71), P(0.14, 0.71), P(0.23, 0.74), P(0.32, 0.76), P(0.4, 0.77), P(0.48, 0.71), P(0.57, 0.66), P(0.66, 0.7), P(0.74, 0.73), P(0.82, 0.73), P(0.9, 0.7), P(0.97, 0.69), P(1.04, 0.72), P(1.11, 0.74), P(1.18, 0.71), P(1.26, 0.72)], 16);
     const roadY = (x: number) => road.reduce((best, p) => (Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best), road[0]).y;
     const branchStart = road.reduce((best, p) => (Math.abs(p.x - tunnel.x) < Math.abs(best.x - tunnel.x) ? p : best), road[0]);
     const branch = spline([branchStart, { x: tunnel.x + u * 0.02, y: (branchStart.y + tunnel.y) / 2 + h * 0.04 }, { x: tunnel.x, y: tunnel.y }], 14);
@@ -279,7 +284,7 @@ export class StreetView extends Container {
     // --- the neighbours' houses along the family's street ---
     const houseCols = [0xffd6a5, 0xcaffbf, 0xa0c4ff, 0xffadad, 0xfdffb6];
     for (const [i, fx] of [0.02, 0.135, 0.165].entries()) {
-      const x = M * fx, base = roadY(x) - h * 0.055, hw = u * 0.075, hh = u * 0.08;
+      const x = B * fx, base = roadY(x) - h * 0.055, hw = u * 0.075, hh = u * 0.08;
       g.rect(x - hw / 2, base - hh, hw, hh).fill(houseCols[i % houseCols.length]).stroke({ width: 3, color: INK });
       g.poly([x - hw / 2 - 8, base - hh, x, base - hh - u * 0.06, x + hw / 2 + 8, base - hh]).fill([0xe76f51, 0x6d6875, 0x2b2d42][i % 3]).stroke({ width: 3, color: INK });
       g.rect(x - hw * 0.12, base - hh * 0.5, hw * 0.24, hh * 0.5).fill(0xffffff).stroke({ width: 2, color: INK });
@@ -296,7 +301,7 @@ export class StreetView extends Container {
       const tex = b.sprite.texture;
       const k = Math.min(maxW / tex.width, maxH / tex.height);
       b.sprite.scale.set(k);
-      const x = M * spot.fx;
+      const x = B * spot.fx;
       const ry = roadY(x);
       const y = spot.side === 'above' ? ry - h * 0.06 : Math.min(h * 0.985, ry + h * 0.25);
       b.holder.position.set(x, y);
@@ -319,7 +324,7 @@ export class StreetView extends Container {
     // --- trees (swaying in the breeze) and bushes, kept clear of the buildings and road ---
     const tree = (fx: number, fy: number, s: number) => {
       const r = u * s;
-      this.swaying.add(M * fx, h * fy, (t) => {
+      this.swaying.add(B * fx, h * fy, (t) => {
         t.rect(-r * 0.15, -r * 0.3, r * 0.3, r * 0.6).fill(0x8d5524).stroke({ width: 2, color: INK });
         t.circle(0, -r * 1.1, r).fill(season === 'autumn' ? 0xe08a3c : treeG).stroke({ width: 3, color: INK });
         t.circle(-r * 0.3, -r * 1.3, r * 0.35).fill({ color: 0xffffff, alpha: 0.18 });
@@ -328,25 +333,25 @@ export class StreetView extends Container {
     };
     const cypress = (fx: number, fy: number, s: number) => {
       const r = u * s;
-      this.swaying.add(M * fx, h * fy, (t) => {
+      this.swaying.add(B * fx, h * fy, (t) => {
         t.ellipse(0, -r * 1.4, r * 0.5, r * 1.5).fill(treeD).stroke({ width: 3, color: INK });
         if (winter) t.ellipse(0, -r * 2.6, r * 0.3, r * 0.2).fill(0xffffff);
       });
     };
     // behind the buildings, just above the road
-    for (const fx of [0.005, 0.045, 0.11, 0.195, 0.27, 0.335, 0.41, 0.5, 0.62, 0.7, 0.775, 0.885, 0.995]) {
-      const y = (roadY(M * fx) - h * 0.075) / h;
+    for (const fx of [0.005, 0.045, 0.11, 0.195, 0.27, 0.335, 0.41, 0.5, 0.62, 0.7, 0.775, 0.885, 0.995, 1.11, 1.235]) {
+      const y = (roadY(B * fx) - h * 0.075) / h;
       if (Math.round(fx * 1000) % 2) cypress(fx, y, 0.028);
       else tree(fx, y, 0.03);
     }
     // big trees at the front
     const trees: { x: number; y: number; r: number }[] = [];
-    for (const [fx, fy, s] of [[0.12, 0.93, 0.045], [0.2, 0.9, 0.04], [0.29, 0.94, 0.045], [0.4, 0.9, 0.04], [0.62, 0.93, 0.045], [0.7, 0.9, 0.04], [0.79, 0.94, 0.045], [0.88, 0.9, 0.04], [0.985, 0.92, 0.05]]) {
+    for (const [fx, fy, s] of [[0.12, 0.93, 0.045], [0.2, 0.9, 0.04], [0.29, 0.94, 0.045], [0.4, 0.9, 0.04], [0.62, 0.93, 0.045], [0.7, 0.9, 0.04], [0.79, 0.94, 0.045], [0.88, 0.9, 0.04], [0.985, 0.92, 0.05], [1.08, 0.94, 0.045], [1.22, 0.9, 0.04]]) {
       tree(fx, fy, s);
-      trees.push({ x: M * fx, y: h * fy - u * s * 1.1, r: u * s });
+      trees.push({ x: B * fx, y: h * fy - u * s * 1.1, r: u * s });
     }
-    for (const fx of [0.1, 0.25, 0.45, 0.66, 0.84, 0.93]) {
-      const x = M * fx, y = h * 0.8, r = u * 0.022;
+    for (const fx of [0.1, 0.25, 0.45, 0.66, 0.84, 0.93, 1.14]) {
+      const x = B * fx, y = h * 0.8, r = u * 0.022;
       g.circle(x - r, y, r).circle(x + r, y, r).circle(x, y - r * 0.7, r * 1.1).fill(treeG).stroke({ width: 2, color: INK });
     }
 
