@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 270" width="300" height="270">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="122" y="12" width="56" height="44" fill="#e5383b"/>
+    <path d="M114 16 L150 0 L186 16 Z" fill="#c1121f"/>
+    <circle cx="150" cy="36" r="12" fill="#ffd93d"/>
+    <rect x="20" y="56" width="260" height="206" fill="#e5383b"/>
+    <rect x="20" y="56" width="260" height="34" fill="#c1121f"/>
+    <rect x="64" y="122" width="172" height="140" fill="#f4f4f4"/>
+    <path d="M64 150 H236 M64 178 H236 M64 206 H236 M64 234 H236" fill="none" stroke-width="4"/>
+    <rect x="32" y="112" width="22" height="34" fill="#bfe8ff"/>
+    <rect x="246" y="112" width="22" height="34" fill="#bfe8ff"/>
+  </g>
+  <!-- emblem on the sign -->
+  <circle cx="150" cy="73" r="11" fill="#ffd93d" stroke="#3a3a3a" stroke-width="4"/>
+  <circle cx="110" cy="73" r="6" fill="#fff"/>
+  <circle cx="190" cy="73" r="6" fill="#fff"/>
+</svg>

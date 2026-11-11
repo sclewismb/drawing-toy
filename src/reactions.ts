@@ -1,5 +1,5 @@
 import type { Container } from 'pixi.js';
-import type { SoundName } from './sound';
+import type { PitchedSound } from './sound';
 import { ease, tween } from './tween';
 
 /**
@@ -98,7 +98,7 @@ const DURATION: Record<ReactionName, number> = {
   dizzy: 900,
 };
 
-export const SOUND_FOR: Record<ReactionName, SoundName> = {
+export const SOUND_FOR: Record<ReactionName, PitchedSound> = {
   wobble: 'boing',
   bounce: 'spring',
   spin: 'slideWhistle',

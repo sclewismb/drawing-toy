@@ -196,6 +196,33 @@ export const sfx = {
   poof() {
     hiss({ dur: 0.35, vol: 0.3, from: 2500, to: 300, q: 0.8 });
   },
+  /** Going into a building. */
+  dingDong() {
+    tone({ type: 'triangle', from: 880, dur: 0.35, vol: 0.18 });
+    tone({ type: 'triangle', from: 698, dur: 0.5, vol: 0.18, delay: 0.25 });
+  },
+  /** Changing the season: birdsong, a bright chord, a gust, sleigh bells. */
+  season(s: 'spring' | 'summer' | 'autumn' | 'winter') {
+    if (s === 'spring') {
+      for (let i = 0; i < 3; i++) tone({ from: 2400, to: 3200, dur: 0.07, vol: 0.08, delay: i * 0.12, wobbleRate: 40, wobbleDepth: 200 });
+    } else if (s === 'summer') {
+      [523, 659, 784].forEach((f) => tone({ type: 'triangle', from: f, dur: 0.6, vol: 0.12 }));
+    } else if (s === 'autumn') {
+      hiss({ dur: 0.7, vol: 0.2, from: 400, to: 1200, q: 0.7 });
+    } else {
+      for (let i = 0; i < 6; i++) tone({ type: 'triangle', from: rand(2200, 2800), dur: 0.12, vol: 0.06, delay: i * 0.07 });
+    }
+  },
+  /** Back out to the street. */
+  zoomOut() {
+    hiss({ dur: 0.3, vol: 0.18, from: 2200, to: 500, q: 1.2 });
+    tone({ type: 'triangle', from: 700, to: 350, dur: 0.25, vol: 0.1 });
+  },
 };
 
 export type SoundName = keyof typeof sfx;
+
+/** Sounds that take a pitch (the character's "voice"). */
+export type PitchedSound = {
+  [K in SoundName]: (typeof sfx)[K] extends (p?: number) => void ? K : never;
+}[SoundName];

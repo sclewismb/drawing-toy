@@ -8,9 +8,12 @@ import { GestureController } from './gestures';
 import { Library } from './library';
 import { loadImage } from './loadImage';
 import { setupGrownUpShare } from './photoShare';
+import { BUILTIN, PLACES, placeById, type PlaceId } from './places';
 import { SOUND_FOR } from './reactions';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
+import { SEASONS, Weather, type Season } from './seasons';
+import { StreetView } from './street';
 import { ease, tween } from './tween';
 
 // Stop iOS Safari's own pinch-to-zoom from fighting with ours.
@@ -30,21 +33,18 @@ await app.init({
 document.body.appendChild(app.canvas);
 
 // --- Layers, back to front ---
+//   world:    the place you're in (background, characters, flip button)
+//   street:   the neighbourhood map
+//   sparkles: star bursts, on top of whichever is showing
+//   fade:     white flash when moving between the street and a place
+const world = new Container();
 const backdrop = new Graphics();
 const characters = new Container();
 const ui = new Container();
-app.stage.addChild(backdrop, characters, ui);
-
-function drawBackdrop() {
-  const { width: w, height: h } = app.screen;
-  backdrop
-    .clear()
-    .rect(0, h * 0.7, w, h * 0.3)
-    .fill('#8fd16a') // grass
-    .circle(w * 0.85, h * 0.15, Math.min(w, h) * 0.08)
-    .fill('#ffe066'); // sun
-}
-drawBackdrop();
+world.addChild(backdrop, characters, ui);
+const sparkles = new Container();
+const fade = new Graphics();
+fade.eventMode = 'none';
 
 // --- Sound: the iPad only allows it after a touch, so wake it on every touch
 // (cheap once it's running; also recovers after the app was in the background).
@@ -56,22 +56,84 @@ for (const type of ['pointerdown', 'pointerup', 'touchend', 'click']) {
 const voice = (ch: Character) =>
   Math.min(1.6, Math.max(0.6, Math.pow(ch.scale.x, -0.35))) * (0.92 + Math.random() * 0.18);
 
+// --- Pictures ---
+const base = import.meta.env.BASE_URL;
+const svgPictures = new Map<string, Promise<HTMLCanvasElement>>();
+/** Load a built-in SVG picture into a canvas (same as a real cut-out). */
+function svgPicture(url: string) {
+  let p = svgPictures.get(url);
+  if (!p) {
+    p = loadImage(url).then((img) => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth * 2; // extra crisp
+      c.height = img.naturalHeight * 2;
+      c.getContext('2d', { willReadFrequently: true })!.drawImage(img, 0, 0, c.width, c.height);
+      return c;
+    });
+    svgPictures.set(url, p);
+  }
+  return p;
+}
+const builtinUrl = (name: string) => base + BUILTIN[name].url;
+
 // --- Saved drawings (on this iPad only) ---
 const library = await Library.load();
 void storage.askToKeep();
 
-// --- Saving the scene: shortly after anything changes, and when the app is
-// put in the background.
-let restoring = true;
+// --- The street ---
+const buildingPictures = new Map<string, HTMLCanvasElement>();
+await Promise.all(PLACES.map(async (p) => buildingPictures.set(p.building, await svgPicture(base + p.building))));
+const street = new StreetView(buildingPictures);
+const weather = new Weather();
+app.stage.addChild(world, street, weather, sparkles, fade);
+
+/** Which place we're in; null = on the street. */
+let current: PlaceId | null = null;
+
+// --- Seasons: picked on the street; colours the street and the park, with
+// blossom, butterflies, leaves or snow.
+const savedSeason = await storage.getSetting<Season>('season').catch(() => undefined);
+let season: Season = savedSeason && SEASONS.includes(savedSeason) ? savedSeason : 'spring';
+const seasonButtons = [...document.querySelectorAll<HTMLButtonElement>('#seasons button')];
+
+function showWeather() {
+  weather.visible = current === null || !!placeById(current)?.outdoors;
+}
+
+function setSeason(s: Season, withSound = true) {
+  season = s;
+  for (const b of seasonButtons) b.classList.toggle('on', b.dataset.season === s);
+  street.layout(app.screen.width, app.screen.height, season);
+  drawBackdrop();
+  weather.set(s);
+  if (withSound) sfx.season(s);
+  void storage.setSetting('season', s).catch(() => {});
+}
+for (const b of seasonButtons) b.addEventListener('click', () => setSeason(b.dataset.season as Season));
+
+function drawFade(alpha: number) {
+  fade.clear();
+  if (alpha > 0) fade.rect(0, 0, app.screen.width, app.screen.height).fill({ color: 0xffffff, alpha });
+}
+
+function drawBackdrop() {
+  backdrop.clear();
+  if (current) placeById(current)!.drawBackdrop(backdrop, app.screen.width, app.screen.height, season);
+}
+
+// --- Saving: each place's scene, shortly after anything changes and when
+// the app is put in the background.
+let restoring = false;
 let saveTimer = 0;
 function saveSoon() {
-  if (restoring) return;
+  if (restoring || !current) return;
   clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => void saveNow(), 400);
 }
 async function saveNow() {
   clearTimeout(saveTimer);
-  if (restoring) return;
+  const place = current;
+  if (restoring || !place) return;
   const { width: W, height: H } = app.screen;
   const items: SceneItem[] = [];
   for (const ch of characters.children as Character[]) {
@@ -87,7 +149,7 @@ async function saveNow() {
     });
   }
   try {
-    await storage.saveScene({ version: 1, items });
+    await storage.saveScene(place, { version: 1, items });
   } catch (err) {
     console.warn('Could not save the scene', err);
   }
@@ -119,9 +181,7 @@ app.ticker.add(() => {
   flipButton.y = Math.min(height - r - 8, Math.max(r + 8, b.minY - r * 0.3));
 });
 
-// --- Characters ---
-const SAMPLES = ['monster', 'cat', 'robot'];
-const sampleUrl = (name: string) => `${import.meta.env.BASE_URL}characters/${name}.svg`;
+// --- Characters and toys ---
 const startSize = () => Math.min(app.screen.width, app.screen.height) * 0.3;
 
 type Ref = Character['ref'];
@@ -134,7 +194,8 @@ interface Placement {
 }
 
 function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada = false) {
-  const ch = new Character(picture, startSize());
+  const size = ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1) : 1;
+  const ch = new Character(picture, startSize() * size);
   ch.ref = ref;
   ch.position.set(at.x, at.y);
   if (at.scale) ch.scale.set(at.scale);
@@ -144,7 +205,7 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
   gestures.keepOnScreen(ch);
   if (tada) {
     ch.popIn();
-    burst(ui, ch.x, ch.y);
+    burst(sparkles, ch.x, ch.y);
     sfx.tada();
     gestures.select(ch);
   }
@@ -152,54 +213,119 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
   return ch;
 }
 
-/** Load one of the sample SVG drawings into a canvas (same as a real cutout). */
-const samplePictures = new Map<string, Promise<HTMLCanvasElement>>();
-function samplePicture(name: string) {
-  let p = samplePictures.get(name);
-  if (!p) {
-    p = loadImage(sampleUrl(name)).then((img) => {
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth * 2; // extra crisp
-      c.height = img.naturalHeight * 2;
-      c.getContext('2d', { willReadFrequently: true })!.drawImage(img, 0, 0, c.width, c.height);
-      return c;
-    });
-    samplePictures.set(name, p);
-  }
-  return p;
-}
-
 async function pictureFor(ref: Ref): Promise<HTMLCanvasElement | null> {
-  return ref.kind === 'sample' ? samplePicture(ref.name) : (library.picture(ref.id) ?? null);
+  if (ref.kind === 'sample') return BUILTIN[ref.name] ? svgPicture(builtinUrl(ref.name)) : null;
+  return library.picture(ref.id) ?? null;
 }
 
-// --- Bring back the saved scene (or start with the samples the first time) ---
-const saved = await storage.loadScene().catch(() => null);
-if (saved) {
-  const { width: W, height: H } = app.screen;
-  for (const item of saved.items) {
-    const ref: Ref = item.kind === 'sample' ? { kind: 'sample', name: item.name } : { kind: 'photo', id: item.id };
-    const pic = await pictureFor(ref).catch(() => null);
-    if (!pic) continue; // e.g. a drawing that was deleted
-    addCharacter(pic, ref, { x: item.x * W, y: item.y * H, scale: item.scale, rotation: item.rotation, facing: item.facing });
+function clearCharacters() {
+  for (const ch of [...characters.children] as Character[]) {
+    gestures.release(ch);
+    characters.removeChild(ch);
+    ch.destroy({ children: true });
   }
-} else {
-  const pics = await Promise.all(SAMPLES.map(samplePicture));
-  pics.forEach((pic, i) => {
-    addCharacter(pic, { kind: 'sample', name: SAMPLES[i] }, {
-      x: app.screen.width * ((i + 1) / (pics.length + 1)),
-      y: app.screen.height * 0.68,
-    });
-  });
 }
-restoring = false;
-void saveNow();
 
-// --- The toy box: a shelf of every character, and somewhere to put them away ---
+/** Load a place: its background and its saved scene (or its starting toys). */
+async function showPlace(id: PlaceId) {
+  const place = placeById(id)!;
+  restoring = true;
+  clearCharacters();
+  current = id;
+  drawBackdrop();
+  const saved = await storage.loadScene(id).catch(() => null);
+  const { width: W, height: H } = app.screen;
+  if (saved) {
+    for (const item of saved.items) {
+      const ref: Ref = item.kind === 'sample' ? { kind: 'sample', name: item.name } : { kind: 'photo', id: item.id };
+      const pic = await pictureFor(ref).catch(() => null);
+      if (!pic) continue; // e.g. a drawing that was deleted
+      addCharacter(pic, ref, { x: item.x * W, y: item.y * H, scale: item.scale, rotation: item.rotation, facing: item.facing });
+    }
+  } else {
+    for (const s of place.start) {
+      const pic = await svgPicture(builtinUrl(s.name));
+      addCharacter(pic, { kind: 'sample', name: s.name }, { x: s.x * W, y: s.y * H });
+    }
+  }
+  restoring = false;
+  if (!saved) void saveNow();
+}
+
+/** Street or place: show the right things and buttons. */
+function setOnStreet(onStreet: boolean) {
+  street.visible = onStreet;
+  world.visible = !onStreet;
+  showWeather();
+  document.body.classList.toggle('on-street', onStreet);
+  if (onStreet) {
+    gallery.close();
+    gestures.select(null);
+  }
+}
+
+const animate = (ms: number, fn: (t: number) => void) => new Promise<void>((resolve) => tween(ms, fn, resolve));
+let switching = false;
+
+/** Zoom into a building and open its place. */
+async function enterPlace(id: PlaceId, at: { x: number; y: number }) {
+  if (switching) return;
+  switching = true;
+  sfx.dingDong();
+  await animate(380, (t) => {
+    street.setZoom(at, t);
+    drawFade(ease.inOutSine(t));
+  });
+  await showPlace(id);
+  setOnStreet(false);
+  street.setZoom(at, 0);
+  try {
+    sessionStorage.setItem('place', id);
+  } catch {
+    /* fine */
+  }
+  await animate(300, (t) => drawFade(1 - t));
+  switching = false;
+}
+
+/** Save, then zoom back out to the street. */
+async function goToStreet() {
+  if (switching || !current) return;
+  switching = true;
+  sfx.zoomOut();
+  await saveNow();
+  await animate(220, (t) => drawFade(t));
+  const at = street.buildingCentre(current);
+  clearCharacters();
+  current = null;
+  backdrop.clear();
+  setOnStreet(true);
+  try {
+    sessionStorage.removeItem('place');
+  } catch {
+    /* fine */
+  }
+  await animate(420, (t) => {
+    street.setZoom(at, 1 - t);
+    drawFade(1 - t);
+  });
+  switching = false;
+}
+
+street.onBuildingTap = () => gallery.close();
+street.onEnter = (id, at) => void enterPlace(id, at);
+document.getElementById('map-button')!.addEventListener('click', () => void goToStreet());
+
+// --- The toy box: a shelf of every character and toy, and somewhere to put them away ---
 const gallery = setupGallery({
   library,
-  samples: SAMPLES.map((name) => ({ name, url: sampleUrl(name) })),
+  builtins() {
+    const here = current ? placeById(current)!.toys : [];
+    const names = [...new Set([...here, 'monster', 'cat', 'robot', ...PLACES.flatMap((p) => p.toys)])];
+    return names.map((name) => ({ name, url: builtinUrl(name) }));
+  },
   async onPick(pick: GalleryPick) {
+    if (!current) return;
     const pic = await pictureFor(pick);
     if (!pic) return;
     const { width: W, height: H } = app.screen;
@@ -207,10 +333,11 @@ const gallery = setupGallery({
     addCharacter(pic, pick, { x: W / 2 + jitter(), y: H * 0.42 + jitter() * 0.4 }, true);
   },
   onDelete(id: string) {
-    // Gone for good: remove it from the scene too, in a puff of stars.
+    // Gone for good: remove it from this place too, in a puff of stars.
+    // (Other places simply skip it next time they open.)
     for (const ch of [...characters.children] as Character[]) {
       if (ch.ref.kind === 'photo' && ch.ref.id === id) {
-        burst(ui, ch.x, ch.y, 10, 90);
+        burst(sparkles, ch.x, ch.y, 10, 90);
         gestures.release(ch);
         characters.removeChild(ch);
         ch.destroy({ children: true });
@@ -252,13 +379,17 @@ gestures.onTap = (ch) => {
   sfx[SOUND_FOR[name]](voice(ch));
   if (name === 'super') {
     const p = ch.getGlobalPosition();
-    burst(ui, p.x, p.y, 20, 220);
+    burst(sparkles, p.x, p.y, 20, 220);
   }
 };
-gestures.onDragStart = (ch) => sfx.pickup(voice(ch));
+gestures.onDragStart = (ch) => {
+  sfx.pickup(voice(ch));
+  gallery.hint(true);
+};
 gestures.onDragMove = (_ch, x, y) => gallery.highlight(gallery.isOver(x, y));
 gestures.onDrop = (ch, x, y) => {
   gallery.highlight(false);
+  gallery.hint(false);
   if (gallery.isOver(x, y)) putAway(ch);
   else sfx.drop(voice(ch));
 };
@@ -268,12 +399,15 @@ gestures.onShake = (ch) => {
 };
 gestures.onTapEmpty = (x, y) => {
   gallery.close();
-  burst(ui, x, y, 6, 50);
+  burst(sparkles, x, y, 6, 50);
   sfx.pling();
 };
-gestures.onGestureEnd = () => saveSoon();
+gestures.onGestureEnd = () => {
+  gallery.hint(false);
+  saveSoon();
+};
 
-// --- Camera button: photo of a drawing -> new character ---
+// --- Camera button: photo of a drawing -> new character in this place ---
 const cameraButton = document.getElementById('camera')!;
 const fileInput = cameraButton.querySelector('input')!;
 const photoShare = setupGrownUpShare(cameraButton, library);
@@ -294,11 +428,11 @@ fileInput.addEventListener('change', async () => {
   try {
     const result = await cutoutFromBlob(file);
     if (!result) throw new Error('No drawing found in the photo');
-    // Show it straight away, then save it.
-    const ch = addCharacter(result.canvas, { kind: 'photo', id: '' }, { x: app.screen.width / 2, y: app.screen.height * 0.5 }, true);
+    // Always keep the drawing; show it here if we're still in a place.
     const entry = await library.add(result.canvas);
-    ch.ref = { kind: 'photo', id: entry.id };
-    saveSoon();
+    if (current) {
+      addCharacter(result.canvas, { kind: 'photo', id: entry.id }, { x: app.screen.width / 2, y: app.screen.height * 0.5 }, true);
+    }
   } catch (err) {
     console.warn(err);
     nope();
@@ -307,18 +441,35 @@ fileInput.addEventListener('change', async () => {
   }
 });
 
-// When the iPad rotates, redraw the backdrop and pull everyone back on screen.
+// When the iPad rotates: redraw, and pull everyone back on screen.
 app.renderer.on('resize', () => {
+  street.layout(app.screen.width, app.screen.height, season);
+  weather.resize(app.screen.width, app.screen.height);
   drawBackdrop();
   for (const ch of characters.children as Character[]) gestures.keepOnScreen(ch);
   saveSoon();
 });
 
+// --- Start on the street (or back in the same place after an update refresh) ---
+weather.resize(app.screen.width, app.screen.height);
+setSeason(season, false);
+setOnStreet(true);
+let resumePlace: string | null = null;
+try {
+  resumePlace = sessionStorage.getItem('place');
+} catch {
+  /* fine */
+}
+if (resumePlace && placeById(resumePlace)) {
+  await showPlace(resumePlace as PlaceId);
+  setOnStreet(false);
+}
+
 // Offline support and updates. Only in the built app: during development it
 // would keep serving old code and get confusing.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   const hadOldVersion = !!navigator.serviceWorker.controller;
-  const reg = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
+  const reg = await navigator.serviceWorker.register(`${base}sw.js`);
 
   // A Home Screen app on iPad is often just un-paused, not reopened, so
   // look for a new version whenever it comes back to the front.
@@ -327,11 +478,11 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   });
 
   // When a new version has taken over: save, then refresh to show it (once
-  // nobody is in the middle of dragging something).
+  // nobody is in the middle of dragging something or moving between places).
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadOldVersion) return;
     const tryReload = async () => {
-      if (gestures.busy) return void setTimeout(tryReload, 500);
+      if (gestures.busy || switching) return void setTimeout(tryReload, 500);
       await saveNow();
       location.reload();
     };
@@ -341,5 +492,8 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 
 // Handy for testing in the browser console during development.
 if (import.meta.env.DEV) {
-  Object.assign(window, { app, gestures, characters, library, storage, saveNow, setMuted, audioState, sfx, Ticker });
+  Object.assign(window, {
+    app, gestures, characters, library, storage, street, saveNow, enterPlace, goToStreet,
+    place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
+  });
 }

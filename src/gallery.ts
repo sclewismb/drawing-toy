@@ -8,7 +8,8 @@ const DISARM_AFTER_MS = 5000;
 
 /**
  * The toy box: a big button bottom-right that opens a shelf of every
- * character (newest drawings first, then the samples). No words anywhere.
+ * character and toy (newest drawings first, then the built-in ones). No
+ * words anywhere.
  *
  *  - Tap a tile: that character pops into the scene (copies are fine).
  *  - Drag a character onto the toy box: it's put away (main.ts does that).
@@ -18,7 +19,8 @@ const DISARM_AFTER_MS = 5000;
  */
 export function setupGallery(opts: {
   library: Library;
-  samples: { name: string; url: string }[];
+  /** Built-in characters and toys to show after the drawings (this place's first). */
+  builtins: () => { name: string; url: string }[];
   onPick: (pick: GalleryPick) => void;
   onDelete: (id: string) => void;
 }) {
@@ -37,7 +39,7 @@ export function setupGallery(opts: {
       thumbUrls.push(url);
       tiles.push(makeTile({ kind: 'photo', id: e.id }, url, true));
     }
-    for (const s of opts.samples) tiles.push(makeTile({ kind: 'sample', name: s.name }, s.url, false));
+    for (const s of opts.builtins()) tiles.push(makeTile({ kind: 'sample', name: s.name }, s.url, false));
     row.replaceChildren(...tiles);
   }
 
@@ -143,6 +145,10 @@ export function setupGallery(opts: {
     },
     highlight(on: boolean) {
       button.classList.toggle('hover', on);
+    },
+    /** While something is being carried: "you can drop it in here". */
+    hint(on: boolean) {
+      button.classList.toggle('hint', on);
     },
     gulp() {
       button.classList.remove('gulp');

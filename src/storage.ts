@@ -97,12 +97,25 @@ export const storage = {
     await run('characters', 'readwrite', (s) => s.delete(id));
   },
 
-  async loadScene(): Promise<SavedScene | null> {
-    const scene = await run('scene', 'readonly', (s) => s.get('current') as IDBRequest<SavedScene | undefined>);
+  /** Small settings (like the season), kept alongside the scenes. */
+  async getSetting<T>(name: string): Promise<T | undefined> {
+    return run('scene', 'readonly', (s) => s.get(`setting:${name}`) as IDBRequest<T | undefined>);
+  },
+
+  async setSetting(name: string, value: unknown) {
+    await run('scene', 'readwrite', (s) => s.put(value, `setting:${name}`));
+  },
+
+  /** Each place in the neighbourhood has its own saved scene. */
+  async loadScene(place: string): Promise<SavedScene | null> {
+    const get = (key: string) => run('scene', 'readonly', (s) => s.get(key) as IDBRequest<SavedScene | undefined>);
+    let scene = await get(`place:${place}`);
+    // Before the neighbourhood existed there was one scene: it's the park now.
+    if (!scene && place === 'park') scene = await get('current');
     return scene ?? null;
   },
 
-  async saveScene(scene: SavedScene) {
-    await run('scene', 'readwrite', (s) => s.put(scene, 'current'));
+  async saveScene(place: string, scene: SavedScene) {
+    await run('scene', 'readwrite', (s) => s.put(scene, `place:${place}`));
   },
 };
