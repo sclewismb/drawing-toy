@@ -551,6 +551,8 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
 
 async function pictureFor(ref: Ref): Promise<HTMLCanvasElement | null> {
   if (ref.kind === 'sample') return BUILTIN[ref.name] ? svgPicture(builtinUrl(ref.name)) : null;
+  // only drawings in this player's own toy box
+  if (!library.mine().some((e) => e.id === ref.id)) return null;
   return library.picture(ref.id) ?? null;
 }
 
@@ -870,8 +872,8 @@ const gallery = setupGallery({
     setTimeout(() => letGo(ch), 650); // pops in, then drops to the floor
   },
   onDelete(id: string) {
-    // Gone for good: remove it from this place too, in a puff of stars.
-    // (Other places simply skip it next time they open.)
+    // Out of this player's toy box: it goes from this place too, in a puff of
+    // stars. (Their other places simply skip it next time they open.)
     for (const ch of [...characters.children] as Character[]) {
       if (ch.ref.kind === 'photo' && ch.ref.id === id) {
         const g = ch.getGlobalPosition();
@@ -881,7 +883,7 @@ const gallery = setupGallery({
         ch.destroy({ children: true });
       }
     }
-    void library.remove(id);
+    void library.removeMine(id);
     saveSoon();
   },
 });

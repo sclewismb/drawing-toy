@@ -1,4 +1,5 @@
 import { loadImage } from './loadImage';
+import { PLAYER_IDS } from './players';
 import { storage } from './storage';
 
 /** One character made from a photo, kept forever (until a grown-up deletes it). */
@@ -20,38 +21,50 @@ const newId = () =>
 /**
  * Every character ever made from a photo, kept in memory for quick access
  * and saved on the device.
+ *
+ * Each player has their own toy box: the drawings they made, plus (each
+ * their own copy of) the drawings from before there were players. Taking a
+ * drawing out of one toy box leaves the other alone; a drawing is only gone
+ * for good once nobody has it.
  */
 export class Library {
   private constructor(
     readonly entries: LibraryEntry[],
+    /** How each drawing moves, per player (key "player:id"; plain "id" from before players). */
     private motions: Record<string, Motion>,
+    /** Older shared drawings each player has taken out of their toy box. */
+    private removed: Record<string, string[]>,
   ) {}
   private pictures = new Map<string, Promise<HTMLCanvasElement>>();
   onChange: () => void = () => {};
-  /** Who's playing: new drawings are theirs, and their toy box shows only theirs (plus older shared ones). */
+  /** Who's playing: new drawings are theirs, and their toy box shows only theirs. */
   player: string | null = null;
 
   /** The drawings in this player's toy box. */
   mine(): LibraryEntry[] {
-    return this.entries.filter((e) => !e.owner || e.owner === this.player);
+    const gone = this.removed[this.player ?? ''] ?? [];
+    return this.entries.filter((e) => (e.owner ? e.owner === this.player : !gone.includes(e.id)));
   }
 
   static async load(): Promise<Library> {
     let motions: Record<string, Motion> = {};
+    let removed: Record<string, string[]> = {};
     try {
       motions = (await storage.getSetting<Record<string, Motion>>('motions')) ?? {};
+      removed = (await storage.getSetting<Record<string, string[]>>('removed-drawings')) ?? {};
     } catch {
-      /* fine: everything stays still */
+      /* fine: everything stays still, nothing taken out */
     }
     try {
       const stored = await storage.allCharacters();
       return new Library(
         stored.map((s) => ({ id: s.id, createdAt: s.createdAt, owner: s.owner, png: new Blob([s.png], { type: 'image/png' }) })),
         motions,
+        removed,
       );
     } catch (err) {
       console.warn('Could not load saved characters', err);
-      return new Library([], motions);
+      return new Library([], motions, removed);
     }
   }
 
@@ -59,15 +72,36 @@ export class Library {
     return this.entries.find((e) => e.id === id);
   }
 
-  /** How this drawing moves by itself (it stays still unless someone picks otherwise). */
+  /** How this drawing moves by itself for this player (it stays still unless they pick otherwise). */
   motion(id: string): Motion {
-    return this.motions[id] ?? 'still';
+    return this.motions[`${this.player}:${id}`] ?? this.motions[id] ?? 'still';
   }
 
   setMotion(id: string, m: Motion) {
-    if (m === 'still') delete this.motions[id];
-    else this.motions[id] = m;
+    this.motions[`${this.player}:${id}`] = m;
+    delete this.motions[id]; // (an old shared choice: now each player has their own)
     void storage.setSetting('motions', { ...this.motions }).catch(() => {});
+  }
+
+  /**
+   * Take a drawing out of this player's toy box. Their own drawing is gone
+   * for good; an older shared one is only gone for good once every player
+   * has taken it out.
+   */
+  async removeMine(id: string) {
+    const entry = this.get(id);
+    if (!entry) return;
+    if (entry.owner || !this.player) return this.remove(id);
+    const gone = new Set(this.removed[this.player] ?? []);
+    gone.add(id);
+    this.removed[this.player] = [...gone];
+    if (PLAYER_IDS.every((p) => this.removed[p]?.includes(id))) {
+      for (const p of PLAYER_IDS) this.removed[p] = this.removed[p].filter((x) => x !== id);
+      await this.remove(id);
+    } else {
+      this.onChange();
+    }
+    void storage.setSetting('removed-drawings', { ...this.removed }).catch(() => {});
   }
 
   /** Save a new cut-out drawing. */
@@ -89,7 +123,8 @@ export class Library {
     const i = this.entries.findIndex((e) => e.id === id);
     if (i >= 0) this.entries.splice(i, 1);
     this.pictures.delete(id);
-    if (this.motions[id]) this.setMotion(id, 'still');
+    for (const key of Object.keys(this.motions)) if (key === id || key.endsWith(`:${id}`)) delete this.motions[key];
+    void storage.setSetting('motions', { ...this.motions }).catch(() => {});
     try {
       await storage.deleteCharacter(id);
     } catch (err) {
