@@ -80,7 +80,7 @@ export class Sky extends Container {
       // Not "empty space", but a finger sliding from here still moves the room.
       g.on('pointerdown', (e: FederatedPointerEvent) => markEggTouch(e.pointerId));
       g.on('pointertap', () => {
-        if (!touchState.panned) this.onCloudTap?.(g.x + r, g.y, r);
+        if (!touchState.panned) this.onCloudTap?.(this.x + g.x + r, this.y + g.y, r); // (in the sky's parent's coordinates)
       });
       this.cloudLayer.addChild(g);
       // bigger clouds are nearer, so they drift a little faster

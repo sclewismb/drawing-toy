@@ -1,6 +1,8 @@
 import type { Graphics } from 'pixi.js';
 import { frame, INK, seeded, type PlaceId } from './places';
 import { drawBackyard, YARD } from './backyard';
+import { drawFair, FAIR } from './fair';
+import { fireWide, parkWide, policeWide, schoolWide, TOWN_WIDE } from './townWide';
 import type { Season } from './seasons';
 
 /**
@@ -25,6 +27,12 @@ export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
   kitchen: { left: 0.85, right: 0.55, draw: kitchen },
   lounge: { left: 0.6, right: 0.6, draw: lounge },
   backyard: { left: YARD.left, right: YARD.right, draw: drawBackyard }, // all of it is drawn in backyard.ts
+  fair: { left: FAIR.left, right: FAIR.right, draw: drawFair }, // all of it is drawn in fair.ts
+  // the town places carry on either side too (see townWide.ts)
+  fire: { ...TOWN_WIDE.fire, draw: fireWide },
+  police: { ...TOWN_WIDE.police, draw: policeWide },
+  school: { ...TOWN_WIDE.school, draw: schoolWide },
+  park: { ...TOWN_WIDE.park, draw: parkWide },
 };
 
 /** Wall and carpet across a stretch of a bedroom. */

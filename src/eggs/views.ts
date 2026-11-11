@@ -185,9 +185,15 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
   shades.moveTo(-sunR * 0.3, sunR * 0.4).quadraticCurveTo(0, sunR * 0.62, sunR * 0.3, sunR * 0.4).stroke({ width: 5, color: 0x1f1f1f });
   shades.position.set(sunX, sunY);
   shades.visible = false;
-  kit.under.addChild(shades);
+  // the sun lives in the sky (which stays put while the map slides)
+  const sunLayer = kit.sky ?? kit.under;
+  sunLayer.addChild(shades);
   const sunHit = new Container();
-  kit.under.addChild(sunHit);
+  sunLayer.addChild(sunHit);
+  cleanups.push(() => {
+    shades.destroy();
+    sunHit.destroy();
+  });
   tappable(sunHit, oneAtATime((done) => {
     sfx.twinkle();
     shades.visible = true;

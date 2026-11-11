@@ -1,6 +1,7 @@
 import type { Graphics } from 'pixi.js';
 import { drawClockFace } from './clock';
 import { backyardSky } from './backyard';
+import { fairSky } from './fair';
 import { CRITTERS } from './critters';
 import type { SkyDef } from './sky';
 import { hillDots, PALETTE, type Season } from './seasons';
@@ -55,6 +56,9 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   wheelbarrow: { url: 'props/wheelbarrow.svg', size: 0.9 },
   'rocking-horse': { url: 'props/rocking-horse.svg', size: 0.9 },
   'toy-train': { url: 'props/toy-train.svg', size: 0.9 },
+  // the fairground
+  'candy-floss': { url: 'props/candy-floss.svg', size: 0.55 },
+  balloon: { url: 'props/balloon.svg', size: 0.6 },
   // animals and little people that walk about by themselves (see critters.ts)
   ...Object.fromEntries(Object.entries(CRITTERS).map(([name, c]) => [name, { url: c.url, size: c.size }])),
 };
@@ -70,6 +74,7 @@ export const FLOOR: Record<PlaceId, number> = {
   school: 0.72,
   park: 0.7,
   backyard: 0.58,
+  fair: 0.7,
 };
 
 /**
@@ -89,6 +94,11 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
     { name: 'kid-girl', x: 0.56, y: 0.8 },
     { name: 'grandma', x: 0.74, y: 0.8 },
   ],
+  fair: [
+    { name: 'kid-girl', x: -0.2, y: 0.82 },
+    { name: 'kid-boy', x: 0.3, y: 0.84 },
+    { name: 'grownup', x: 1.1, y: 0.82 },
+  ],
   backyard: [
     { name: 'chicken', x: 0.16, y: 0.78 },
     { name: 'turtle', x: 0.86, y: 0.74 },
@@ -96,7 +106,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
   ],
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -113,6 +123,7 @@ export const STREET: {
   { id: 'police', building: 'buildings/police.svg' },
   { id: 'school', building: 'buildings/school.svg', clock: { x: 150, y: 80, r: 20 } },
   { id: 'park', building: 'buildings/park.svg' },
+  { id: 'fair', building: 'buildings/fair.svg' },
 ];
 
 export interface PlaceDef {
@@ -537,12 +548,12 @@ export const PLACES: PlaceDef[] = [
       const pal = PALETTE[season];
       const u = Math.min(w, h);
       return {
-        x0: 0,
-        x1: w,
+        x0: -0.7 * w,
+        x1: 1.7 * w,
         h,
         color: pal.sky,
         sun: { x: w * 0.85, y: h * 0.15, r: u * 0.08 * pal.sunSize, color: pal.sun },
-        clouds: [[0.2, 0.15, 1], [0.55, 0.1, 0.8], [-0.15, 0.06, 0.6]].map(([fx, fy, s]) => ({ x: w * fx, y: h * fy, r: u * 0.05 * s })),
+        clouds: [[0.2, 0.15, 1], [0.55, 0.1, 0.8], [-0.5, 0.06, 0.7], [1.2, 0.1, 0.9], [1.5, 0.18, 0.6]].map(([fx, fy, s]) => ({ x: w * fx, y: h * fy, r: u * 0.05 * s })),
         cloudColor: pal.cloud,
       };
     },
@@ -573,6 +584,21 @@ PLACES.push({
   sky: (w, h, season) => backyardSky(w, h, season),
   drawBackdrop() {
     /* see backyard.ts */
+  },
+});
+
+PLACES.push({
+  // The fairground: wide, outdoors, and all of it drawn in fair.ts.
+  id: 'fair',
+  toys: ['candy-floss', 'balloon', 'teddy', 'ball', 'kite'],
+  start: [
+    { name: 'balloon', x: -0.05, y: 0.62 },
+    { name: 'candy-floss', x: 0.85, y: 0.84 },
+  ],
+  outdoors: true,
+  sky: (w, h, season) => fairSky(w, h, season),
+  drawBackdrop() {
+    /* see fair.ts */
   },
 });
 

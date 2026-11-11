@@ -296,15 +296,17 @@ gestures.onSelect = (ch) => {
 
 // --- Sliding along the wide rooms: drag empty space, let go to glide; carry
 // a character to the edge of the screen and the room slides along with it.
-gestures.canPan = () => screen === 'place' && camera.scrolls;
+/** What a finger on empty space slides: the room (in a place) or the map (on the street). */
+const slider = () => (screen === 'place' ? camera : screen === 'street' ? street.camera : null);
+gestures.canPan = () => !!slider()?.scrolls;
 gestures.onPanStart = () => {
-  camera.hold();
+  slider()?.hold();
   follow = null; // sliding the room yourself
 };
-gestures.onPan = (dx) => camera.drag(dx);
+gestures.onPan = (dx) => slider()?.drag(dx);
 gestures.onPanEnd = (vx) => {
-  camera.fling(vx);
-  saveSoon();
+  slider()?.fling(vx);
+  if (screen === 'place') saveSoon();
 };
 gestures.bounds = () => {
   if (screen !== 'place' || !current) return { x0: 0, x1: app.screen.width, y0: 0, y1: app.screen.height };
@@ -597,7 +599,7 @@ function setupViewEggs() {
     for (const c of layer.removeChildren()) c.destroy({ children: true });
   }
   const { width: w, height: h } = app.screen;
-  const a = createStreetEggs({ under: street.eggs, over: street.eggsFront, sparkles, w, h, season, sky: street.sky }, street.geom);
+  const a = createStreetEggs({ under: street.eggs, over: street.eggsFront, sparkles: street.sparkles, w: street.geom.w, h, season, sky: street.sky }, street.geom);
   const b = createHouseEggs({ under: houseView.eggs, over: houseView.eggsFront, sparkles, w, h, season, sky: houseView.sky }, houseView.eggsBehind, houseView.geom);
   viewEggsCleanup = () => (a(), b());
 }

@@ -1,6 +1,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import { burst } from '../fx';
 import { windowView } from '../places';
+import { fireWideEggs, parkWideEggs, policeWideEggs, schoolWideEggs } from './townWide';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
 import { everyFrame, glow, hotspot, INK, later, oneAtATime, raisableBlinds, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
@@ -1236,4 +1237,8 @@ export const WIDE_EGGS: Partial<Record<string, (kit: EggKit, cleanups: Cleanups)
   'bedroom-b': bedroomBWide,
   kitchen: kitchenWide,
   lounge: loungeWide,
+  fire: fireWideEggs,
+  police: policeWideEggs,
+  school: schoolWideEggs,
+  park: parkWideEggs,
 };
