@@ -134,8 +134,13 @@ export function cutout(
     ink[p] = v <= 0 ? 0 : v * 255;
   }
 
-  // --- 3: definite ink, plus faint ink connected to it ----------------------
+  // --- 3: definite ink, plus faint ink close to it ------------------------
+  // Faint ink only counts within a few pixels of definite ink: enough for
+  // the soft edges of real lines, not enough to follow a paper crease that
+  // happens to touch the drawing.
+  const maxReach = Math.max(2, Math.round((6 * Math.max(w, h)) / 1024));
   const mask = new Uint8Array(n);
+  const reachDist = new Uint8Array(n);
   const q = new Int32Array(n);
   let qh = 0;
   let qt = 0;
@@ -147,6 +152,8 @@ export function cutout(
   }
   while (qh < qt) {
     const p = q[qh++];
+    const d = reachDist[p] + 1;
+    if (d > maxReach) continue;
     const x = p % w;
     const y = (p - x) / w;
     for (let dy = -1; dy <= 1; dy++) {
@@ -158,6 +165,7 @@ export function cutout(
         const j = yy * w + xx;
         if (!mask[j] && ink[j] >= lo) {
           mask[j] = 1;
+          reachDist[j] = d;
           q[qt++] = j;
         }
       }
