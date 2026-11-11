@@ -16,7 +16,10 @@ self.onmessage = (e: MessageEvent<Job>) => {
   const { id, data, w, h, opts } = e.data;
   try {
     const result = cutout(data, w, h, opts);
-    post({ id, result }, result ? [result.data.buffer as ArrayBuffer] : []);
+    const transfer: Transferable[] = [];
+    if (result) transfer.push(result.data.buffer as ArrayBuffer);
+    if (result?.debug) transfer.push(result.debug.data.buffer as ArrayBuffer);
+    post({ id, result }, transfer);
   } catch (err) {
     post({ id, error: String(err) });
   }

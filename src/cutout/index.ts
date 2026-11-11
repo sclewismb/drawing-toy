@@ -42,7 +42,7 @@ async function loadBlobImage(blob: Blob): Promise<HTMLImageElement> {
 export async function cutoutFromBlob(
   blob: Blob,
   opts?: CutoutOptions,
-): Promise<{ canvas: HTMLCanvasElement; stats: CutoutStats } | null> {
+): Promise<{ canvas: HTMLCanvasElement; stats: CutoutStats; debug?: HTMLCanvasElement } | null> {
   const img = await loadBlobImage(blob);
   const scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.max(1, Math.round(img.naturalWidth * scale));
@@ -70,7 +70,20 @@ export async function cutoutFromBlob(
   out
     .getContext('2d', { willReadFrequently: true })!
     .putImageData(new ImageData(result.data as Uint8ClampedArray<ArrayBuffer>, result.width, result.height), 0, 0);
-  return { canvas: out, stats: result.stats };
+  let debug: HTMLCanvasElement | undefined;
+  if (result.debug) {
+    debug = document.createElement('canvas');
+    debug.width = result.debug.width;
+    debug.height = result.debug.height;
+    debug
+      .getContext('2d')!
+      .putImageData(
+        new ImageData(result.debug.data as Uint8ClampedArray<ArrayBuffer>, result.debug.width, result.debug.height),
+        0,
+        0,
+      );
+  }
+  return { canvas: out, stats: result.stats, debug };
 }
 
 export type { CutoutOptions, CutoutStats };

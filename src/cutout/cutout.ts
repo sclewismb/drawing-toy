@@ -28,6 +28,8 @@ export interface CutoutOptions {
   low?: number;
   /** Gaps in outlines up to about twice this many pixels get closed (at 1024px). */
   closeRadius?: number;
+  /** Development: also return a picture of what was detected as ink. */
+  debug?: boolean;
 }
 
 export interface CutoutStats {
@@ -44,12 +46,15 @@ export interface CutoutResult {
   height: number;
   data: Uint8ClampedArray;
   stats: CutoutStats;
+  /** Only with options.debug: full-size picture of the ink detection. */
+  debug?: { width: number; height: number; data: Uint8ClampedArray };
 }
 
 export const DEFAULT_OPTIONS: Required<CutoutOptions> = {
   high: 0.25,
-  low: 0.1,
+  low: 0.16, // lower picks up paper creases (tuned on a real folded drawing)
   closeRadius: 6,
+  debug: false,
 };
 
 const luma = (r: number, g: number, b: number) => (r * 77 + g * 150 + b * 29) >> 8;
@@ -210,10 +215,14 @@ export function cutout(
       if (p < n - w && !fat[p + w] && !bg[p + w]) (bg[p + w] = 1), (q[qt++] = p + w);
     }
 
-    // Closing gaps also seals off paper in narrow corners (between an arm and
-    // a body, say). Find paper that was only sealed by the fattening: flood
-    // again with the thin lines. Wide sealed areas (a face behind a small gap
-    // in its outline) stay filled; narrow ones go back to see-through.
+    // Shrink back to the true outline.
+    const filled = new Uint8Array(n);
+    for (let p = 0; p < n; p++) filled[p] = bg[p] ? 0 : 1;
+    const shape = morph(filled, w, h, r, false);
+
+    // Closing gaps also seals off paper in corners and pockets (between an
+    // arm and a body, between antennae). Find paper inside the shape that was
+    // only sealed by the fattening: flood again using the thin lines.
     const reach = bg.slice();
     qh = 0;
     qt = 0;
@@ -227,35 +236,46 @@ export function cutout(
       if (p < n - w && !mask[p + w] && !reach[p + w]) (reach[p + w] = 1), (q[qt++] = p + w);
     }
     const sealed = new Uint8Array(n);
-    for (let p = 0; p < n; p++) sealed[p] = !bg[p] && reach[p] ? 1 : 0;
-    // Decide per sealed area, as a whole: wide anywhere -> keep it all.
-    const core = morph(sealed, w, h, r + 1, false);
-    const wideSealed = new Uint8Array(n);
+    for (let p = 0; p < n; p++) sealed[p] = shape[p] && reach[p] ? 1 : 0;
+
+    // Judge each sealed pocket on its own. Keep it filled only if it's mostly
+    // closed: a big area behind a small opening, like a face with a little gap
+    // in its outline. Open pockets (the corner between an antenna and a head)
+    // go back to see-through.
+    const minPocket = 4 * r * r;
+    const keepSealed = new Uint8Array(n);
     const seen = new Uint8Array(n);
+    const isOut = (j: number) => !shape[j];
     for (let s = 0; s < n; s++) {
       if (!sealed[s] || seen[s]) continue;
       qh = 0;
       qt = 0;
       q[qt++] = s;
       seen[s] = 1;
-      let wide = false;
+      let opening = 0;
       while (qh < qt) {
         const p = q[qh++];
-        if (core[p]) wide = true;
         const x = p % w;
-        if (x > 0 && sealed[p - 1] && !seen[p - 1]) (seen[p - 1] = 1), (q[qt++] = p - 1);
-        if (x < w - 1 && sealed[p + 1] && !seen[p + 1]) (seen[p + 1] = 1), (q[qt++] = p + 1);
-        if (p >= w && sealed[p - w] && !seen[p - w]) (seen[p - w] = 1), (q[qt++] = p - w);
-        if (p < n - w && sealed[p + w] && !seen[p + w]) (seen[p + w] = 1), (q[qt++] = p + w);
+        const left = x > 0 ? p - 1 : -1;
+        const right = x < w - 1 ? p + 1 : -1;
+        const up = p >= w ? p - w : -1;
+        const down = p < n - w ? p + w : -1;
+        // Does this pixel sit on the opening to the outside?
+        if (left < 0 || right < 0 || up < 0 || down < 0 || isOut(left) || isOut(right) || isOut(up) || isOut(down)) {
+          opening++;
+        }
+        if (left >= 0 && sealed[left] && !seen[left]) (seen[left] = 1), (q[qt++] = left);
+        if (right >= 0 && sealed[right] && !seen[right]) (seen[right] = 1), (q[qt++] = right);
+        if (up >= 0 && sealed[up] && !seen[up]) (seen[up] = 1), (q[qt++] = up);
+        if (down >= 0 && sealed[down] && !seen[down]) (seen[down] = 1), (q[qt++] = down);
       }
-      if (wide) for (let k = 0; k < qt; k++) wideSealed[q[k]] = 1;
+      const area = qt;
+      if (area >= minPocket && opening * opening * 4 < area) {
+        for (let k = 0; k < qt; k++) keepSealed[q[k]] = 1;
+      }
     }
 
-    // --- 5: shrink back, soft edge, specks, crop ---------------------------
-    const filled = new Uint8Array(n);
-    for (let p = 0; p < n; p++) filled[p] = bg[p] ? 0 : 1;
-    const shape = morph(filled, w, h, r, false);
-
+    // --- 5: soft edge, specks, crop ----------------------------------------
     const outside = new Uint8Array(n);
     for (let p = 0; p < n; p++) outside[p] = shape[p] ? 0 : 1;
     const nearEdge = morph(outside, w, h, 2, true);
@@ -264,9 +284,9 @@ export function cutout(
     const edgeLo = lo * 0.6;
     for (let p = 0; p < n; p++) {
       if (!shape[p]) continue;
-      // At the outer edge, and in narrow sealed corners, only real ink is
+      // At the outer edge, and in open sealed pockets, only real ink is
       // solid; paper there becomes see-through.
-      if (nearEdge[p] || (sealed[p] && !wideSealed[p])) {
+      if (nearEdge[p] || (sealed[p] && !keepSealed[p])) {
         const t = (ink[p] - edgeLo) / (hi - edgeLo);
         alpha[p] = t <= 0 ? 0 : t >= 1 ? 255 : t * 255;
       } else {
@@ -387,7 +407,22 @@ export function cutout(
 
   // Normal rules first. If that finds nothing (say, the drawing runs off the
   // edge of the photo), try again without throwing away edge-touching parts.
-  return attempt(false) ?? attempt(true);
+  const result = attempt(false) ?? attempt(true);
+
+  if (result && o.debug) {
+    // Ink strength as darkness (white = paper). Picked-up ink is tinted:
+    // red = strong ink, orange = faint ink joined on to strong ink.
+    const dbg = new Uint8ClampedArray(n * 4);
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      const v = 255 - Math.min(255, ink[p] * 2.5); // exaggerate so faint ink shows
+      if (mask[p] && ink[p] >= hi) (dbg[i] = 230), (dbg[i + 1] = v * 0.25), (dbg[i + 2] = v * 0.25);
+      else if (mask[p]) (dbg[i] = 255), (dbg[i + 1] = 150 + v * 0.3), (dbg[i + 2] = v * 0.2);
+      else (dbg[i] = v), (dbg[i + 1] = v), (dbg[i + 2] = v);
+      dbg[i + 3] = 255;
+    }
+    result.debug = { width: w, height: h, data: dbg };
+  }
+  return result;
 }
 
 /**

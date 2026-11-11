@@ -171,7 +171,16 @@ const options = (): CutoutOptions => ({
   high: +sliders.high.value,
   low: +sliders.low.value,
   closeRadius: +sliders.closeRadius.value,
+  debug: true,
 });
+
+type SheetItem = {
+  name: string;
+  input: HTMLImageElement;
+  output: HTMLCanvasElement | null;
+  debug?: HTMLCanvasElement;
+  info: string;
+};
 
 const samples: Sample[] = [];
 let running = Promise.resolve();
@@ -180,7 +189,7 @@ async function runAll() {
   for (const s of Object.values(sliders)) s.nextElementSibling!.textContent = s.value;
   const opts = options();
   rows.replaceChildren();
-  const sheet: { name: string; input: HTMLImageElement; output: HTMLCanvasElement | null; info: string }[] = [];
+  const sheet: SheetItem[] = [];
   for (const s of samples) {
     const row = document.createElement('div');
     row.className = 'row';
@@ -204,7 +213,7 @@ async function runAll() {
       small.textContent = `${st.ms} ms · ${st.parts} part${st.parts === 1 ? '' : 's'} · ${st.width}×${st.height}px · ${(st.coverage * 100).toFixed(1)}% of photo${st.lenient ? ' · lenient' : ''}`;
       title.append(small);
       if (!im.complete) await new Promise((r) => (im.onload = r));
-      sheet.push({ name: s.name, input: im, output: res.canvas, info: small.textContent });
+      sheet.push({ name: s.name, input: im, output: res.canvas, debug: res.debug, info: small.textContent });
     } else {
       output.classList.add('fail');
       output.textContent = 'Nothing found';
@@ -216,12 +225,10 @@ async function runAll() {
 }
 
 /** Save all results as one big image in test-output/ (dev server only). */
-async function saveContactSheet(
-  items: { name: string; input: HTMLImageElement; output: HTMLCanvasElement | null; info: string }[],
-) {
-  const cellW = 560, cellH = 420, labelH = 30, gap = 12;
+async function saveContactSheet(items: SheetItem[]) {
+  const cellW = 480, cellH = 360, labelH = 30, gap = 12;
   const c = document.createElement('canvas');
-  c.width = cellW * 2 + gap * 3;
+  c.width = cellW * 3 + gap * 4;
   c.height = items.length * (cellH + labelH + gap) + gap;
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#fff';
@@ -246,6 +253,8 @@ async function saveContactSheet(
       }
     }
     if (it.output) fit(it.output, it.output.width, it.output.height, ox, cy);
+    // what was detected as ink (red = strong, orange = faint but joined on)
+    if (it.debug) fit(it.debug, it.debug.width, it.debug.height, gap * 3 + cellW * 2, cy);
   });
   const blob = await new Promise<Blob>((res) => c.toBlob((b) => res(b!), 'image/png'));
   await fetch('/__save?name=contact-sheet.png', { method: 'POST', body: blob }).catch(() => {});
@@ -271,5 +280,8 @@ window.addEventListener('drop', (e) => {
 for (const [path, url] of Object.entries(realPhotos)) {
   samples.push({ name: `Real: ${path.split('/').pop()}`, blob: await (await fetch(url)).blob() });
 }
-for (const sc of scenes) samples.push({ name: `Fake: ${sc.name}`, blob: await makePhoto(sc) });
+// ?real = only the real photos (quicker while tuning)
+if (!new URLSearchParams(location.search).has('real')) {
+  for (const sc of scenes) samples.push({ name: `Fake: ${sc.name}`, blob: await makePhoto(sc) });
+}
 rerun();
