@@ -11,7 +11,7 @@ import { GestureController } from './gestures';
 import { Library } from './library';
 import { loadImage } from './loadImage';
 import { setupGrownUpShare } from './photoShare';
-import { setupHouseSettings } from './houseSettings';
+import { setupHouseSettings, upgradeHouseSettings, type HouseSettings } from './houseSettings';
 import { HouseView, ROOM_FURNITURE } from './houseView';
 import { BUILTIN, PLACES, placeById, STREET, type PlaceId, type RoomId } from './places';
 import { SOUND_FOR } from './reactions';
@@ -102,19 +102,21 @@ let screen: Screen = 'street';
 /** Which place we're in (only when screen is 'place'). */
 let current: PlaceId | null = null;
 
-// --- The house's sign and room names: typed in on this iPad, saved only here ---
-interface HouseSettings {
-  sign: string;
-  rooms: Partial<Record<RoomId, string>>;
-}
-let houseSettings: HouseSettings = { sign: '', rooms: {} };
+// --- The house number and room names: typed in on this iPad, saved only here ---
+let houseSettings: HouseSettings = { number: '', rooms: {} };
 try {
-  houseSettings = { ...houseSettings, ...((await storage.getSetting<HouseSettings>('house')) ?? {}) };
+  const saved = await storage.getSetting<Partial<HouseSettings> & { sign?: string }>('house');
+  if (saved) {
+    const { settings, changed } = upgradeHouseSettings(saved);
+    houseSettings = settings;
+    // An older version saved a whole address: keep only the number, forget the rest.
+    if (changed) await storage.setSetting('house', houseSettings);
+  }
 } catch {
   /* fine */
 }
 function applyHouseSettings() {
-  street.setHouseSign(houseSettings.sign);
+  street.setHouseNumber(houseSettings.number);
   houseView.setNames(houseSettings.rooms);
 }
 setupHouseSettings({

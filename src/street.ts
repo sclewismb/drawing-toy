@@ -26,11 +26,10 @@ export class StreetView extends Container {
   private bg = new Graphics();
   private buildings: Building[] = [];
   private busy = false;
-  private sign = new Container();
-  private signBoard = new Graphics();
-  private signText = new Text({
+  /** The house number, on the brick wall above the garage (set on the iPad only). */
+  private houseNumber = new Text({
     text: '',
-    style: { fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 18, fontWeight: '700', fill: 0x3a3a3a },
+    style: { fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 16, fontWeight: '800', fill: 0x1f1f1f },
   });
   /** Surprises on the street (see eggs/views.ts): on top of the buildings. */
   readonly eggs = new Container();
@@ -55,6 +54,10 @@ export class StreetView extends Container {
       if (s.clock) {
         b.hands = new Graphics();
         holder.addChild(b.hands);
+      }
+      if (s.id === 'house') {
+        this.houseNumber.anchor.set(0.5);
+        holder.addChild(this.houseNumber);
       }
 
       let holdTimer = 0;
@@ -81,11 +84,7 @@ export class StreetView extends Container {
       this.addChild(holder);
       this.buildings.push(b);
     }
-    this.sign.addChild(this.signBoard, this.signText);
-    this.signText.anchor.set(0.5);
-    this.sign.visible = false;
-    this.sign.eventMode = 'none';
-    this.addChild(this.sign, this.eggs, this.eggsFront);
+    this.addChild(this.eggs, this.eggsFront);
   }
 
   private tap(b: Building) {
@@ -107,21 +106,21 @@ export class StreetView extends Container {
     );
   }
 
-  /** The words on the little sign in front of the house (empty = no sign). */
-  setHouseSign(text: string) {
-    this.signText.text = text;
-    this.sign.visible = text.trim().length > 0;
-    this.placeSign();
+  /** The house number painted on the house (empty = none). */
+  setHouseNumber(text: string) {
+    this.houseNumber.text = text.trim();
+    this.placeNumber();
   }
 
-  private placeSign() {
+  private placeNumber() {
     const house = this.buildings.find((b) => b.id === 'house');
-    if (!house || !this.sign.visible) return;
-    const pad = 10;
-    const tw = this.signText.width + pad * 2;
-    const th = this.signText.height + pad;
-    this.signBoard.clear().roundRect(-tw / 2, -th / 2, tw, th, 8).fill(0xffffff).stroke({ width: 3, color: 0x3a3a3a });
-    this.sign.position.set(house.holder.x, house.holder.y + th / 2 + 8);
+    if (!house) return;
+    // On the brick wall above the garage door: (282, 124) in the SVG's own
+    // units. The picture is drawn at twice the SVG's size, anchored bottom-centre.
+    const tex = house.sprite.texture;
+    const k = house.sprite.scale.x;
+    this.houseNumber.style.fontSize = Math.max(8, 26 * 2 * k);
+    this.houseNumber.position.set((282 * 2 - tex.width / 2) * k, (124 * 2 - tex.height) * k);
   }
 
   /** Where a building is on screen (for zooming in and out). */
@@ -176,8 +175,7 @@ export class StreetView extends Container {
       b.sprite.scale.set(k);
       b.holder.position.set(margin + slot * (i + 0.5), ground);
     }
-    this.signText.style.fontSize = Math.max(13, Math.min(20, slot * 0.075));
-    this.placeSign();
+    this.placeNumber();
     this.updateClock();
     this.geom = { w, h, ground, roadTop, roadH: h * 0.22, slot, xs: this.buildings.map((b) => b.holder.x) };
   }
