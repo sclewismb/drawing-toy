@@ -1,4 +1,5 @@
 import { Container, Graphics, Sprite, Text, Texture, type FederatedPointerEvent } from 'pixi.js';
+import { drawClockHands } from './clock';
 import { STREET, type PlaceId } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
 import { ease, tween } from './tween';
@@ -9,6 +10,8 @@ interface Building {
   id: StreetId;
   holder: Container; // positioned on the pavement, bottom-centre
   sprite: Sprite;
+  clock?: { x: number; y: number; r: number }; // in SVG units
+  hands?: Graphics;
 }
 
 const HOLD_MS = 1200;
@@ -42,7 +45,11 @@ export class StreetView extends Container {
       holder.addChild(sprite);
       holder.eventMode = 'static';
       holder.cursor = 'pointer';
-      const b: Building = { id: s.id, holder, sprite };
+      const b: Building = { id: s.id, holder, sprite, clock: s.clock };
+      if (s.clock) {
+        b.hands = new Graphics();
+        holder.addChild(b.hands);
+      }
 
       let holdTimer = 0;
       let held = false;
@@ -165,5 +172,19 @@ export class StreetView extends Container {
     }
     this.signText.style.fontSize = Math.max(13, Math.min(20, slot * 0.075));
     this.placeSign();
+    this.updateClock();
+  }
+
+  /** Move the clock hands on buildings to the real time. */
+  updateClock(now = new Date()) {
+    for (const b of this.buildings) {
+      if (!b.clock || !b.hands) continue;
+      // The picture is drawn at twice the SVG's size, anchored bottom-centre.
+      const tex = b.sprite.texture;
+      const k = b.sprite.scale.x;
+      const x = (b.clock.x * 2 - tex.width / 2) * k;
+      const y = (b.clock.y * 2 - tex.height) * k;
+      drawClockHands(b.hands, x, y, b.clock.r * 2 * k, now, false);
+    }
   }
 }

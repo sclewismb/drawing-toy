@@ -1,4 +1,5 @@
 import type { Graphics } from 'pixi.js';
+import { drawClockFace } from './clock';
 import { hillDots, PALETTE, type Season } from './seasons';
 
 /**
@@ -45,11 +46,16 @@ export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
 
 /** What's on the street, left to right. The house opens the house view. */
-export const STREET: { id: PlaceId | 'house'; building: string }[] = [
+export const STREET: {
+  id: PlaceId | 'house';
+  building: string;
+  /** A clock on the building (in the SVG's own units) that shows the real time. */
+  clock?: { x: number; y: number; r: number };
+}[] = [
   { id: 'house', building: 'buildings/house.svg' },
   { id: 'fire', building: 'buildings/fire.svg' },
   { id: 'police', building: 'buildings/police.svg' },
-  { id: 'school', building: 'buildings/school.svg' },
+  { id: 'school', building: 'buildings/school.svg', clock: { x: 150, y: 80, r: 20 } },
   { id: 'park', building: 'buildings/park.svg' },
 ];
 
@@ -66,6 +72,8 @@ export interface PlaceDef {
   outdoors?: boolean;
   /** A blackboard you can draw on: where it is on a w x h screen. */
   chalkboard?: (w: number, h: number) => { x: number; y: number; w: number; h: number };
+  /** A wall clock showing the real time: centre and size on a w x h screen. */
+  clock?: (w: number, h: number) => { x: number; y: number; r: number };
 }
 
 const INK = 0x3a3a3a;
@@ -409,6 +417,7 @@ export const PLACES: PlaceDef[] = [
       { name: 'books', x: 0.12, y: 0.86 },
     ],
     chalkboard: (w, h) => ({ x: w * 0.2, y: h * 0.08, w: w * 0.6, h: h * 0.4 }),
+    clock: (w, h) => ({ x: w * 0.9, y: h * 0.2, r: Math.min(w, h) * 0.075 }),
     drawBackdrop(g, w, h) {
       floorAndWall(g, w, h, 0xfff3b0, 0xc68b59);
       // blackboard (you can draw on it: see chalkboard.ts) with a ledge for the chalk
@@ -416,10 +425,9 @@ export const PLACES: PlaceDef[] = [
       g.roundRect(x - 14, y - 14, bw + 28, bh + 28, 10).fill(0xa0522d).stroke({ width: 6, color: INK });
       g.rect(x, y, bw, bh).fill(0x2f6f4f);
       g.roundRect(x - 24, y + bh + 10, bw + 48, 16, 6).fill(0xc68b59).stroke({ width: 4, color: INK });
-      // clock
-      const cx = w * 0.9, cy = h * 0.18, cr = Math.min(w, h) * 0.06;
-      g.circle(cx, cy, cr).fill(0xffffff).stroke({ width: 6, color: INK });
-      g.moveTo(cx, cy).lineTo(cx, cy - cr * 0.7).moveTo(cx, cy).lineTo(cx + cr * 0.5, cy).stroke({ width: 5, color: INK });
+      // clock face (the hands show the real time: see clock.ts)
+      const c = this.clock!(w, h);
+      drawClockFace(g, c.x, c.y, c.r);
     },
   },
   {

@@ -1,5 +1,6 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
+import { drawClockHands } from './clock';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { FlipButton } from './flipButton';
@@ -155,6 +156,7 @@ function drawFade(alpha: number) {
 function drawBackdrop() {
   backdrop.clear();
   if (current) placeById(current)!.drawBackdrop(backdrop, app.screen.width, app.screen.height, season);
+  updateClocks();
 }
 
 // --- Saving: each place's scene, shortly after anything changes and when
@@ -253,6 +255,18 @@ async function pictureFor(ref: Ref): Promise<HTMLCanvasElement | null> {
   if (ref.kind === 'sample') return BUILTIN[ref.name] ? svgPicture(builtinUrl(ref.name)) : null;
   return library.picture(ref.id) ?? null;
 }
+
+// --- Clocks that show the real time (the classroom, and the school on the street) ---
+const clockHands = new Graphics();
+world.addChildAt(clockHands, world.getChildIndex(backdrop) + 1);
+function updateClocks() {
+  const now = new Date();
+  street.updateClock(now);
+  const c = current ? placeById(current)?.clock?.(app.screen.width, app.screen.height) : undefined;
+  if (c) drawClockHands(clockHands, c.x, c.y, c.r, now, true);
+  else clockHands.clear();
+}
+setInterval(updateClocks, 1000);
 
 // --- Blackboards you can draw on (the school) ---
 let chalk: Chalkboard | null = null;
