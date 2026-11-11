@@ -5,6 +5,7 @@ import { FlipButton } from './flipButton';
 import { burst } from './fx';
 import { GestureController } from './gestures';
 import { loadImage } from './loadImage';
+import { setupPhotoShare } from './photoShare';
 
 // Stop iOS Safari's own pinch-to-zoom from fighting with ours.
 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -91,6 +92,7 @@ samples.forEach((pic, i) => {
 let addedFromPhoto = false; // until saving exists (milestone 6), don't auto-refresh after this
 const cameraButton = document.getElementById('camera')!;
 const fileInput = cameraButton.querySelector('input')!;
+const photoShare = setupPhotoShare(cameraButton, document.getElementById('share-photo') as HTMLButtonElement);
 
 function nope() {
   cameraButton.classList.remove('nope');
@@ -102,6 +104,7 @@ fileInput.addEventListener('change', async () => {
   const file = fileInput.files?.[0];
   fileInput.value = ''; // so picking the same photo again still works
   if (!file) return;
+  photoShare.remember(file);
   cameraButton.classList.add('busy');
   try {
     const result = await cutoutFromBlob(file);
