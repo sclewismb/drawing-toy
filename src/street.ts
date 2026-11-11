@@ -3,6 +3,7 @@ import { drawClockHands } from './clock';
 import type { StreetGeom } from './eggs';
 import { INK, seeded, STREET, type PlaceId } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
+import { Sky, SwayingTrees } from './sky';
 import { ease, tween } from './tween';
 
 type StreetId = PlaceId | 'house';
@@ -23,7 +24,11 @@ const HOLD_MS = 1200;
  * sign and room names (kept on this iPad only).
  */
 export class StreetView extends Container {
+  /** The sky with drifting clouds, behind everything (tap a cloud for rain). */
+  readonly sky = new Sky(true);
   private bg = new Graphics();
+  /** Trees swaying in the breeze, behind the buildings. */
+  private swaying = new SwayingTrees();
   private buildings: Building[] = [];
   private busy = false;
   /** The house number, on the brick wall above the garage (set on the iPad only). */
@@ -55,7 +60,7 @@ export class StreetView extends Container {
 
   constructor(pictures: Map<string, HTMLCanvasElement>) {
     super();
-    this.addChild(this.bg);
+    this.addChild(this.sky, this.bg, this.swaying);
     for (const s of STREET) {
       const sprite = new Sprite(Texture.from(pictures.get(s.building)!));
       sprite.anchor.set(0.5, 1);
@@ -165,22 +170,22 @@ export class StreetView extends Container {
     const P = (fx: number, fy: number) => ({ x: fx * w, y: fy * h });
     const g = this.bg.clear();
 
-    // --- sky, sun, clouds, and a city far away ---
-    g.rect(0, 0, w, h).fill(pal.sky);
+    // --- sky, sun and drifting clouds (behind everything: see sky.ts), and a city far away ---
     const sun = { x: w * 0.86, y: h * 0.11, r: u * 0.065 * pal.sunSize };
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      g.moveTo(sun.x + Math.cos(a) * sun.r * 1.25, sun.y + Math.sin(a) * sun.r * 1.25)
-        .lineTo(sun.x + Math.cos(a) * sun.r * 1.6, sun.y + Math.sin(a) * sun.r * 1.6);
-    }
-    g.stroke({ width: 4, color: pal.sun, cap: 'round' });
-    g.circle(sun.x, sun.y, sun.r).fill(pal.sun).stroke({ width: 3, color: 0xf4a261, alpha: 0.6 });
     const clouds: [number, number, number][] = [];
-    for (const [cx, cy, s] of [[0.1, 0.1, 1], [0.4, 0.06, 0.8], [0.64, 0.15, 0.65]]) {
-      const x = w * cx, y = h * cy, r = u * 0.045 * s;
-      g.circle(x, y, r).circle(x + r, y - r * 0.4, r * 1.2).circle(x + r * 2.1, y, r).fill(pal.cloud);
-      clouds.push([x, y, r]);
+    for (const [cx, cy, s] of [[0.1, 0.1, 1], [0.4, 0.06, 0.8], [0.64, 0.15, 0.65], [-0.2, 0.2, 0.55]]) {
+      clouds.push([w * cx, h * cy, u * 0.045 * s]);
     }
+    this.sky.set({
+      x0: 0,
+      x1: w,
+      h,
+      color: pal.sky,
+      sun: { ...sun, color: pal.sun, rays: true },
+      clouds: clouds.map(([x, y, r]) => ({ x, y, r })),
+      cloudColor: pal.cloud,
+    });
+    this.swaying.clear();
     const city = winter ? 0xc5d3e0 : 0xa9c4dc;
     const rnd = seeded(5);
     for (let x = w * 0.5; x < w * 0.8; x += u * 0.035) {
@@ -264,18 +269,22 @@ export class StreetView extends Container {
     const at = this.getChildIndex(this.eggs);
     order.forEach((b, i) => this.addChildAt(b.holder, at + i));
 
-    // --- trees and bushes dotted about (kept clear of the buildings and road) ---
+    // --- trees (swaying in the breeze) and bushes, kept clear of the buildings and road ---
     const tree = (fx: number, fy: number, s: number) => {
-      const x = w * fx, y = h * fy, r = u * s;
-      g.rect(x - r * 0.15, y - r * 0.3, r * 0.3, r * 0.6).fill(0x8d5524).stroke({ width: 2, color: INK });
-      g.circle(x, y - r * 1.1, r).fill(season === 'autumn' ? 0xe08a3c : treeG).stroke({ width: 3, color: INK });
-      g.circle(x - r * 0.3, y - r * 1.3, r * 0.35).fill({ color: 0xffffff, alpha: 0.18 });
-      if (winter) g.ellipse(x, y - r * 1.8, r * 0.6, r * 0.25).fill(0xffffff);
+      const r = u * s;
+      this.swaying.add(w * fx, h * fy, (t) => {
+        t.rect(-r * 0.15, -r * 0.3, r * 0.3, r * 0.6).fill(0x8d5524).stroke({ width: 2, color: INK });
+        t.circle(0, -r * 1.1, r).fill(season === 'autumn' ? 0xe08a3c : treeG).stroke({ width: 3, color: INK });
+        t.circle(-r * 0.3, -r * 1.3, r * 0.35).fill({ color: 0xffffff, alpha: 0.18 });
+        if (winter) t.ellipse(0, -r * 1.8, r * 0.6, r * 0.25).fill(0xffffff);
+      });
     };
     const cypress = (fx: number, fy: number, s: number) => {
-      const x = w * fx, y = h * fy, r = u * s;
-      g.ellipse(x, y - r * 1.4, r * 0.5, r * 1.5).fill(treeD).stroke({ width: 3, color: INK });
-      if (winter) g.ellipse(x, y - r * 2.6, r * 0.3, r * 0.2).fill(0xffffff);
+      const r = u * s;
+      this.swaying.add(w * fx, h * fy, (t) => {
+        t.ellipse(0, -r * 1.4, r * 0.5, r * 1.5).fill(treeD).stroke({ width: 3, color: INK });
+        if (winter) t.ellipse(0, -r * 2.6, r * 0.3, r * 0.2).fill(0xffffff);
+      });
     };
     for (const [fx, fy, s] of [[0.03, 0.6, 0.03], [0.27, 0.6, 0.028], [0.57, 0.6, 0.03], [0.6, 0.62, 0.025], [0.81, 0.555, 0.027], [0.985, 0.6, 0.03]]) tree(fx, fy, s);
     for (const [fx, fy, s] of [[0.06, 0.62, 0.03], [0.25, 0.62, 0.028], [0.44, 0.63, 0.03], [0.79, 0.57, 0.026]]) cypress(fx, fy, s);

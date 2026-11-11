@@ -1,6 +1,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import { burst } from '../fx';
 import { PALETTE } from '../seasons';
+import { swayAt } from '../sky';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
 import {
@@ -12,6 +13,7 @@ import {
   INK,
   later,
   oneAtATime,
+  cloudRain,
   rainFrom,
   rand,
   spray,
@@ -413,6 +415,10 @@ export function park(kit: EggKit, cleanups: Cleanups) {
   tree.addChild(trunk, crown);
   tree.position.set(tx, ground);
   kit.under.addChild(tree);
+  // swaying gently in the breeze (the trunk stays put), the bird going with it
+  const sway = { phase: 0.4, speed: 0.001, amount: 0.022 };
+  let swayTime = 0;
+  let birdFlying = false;
   tappable(tree, oneAtATime((done) => {
     sfx.whoosh();
     tween(700, (t) => (crown.rotation = Math.sin(t * Math.PI * 8) * 0.06 * (1 - t)), () => {
@@ -444,14 +450,21 @@ export function park(kit: EggKit, cleanups: Cleanups) {
   const perch = { x: tx + h * 0.06, y: ground - h * 0.43 };
   bird.position.set(perch.x, perch.y);
   kit.under.addChild(bird);
+  everyFrame((dt) => {
+    const s = swayAt((swayTime += dt), sway);
+    tree.skew.x = s;
+    if (!birdFlying) bird.x = perch.x + Math.sin(s) * (perch.y - ground);
+  }, cleanups);
   tappable(bird, oneAtATime((done) => {
     sfx.chirp();
+    birdFlying = true;
     tween(2200, (t) => {
       const p = bezier(perch, { x: w * 0.7, y: -h * 0.1 }, { x: w * 0.9, y: h * 0.4 }, perch, t);
       bird.position.set(p.x, p.y);
       bird.scale.y = 0.6 + 0.4 * Math.abs(Math.cos(t * Math.PI * 16));
     }, () => {
       bird.scale.y = 1;
+      birdFlying = false;
       done();
     });
   }), new Rectangle(-24, -24, 50, 40));
@@ -535,10 +548,6 @@ export function park(kit: EggKit, cleanups: Cleanups) {
     tween(800, (t) => ((dark = from + ((isNight ? 1 : 0) - from) * t), drawNight()));
   });
 
-  // --- a cloud that rains (or snows) ---
-  const cx = w * 0.55, cy = h * 0.1, cr = Math.min(w, h) * 0.04;
-  hotspot(kit, new Rectangle(cx - cr, cy - cr * 1.6, cr * 4.2, cr * 2.8), oneAtATime((done) => {
-    rainFrom(kit, cx + cr, cy + cr * 0.6, cr * 3, ground + h * 0.08, 2400);
-    later(2600, done, cleanups);
-  }));
+  // --- the drifting clouds rain (or snow) when tapped ---
+  cloudRain(kit, cleanups, () => ground + h * 0.08);
 }

@@ -1,6 +1,7 @@
 import type { Graphics } from 'pixi.js';
 import { INK, seeded } from './places';
 import { PALETTE, type Season } from './seasons';
+import type { SkyDef } from './sky';
 
 /**
  * The back garden (drawn after the family's panorama photo, without any
@@ -15,6 +16,54 @@ export const YARD = {
   horizon: 0.56, // where the lawn meets the back fence
 };
 
+/**
+ * Behind the garden (see sky.ts): the sky with drifting clouds, a far-off
+ * row of trees and the neighbours' roof, and the tall spruces along the back,
+ * swaying in the breeze behind the fence.
+ */
+export function backyardSky(w: number, h: number, season: Season): SkyDef {
+  const pal = PALETTE[season];
+  const x0 = -YARD.left * w, x1 = (1 + YARD.right) * w;
+  const hz = h * YARD.horizon;
+  const winter = season === 'winter';
+  const treeGreen = winter ? 0x3a7d5c : 0x2d6a4f;
+  const treeDark = winter ? 0x2f6a4c : 0x1f5039;
+  const u = Math.min(w, h);
+  const spruce = (ht: number, wd: number) => (g: Graphics) => {
+    g.rect(-wd * 0.06, -ht * 0.2, wd * 0.12, ht * 0.2).fill(0x6b4226);
+    for (let i = 0; i < 5; i++) {
+      const y = -ht * 0.12 - i * ht * 0.17;
+      const ww = wd * (1 - i * 0.17);
+      g.poly([-ww / 2, y, 0, y - ht * 0.3, ww / 2, y]).fill(i % 2 ? treeGreen : treeDark).stroke({ width: 2, color: INK });
+      if (winter) g.ellipse(0, y - ht * 0.26, ww * 0.18, 5).fill(0xffffff);
+    }
+  };
+  return {
+    x0,
+    x1,
+    h,
+    color: pal.sky,
+    sun: { x: w * 0.84, y: h * 0.12, r: u * 0.07 * pal.sunSize, color: pal.sun },
+    clouds: [[-0.4, 0.1, 1], [0.15, 0.08, 0.8], [0.6, 0.18, 0.6], [1.3, 0.1, 0.9], [1.7, 0.16, 0.7]].map(([fx, fy, s]) => ({ x: w * fx, y: h * fy, r: u * 0.045 * s })),
+    cloudColor: pal.cloud,
+    far(g) {
+      // a far-off row of trees and the neighbours' roof over the back fence
+      const rnd = seeded(31);
+      for (let x = x0; x < x1; x += 40 + rnd() * 50) {
+        const th = h * (0.1 + rnd() * 0.12);
+        g.poly([x - 26, hz - h * 0.04, x, hz - h * 0.04 - th, x + 26, hz - h * 0.04]).fill(winter ? 0x6b9080 : 0x52796f);
+      }
+      g.rect(w * 1.05, hz - h * 0.12, w * 0.16, h * 0.08).fill(0xf1e3d3).stroke({ width: 2, color: INK });
+      g.poly([w * 1.03, hz - h * 0.12, w * 1.13, hz - h * 0.18, w * 1.23, hz - h * 0.12]).fill(0x8d6e63).stroke({ width: 2, color: INK });
+    },
+    trees: [[-0.62, 0.9], [-0.48, 1.05], [-0.34, 0.85], [-0.18, 1], [0.08, 0.8], [0.22, 0.95], [0.9, 0.85], [1.08, 0.7]].map(([fx, s]) => ({
+      x: w * fx,
+      y: hz + h * 0.02,
+      draw: spruce(h * 0.5 * s, w * 0.11 * s),
+    })),
+  };
+}
+
 export function drawBackyard(g: Graphics, w: number, h: number, season: Season) {
   const pal = PALETTE[season];
   const x0 = -YARD.left * w, x1 = (1 + YARD.right) * w;
@@ -23,22 +72,7 @@ export function drawBackyard(g: Graphics, w: number, h: number, season: Season) 
   const treeGreen = winter ? 0x3a7d5c : 0x2d6a4f;
   const treeDark = winter ? 0x2f6a4c : 0x1f5039;
 
-  // sky, sun, clouds
-  g.rect(x0, 0, x1 - x0, hz).fill(pal.sky);
-  g.circle(w * 0.84, h * 0.12, Math.min(w, h) * 0.07 * pal.sunSize).fill(pal.sun);
-  for (const [cx, cy, s] of [[-0.4, 0.1, 1], [0.15, 0.08, 0.8], [0.6, 0.18, 0.6], [1.3, 0.1, 0.9], [1.7, 0.16, 0.7]]) {
-    const x = w * cx, y = h * cy, r = Math.min(w, h) * 0.045 * s;
-    g.circle(x, y, r).circle(x + r, y - r * 0.4, r * 1.2).circle(x + r * 2.1, y, r).fill(pal.cloud);
-  }
-
-  // a far-off row of trees and the neighbours' roofs over the back fence
-  const rnd = seeded(31);
-  for (let x = x0; x < x1; x += 40 + rnd() * 50) {
-    const th = h * (0.1 + rnd() * 0.12);
-    g.poly([x - 26, hz - h * 0.04, x, hz - h * 0.04 - th, x + 26, hz - h * 0.04]).fill(winter ? 0x6b9080 : 0x52796f);
-  }
-  g.rect(w * 1.05, hz - h * 0.12, w * 0.16, h * 0.08).fill(0xf1e3d3).stroke({ width: 2, color: INK });
-  g.poly([w * 1.03, hz - h * 0.12, w * 1.13, hz - h * 0.18, w * 1.23, hz - h * 0.12]).fill(0x8d6e63).stroke({ width: 2, color: INK });
+  // (the sky, clouds and the spruces along the back are behind this: see backyardSky)
 
   // the back fence
   g.rect(x0, hz - h * 0.07, x1 - x0, h * 0.075).fill(0xb08968);
@@ -53,20 +87,6 @@ export function drawBackyard(g: Graphics, w: number, h: number, season: Season) 
       const y = hz + (h - hz) * (i / 6);
       if (i % 2) g.rect(x0, y, x1 - x0, (h - hz) / 6).fill({ color: 0x000000, alpha: 0.035 });
     }
-  }
-
-  // tall spruces along the back
-  const spruce = (x: number, base: number, ht: number, wd: number) => {
-    g.rect(x - wd * 0.06, base - ht * 0.2, wd * 0.12, ht * 0.2).fill(0x6b4226);
-    for (let i = 0; i < 5; i++) {
-      const y = base - ht * 0.12 - i * ht * 0.17;
-      const ww = wd * (1 - i * 0.17);
-      g.poly([x - ww / 2, y, x, y - ht * 0.3, x + ww / 2, y]).fill(i % 2 ? treeGreen : treeDark).stroke({ width: 2, color: INK });
-      if (winter) g.ellipse(x, y - ht * 0.26, ww * 0.18, 5).fill(0xffffff);
-    }
-  };
-  for (const [fx, s] of [[-0.62, 0.9], [-0.48, 1.05], [-0.34, 0.85], [-0.18, 1], [0.08, 0.8], [0.22, 0.95], [0.9, 0.85], [1.08, 0.7]]) {
-    spruce(w * fx, hz + h * 0.02, h * 0.5 * s, w * 0.11 * s);
   }
 
   // far off: a trampoline and a little swing set (tap them: see eggs)

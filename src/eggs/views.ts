@@ -1,6 +1,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import { burst } from '../fx';
 import { PALETTE, type Season } from '../seasons';
+import { swayAt } from '../sky';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
 import {
@@ -12,6 +13,7 @@ import {
   INK,
   later,
   oneAtATime,
+  cloudRain,
   rainFrom,
   rand,
   spray,
@@ -196,15 +198,8 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
     }, cleanups);
   }), new Rectangle(sunX - sunR * 1.6, sunY - sunR * 1.6, sunR * 3.2, sunR * 3.2));
 
-  // --- clouds that rain (or snow in winter) ---
-  for (const [x, y, r] of geom.clouds) {
-    const hit = new Container();
-    kit.under.addChild(hit);
-    tappable(hit, oneAtATime((done) => {
-      rainFrom(kit, x + r, y + r * 0.5, r * 3, y + h * 0.4, 2200);
-      later(2400, done, cleanups);
-    }), new Rectangle(x - r, y - r * 1.6, r * 4.2, r * 2.8));
-  }
+  // --- the drifting clouds rain (or snow in winter) when tapped ---
+  cloudRain(kit, cleanups, (y) => y + h * 0.4);
 
   // --- a hot-air balloon drifting across the sky ---
   const balloon = new Container();
@@ -379,6 +374,10 @@ export function houseEggs(kit: EggKit, behind: Container, geom: HouseGeom, clean
     pine.addChild(art);
     pine.position.set(tx, ground);
     behind.addChild(pine);
+    // swaying gently in the breeze (the trunk stays put)
+    const sway = { phase: side * 1.7, speed: 0.0011 + side * 0.0001, amount: 0.03 };
+    let time = 0;
+    everyFrame((dt) => (art.skew.x = swayAt((time += dt), sway)), cleanups);
     const squirrel = new Graphics();
     squirrel.ellipse(0, 0, 9, 12).fill(0xa0522d).stroke({ width: 2, color: INK });
     squirrel.circle(0, -14, 7).fill(0xa0522d).stroke({ width: 2, color: INK });
@@ -488,6 +487,9 @@ export function houseEggs(kit: EggKit, behind: Container, geom: HouseGeom, clean
     const from = dark;
     tween(800, (t) => ((dark = from + ((isNight ? 1 : 0) - from) * t), drawNight()));
   }, new Rectangle(sunX - sunR * 1.4, sunY - sunR * 1.4, sunR * 2.8, sunR * 2.8));
+
+  // --- the drifting clouds rain (or snow) when tapped ---
+  cloudRain(kit, cleanups, () => ground);
   void glow;
   void burst;
   void ease;

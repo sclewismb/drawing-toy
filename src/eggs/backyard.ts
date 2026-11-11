@@ -3,7 +3,7 @@ import { YARD } from '../backyard';
 import { burst } from '../fx';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
-import { drawBird, everyFrame, glow, hotspot, INK, later, oneAtATime, rand, spray, tappable, tumble, type Cleanups, type EggKit } from './common';
+import { cloudRain, drawBird, everyFrame, glow, hotspot, INK, later, oneAtATime, rand, spray, tappable, tumble, type Cleanups, type EggKit } from './common';
 
 /** Surprises in the back garden (see backyard.ts for where things are). */
 export function backyard(kit: EggKit, cleanups: Cleanups) {
@@ -402,4 +402,7 @@ export function backyard(kit: EggKit, cleanups: Cleanups) {
     spray(kit, reelX - 60, reelY + 76, -0.35, -0.45, 1600, 0x6ec6ff, h * 0.95);
     later(1900, done, cleanups);
   }), new Rectangle(reelX - 70, reelY - 30, 100, 120));
+
+  // --- the drifting clouds rain (or snow) when tapped ---
+  cloudRain(kit, cleanups, () => hz + h * 0.25);
 }

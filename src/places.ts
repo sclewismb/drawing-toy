@@ -1,6 +1,8 @@
 import type { Graphics } from 'pixi.js';
 import { drawClockFace } from './clock';
+import { backyardSky } from './backyard';
 import { CRITTERS } from './critters';
+import type { SkyDef } from './sky';
 import { hillDots, PALETTE, type Season } from './seasons';
 
 /**
@@ -128,6 +130,8 @@ export interface PlaceDef {
   chalkboard?: (w: number, h: number) => { x: number; y: number; w: number; h: number };
   /** A wall clock showing the real time: centre and size on a w x h screen. */
   clock?: (w: number, h: number) => { x: number; y: number; r: number };
+  /** Outdoors: the sky behind the picture, with drifting clouds and swaying far-off trees. */
+  sky?: (w: number, h: number, season: Season) => SkyDef;
 }
 
 export const INK = 0x3a3a3a;
@@ -528,20 +532,28 @@ export const PLACES: PlaceDef[] = [
       { name: 'ball', x: 0.62, y: 0.88 },
     ],
     outdoors: true,
+    // the sky, sun and drifting clouds sit behind the hills (see sky.ts)
+    sky(w, h, season) {
+      const pal = PALETTE[season];
+      const u = Math.min(w, h);
+      return {
+        x0: 0,
+        x1: w,
+        h,
+        color: pal.sky,
+        sun: { x: w * 0.85, y: h * 0.15, r: u * 0.08 * pal.sunSize, color: pal.sun },
+        clouds: [[0.2, 0.15, 1], [0.55, 0.1, 0.8], [-0.15, 0.06, 0.6]].map(([fx, fy, s]) => ({ x: w * fx, y: h * fy, r: u * 0.05 * s })),
+        cloudColor: pal.cloud,
+      };
+    },
     drawBackdrop(g, w, h, season) {
       const pal = PALETTE[season];
-      g.rect(0, 0, w, h).fill(pal.sky);
       g.ellipse(w * 0.2, h * 0.72, w * 0.4, h * 0.2).fill(pal.hillBack);
       hillDots(g, w * 0.2, h * 0.72, w * 0.4, h * 0.2, pal.dots, 3);
       g.ellipse(w * 0.75, h * 0.74, w * 0.45, h * 0.22).fill(pal.hillFront);
       hillDots(g, w * 0.75, h * 0.74, w * 0.45, h * 0.22, pal.dots, 4);
       g.rect(0, h * 0.7, w, h * 0.3).fill(pal.grass);
       if (season === 'winter') g.rect(0, h * 0.7, w, 4).fill(0xc9d6e3);
-      g.circle(w * 0.85, h * 0.15, Math.min(w, h) * 0.08 * pal.sunSize).fill(pal.sun);
-      for (const [cx, cy, s] of [[0.2, 0.15, 1], [0.55, 0.1, 0.8]]) {
-        const x = w * cx, y = h * cy, r = Math.min(w, h) * 0.05 * s;
-        g.circle(x, y, r).circle(x + r, y - r * 0.4, r * 1.2).circle(x + r * 2.1, y, r).fill(pal.cloud);
-      }
     },
   },
 ];
@@ -558,6 +570,7 @@ PLACES.push({
     { name: 'ball', x: 0.5, y: 0.9 },
   ],
   outdoors: true,
+  sky: (w, h, season) => backyardSky(w, h, season),
   drawBackdrop() {
     /* see backyard.ts */
   },

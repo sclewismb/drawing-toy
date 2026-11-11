@@ -23,6 +23,7 @@ import { SOUND_FOR } from './reactions';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
 import { SEASONS, Weather, type Season } from './seasons';
+import { Sky } from './sky';
 import { StreetView } from './street';
 import { WIDE } from './wideRooms';
 import { ease, tween } from './tween';
@@ -57,7 +58,8 @@ const backdrop = new Graphics();
 const characters = new Container();
 const roomSparkles = new Container(); // star bursts from surprises (they slide with the room)
 const ui = new Container();
-room.addChild(backdrop, characters, roomSparkles);
+const roomSky = new Sky(); // outdoors: the sky with drifting clouds, behind the picture
+room.addChild(roomSky, backdrop, characters, roomSparkles);
 world.addChild(room, camera.arrows, ui);
 const sparkles = new Container();
 const fade = new Graphics();
@@ -213,7 +215,9 @@ function sizeRoom(id: PlaceId) {
 function drawBackdrop() {
   backdrop.clear();
   if (current) {
-    placeById(current)!.drawBackdrop(backdrop, panel, roomH, season);
+    const place = placeById(current)!;
+    roomSky.set(place.sky?.(panel, roomH, season) ?? null);
+    place.drawBackdrop(backdrop, panel, roomH, season);
     WIDE[current]?.draw(backdrop, panel, roomH, season);
   }
   updateClocks();
@@ -308,6 +312,7 @@ const EDGE = 90; // carrying a character this close to the edge slides the room
 app.ticker.add((t) => {
   if (screen !== 'place') return;
   camera.update(t.deltaMS);
+  roomSky.update(t.deltaMS);
   const p = gestures.dragPoint;
   if (!p || !camera.scrolls || gallery.isOver(p.x, p.y)) return;
   const W = app.screen.width;
@@ -471,7 +476,7 @@ function teardownEggs() {
 function setupEggs(id: PlaceId) {
   teardownEggs();
   const { x0, x1 } = roomEdges(id, panel);
-  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1 });
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky });
 }
 
 // Surprises on the street and outside the house (rebuilt when they're laid out again).
@@ -482,8 +487,8 @@ function setupViewEggs() {
     for (const c of layer.removeChildren()) c.destroy({ children: true });
   }
   const { width: w, height: h } = app.screen;
-  const a = createStreetEggs({ under: street.eggs, over: street.eggsFront, sparkles, w, h, season }, street.geom);
-  const b = createHouseEggs({ under: houseView.eggs, over: houseView.eggsFront, sparkles, w, h, season }, houseView.eggsBehind, houseView.geom);
+  const a = createStreetEggs({ under: street.eggs, over: street.eggsFront, sparkles, w, h, season, sky: street.sky }, street.geom);
+  const b = createHouseEggs({ under: houseView.eggs, over: houseView.eggsFront, sparkles, w, h, season, sky: houseView.sky }, houseView.eggsBehind, houseView.geom);
   viewEggsCleanup = () => (a(), b());
 }
 

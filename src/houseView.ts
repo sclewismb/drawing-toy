@@ -2,6 +2,7 @@ import { Container, Graphics, Rectangle, Sprite, Text, Texture, type FederatedPo
 import type { HouseGeom } from './eggs';
 import { ROOMS, type RoomId } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
+import { Sky } from './sky';
 import { ease, tween } from './tween';
 
 interface RoomTile {
@@ -28,6 +29,8 @@ export const ROOM_FURNITURE: Record<RoomId, string[]> = {
  * Room names come from the iPad's own settings, never from the code.
  */
 export class HouseView extends Container {
+  /** The sky with drifting clouds, behind everything (tap a cloud for rain). */
+  readonly sky = new Sky(true);
   private bg = new Graphics();
   private shell = new Graphics();
   private tiles: RoomTile[] = [];
@@ -45,7 +48,7 @@ export class HouseView extends Container {
 
   constructor(pictures: Map<string, HTMLCanvasElement>) {
     super();
-    this.addChild(this.bg, this.eggsBehind, this.shell, this.gate);
+    this.addChild(this.sky, this.bg, this.eggsBehind, this.shell, this.gate);
     this.gate.eventMode = 'static';
     this.gate.cursor = 'pointer';
     this.gate.on('pointerdown', (e: FederatedPointerEvent) => e.stopPropagation());
@@ -135,10 +138,19 @@ export class HouseView extends Container {
 
   layout(w: number, h: number, season: Season) {
     const pal = PALETTE[season];
-    // outside: sky, hills, lawn
+    // outside: the sky with drifting clouds (behind everything), hills, lawn
     const ground = h * 0.9;
-    this.bg.clear().rect(0, 0, w, h).fill(pal.sky);
-    this.bg.circle(w * 0.92, h * 0.1, Math.min(w, h) * 0.06 * pal.sunSize).fill(pal.sun);
+    const u = Math.min(w, h);
+    this.sky.set({
+      x0: 0,
+      x1: w,
+      h,
+      color: pal.sky,
+      sun: { x: w * 0.92, y: h * 0.1, r: u * 0.06 * pal.sunSize, color: pal.sun },
+      clouds: [[0.04, 0.12, 0.9], [0.4, 0.05, 0.7], [0.68, 0.16, 0.6]].map(([fx, fy, s]) => ({ x: w * fx, y: h * fy, r: u * 0.045 * s })),
+      cloudColor: pal.cloud,
+    });
+    this.bg.clear();
     this.bg.ellipse(w * 0.2, ground, w * 0.4, h * 0.25).fill(pal.hillBack);
     hillDots(this.bg, w * 0.2, ground, w * 0.4, h * 0.25, pal.dots, 5);
     this.bg.ellipse(w * 0.8, ground, w * 0.45, h * 0.28).fill(pal.hillFront);

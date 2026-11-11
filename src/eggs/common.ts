@@ -1,6 +1,7 @@
 import { Container, Graphics, Rectangle, Ticker, type FederatedPointerEvent } from 'pixi.js';
 import { markEggTouch, touchState } from '../gestures';
 import { windowView } from '../places';
+import type { Sky } from '../sky';
 import type { Season } from '../seasons';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
@@ -21,6 +22,24 @@ export interface EggKit {
   /** Wide rooms: the room's left and right edges (it carries on past 0..w). */
   x0?: number;
   x1?: number;
+  /** Outdoors: the sky, with its drifting clouds. */
+  sky?: Sky;
+}
+
+/** Tap a drifting cloud and it rains (or snows in winter) down to `groundAt(cloud y)`. */
+export function cloudRain(kit: EggKit, cleanups: Cleanups, groundAt: (y: number) => number) {
+  const sky = kit.sky;
+  if (!sky) return;
+  let raining = false;
+  sky.onCloudTap = (x, y, r) => {
+    if (raining) return;
+    raining = true;
+    rainFrom(kit, x, y + r * 0.5, r * 3, groundAt(y), 2200);
+    later(2400, () => (raining = false), cleanups);
+  };
+  cleanups.push(() => {
+    if (sky.onCloudTap) sky.onCloudTap = null;
+  });
 }
 
 /** The whole room from side to side (wider than w in the wide rooms). */
