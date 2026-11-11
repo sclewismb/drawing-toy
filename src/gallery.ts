@@ -34,7 +34,7 @@ export function setupGallery(opts: {
     thumbUrls.forEach((u) => URL.revokeObjectURL(u));
     thumbUrls = [];
     const tiles: HTMLElement[] = [];
-    for (const e of [...opts.library.entries].reverse()) {
+    for (const e of [...opts.library.mine()].reverse()) {
       const url = URL.createObjectURL(e.png);
       thumbUrls.push(url);
       tiles.push(makeTile({ kind: 'photo', id: e.id }, url, true));

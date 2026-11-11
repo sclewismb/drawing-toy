@@ -6,6 +6,8 @@ export interface LibraryEntry {
   id: string;
   createdAt: number;
   png: Blob;
+  /** Whose drawing it is (none = from before there were players: everyone's). */
+  owner?: string;
 }
 
 /** How a drawing gets about by itself (chosen with the move button). */
@@ -26,6 +28,13 @@ export class Library {
   ) {}
   private pictures = new Map<string, Promise<HTMLCanvasElement>>();
   onChange: () => void = () => {};
+  /** Who's playing: new drawings are theirs, and their toy box shows only theirs (plus older shared ones). */
+  player: string | null = null;
+
+  /** The drawings in this player's toy box. */
+  mine(): LibraryEntry[] {
+    return this.entries.filter((e) => !e.owner || e.owner === this.player);
+  }
 
   static async load(): Promise<Library> {
     let motions: Record<string, Motion> = {};
@@ -37,7 +46,7 @@ export class Library {
     try {
       const stored = await storage.allCharacters();
       return new Library(
-        stored.map((s) => ({ id: s.id, createdAt: s.createdAt, png: new Blob([s.png], { type: 'image/png' }) })),
+        stored.map((s) => ({ id: s.id, createdAt: s.createdAt, owner: s.owner, png: new Blob([s.png], { type: 'image/png' }) })),
         motions,
       );
     } catch (err) {
@@ -64,11 +73,11 @@ export class Library {
   /** Save a new cut-out drawing. */
   async add(picture: HTMLCanvasElement): Promise<LibraryEntry> {
     const png = await new Promise<Blob>((resolve) => picture.toBlob((b) => resolve(b!), 'image/png'));
-    const entry: LibraryEntry = { id: newId(), createdAt: Date.now(), png };
+    const entry: LibraryEntry = { id: newId(), createdAt: Date.now(), png, owner: this.player ?? undefined };
     this.entries.push(entry);
     this.pictures.set(entry.id, Promise.resolve(picture));
     try {
-      await storage.addCharacter({ id: entry.id, createdAt: entry.createdAt, png: await png.arrayBuffer() });
+      await storage.addCharacter({ id: entry.id, createdAt: entry.createdAt, owner: entry.owner, png: await png.arrayBuffer() });
     } catch (err) {
       console.warn('Could not save character', err);
     }

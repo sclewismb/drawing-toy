@@ -13,6 +13,7 @@ import { Library } from './library';
 import { loadImage } from './loadImage';
 import { setupGrownUpShare } from './photoShare';
 import { setupHouseSettings, upgradeHouseSettings, type HouseSettings } from './houseSettings';
+import { NO_PLAYERS, PLAYER_IDS, setupPlayers, type PlayerId, type Players } from './players';
 import { HouseView, ROOM_FURNITURE } from './houseView';
 import { BUILTIN, FLOOR, PLACES, placeById, RESIDENTS, STREET, type PlaceId } from './places';
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
@@ -130,6 +131,16 @@ function applyHouseSettings() {
   street.setHouseNumber(houseSettings.number);
   houseView.setNames(houseSettings.rooms);
 }
+// --- Two players, each with their own world (names and codes saved on this iPad only) ---
+let players: Players = NO_PLAYERS;
+try {
+  players = { ...NO_PLAYERS, ...((await storage.getSetting<Players>('players')) ?? {}) };
+} catch {
+  /* fine */
+}
+/** Who's playing right now (null until someone has picked). */
+let player: PlayerId | null = null;
+
 setupHouseSettings({
   get: () => houseSettings,
   save(s) {
@@ -137,12 +148,18 @@ setupHouseSettings({
     applyHouseSettings();
     void storage.setSetting('house', s).catch(() => {});
   },
-  open: (fn) => (street.onHouseHold = fn),
+  getPlayers: () => players,
+  savePlayers(p) {
+    players = p;
+    void storage.setSetting('players', p).catch(() => {});
+  },
+  // press and hold the house; with a master code set, it's asked for first
+  open: (fn) => (street.onHouseHold = () => picker.grownUp(fn)),
 });
 
 // --- Seasons: picked on the street; colours the street and the park, with
 // blossom, butterflies, leaves or snow.
-const savedSeason = await storage.getSetting<Season>('season').catch(() => undefined);
+const savedSeason = await storage.getMine<Season>('season').catch(() => undefined);
 let season: Season = savedSeason && SEASONS.includes(savedSeason) ? savedSeason : 'spring';
 const seasonButtons = [...document.querySelectorAll<HTMLButtonElement>('#seasons button')];
 
@@ -159,7 +176,7 @@ function setSeason(s: Season, withSound = true) {
   drawBackdrop();
   weather.set(s);
   if (withSound) sfx.season(s);
-  void storage.setSetting('season', s).catch(() => {});
+  void storage.setMine('season', s).catch(() => {});
 }
 for (const b of seasonButtons) b.addEventListener('click', () => setSeason(b.dataset.season as Season));
 
@@ -486,7 +503,7 @@ async function saveChalk() {
   clearTimeout(chalkTimer);
   if (!chalk || !chalkPlace) return;
   try {
-    await storage.setSetting(`chalk:${chalkPlace}`, chalk.getStrokes());
+    await storage.setMine(`chalk:${chalkPlace}`, chalk.getStrokes());
   } catch (err) {
     console.warn('Could not save the blackboard', err);
   }
@@ -501,7 +518,7 @@ async function setupChalk(id: PlaceId) {
   room.addChildAt(chalk, room.getChildIndex(backdrop) + 1);
   layoutChalk();
   const rect = place.chalkboard(panel, roomH);
-  const saved = await storage.getSetting<ChalkStroke[]>(`chalk:${id}`).catch(() => undefined);
+  const saved = await storage.getMine<ChalkStroke[]>(`chalk:${id}`).catch(() => undefined);
   chalk.setStrokes(saved ?? startingDoodles(rect.w / rect.h));
   chalk.onChange = () => {
     clearTimeout(chalkTimer);
@@ -863,21 +880,61 @@ app.renderer.on('resize', () => {
   saveSoon();
 });
 
-// --- Start on the street (or back in the same place after an update refresh) ---
+// --- Who's playing? Each player has their own world: their own scenes,
+// blackboards, season and toy box drawings. Choosing again needs their code.
+const playerButton = document.getElementById('player-button')!;
+const picker = setupPlayers({
+  get: () => players,
+  onChoose: (id) => void startAs(id),
+});
+
+/** Start playing as this player (and, after an update refresh, go back to where they were). */
+async function startAs(id: PlayerId, resume = false) {
+  player = id;
+  storage.setProfile(id);
+  library.player = id;
+  try {
+    sessionStorage.setItem('player', id);
+  } catch {
+    /* fine */
+  }
+  playerButton.innerHTML = document.querySelector(`#players [data-player="${id}"] svg`)?.outerHTML ?? '';
+  const s = await storage.getMine<Season>('season').catch(() => undefined);
+  setSeason(s && SEASONS.includes(s) ? s : 'spring', false);
+  if (!resume) return;
+  let resumePlace: string | null = null;
+  try {
+    resumePlace = sessionStorage.getItem('place');
+  } catch {
+    /* fine */
+  }
+  if (resumePlace && placeById(resumePlace)) {
+    await showPlace(resumePlace as PlaceId);
+    setScreen('place');
+  }
+}
+
+// Change player (from the street): back to "who's playing?".
+playerButton.addEventListener('click', () => {
+  if (screen !== 'street' || switching) return;
+  sfx.pling();
+  picker.open();
+});
+
+// --- Start on the street, asking who's playing (or carry on as the same
+// player after an update refresh) ---
 weather.resize(app.screen.width, app.screen.height);
 setSeason(season, false);
 applyHouseSettings();
 setScreen('street');
-let resumePlace: string | null = null;
+let resumePlayer: string | null = null;
 try {
-  resumePlace = sessionStorage.getItem('place');
+  resumePlayer = sessionStorage.getItem('player');
 } catch {
   /* fine */
 }
-if (resumePlace && placeById(resumePlace)) {
-  await showPlace(resumePlace as PlaceId);
-  setScreen('place');
-}
+if (resumePlayer && PLAYER_IDS.includes(resumePlayer as PlayerId)) await startAs(resumePlayer as PlayerId, true);
+else picker.open();
 
 // Offline support and updates. Only in the built app: during development it
 // would keep serving old code and get confusing.

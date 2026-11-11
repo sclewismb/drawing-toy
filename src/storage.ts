@@ -16,6 +16,8 @@ export interface StoredCharacter {
   id: string;
   png: ArrayBuffer;
   createdAt: number;
+  /** The player who drew it (only they see it in their toy box). None = from before players: everyone's. */
+  owner?: string;
 }
 
 export type SceneItem = ({ kind: 'photo'; id: string } | { kind: 'sample'; name: string }) & {
@@ -76,7 +78,20 @@ async function run<T>(
   });
 }
 
+/**
+ * Which player is playing ('a' or 'b'). Each player has their own scenes and
+ * a few settings of their own (season, blackboard); the drawings and the
+ * grown-up settings are shared. Before there were players everything was
+ * shared, so a player who hasn't saved something yet starts from that.
+ */
+let profile: string | null = null;
+const mine = (key: string) => (profile ? `p:${profile}:${key}` : key);
+
 export const storage = {
+  setProfile(p: string | null) {
+    profile = p;
+  },
+
   /** Ask the browser not to clear our data when space runs low. */
   async askToKeep() {
     try {
@@ -110,16 +125,31 @@ export const storage = {
     await run('scene', 'readwrite', (s) => s.put(value, `setting:${name}`));
   },
 
-  /** Each place in the neighbourhood has its own saved scene. */
+  /** This player's own setting (falls back to the shared one from before players). */
+  async getMine<T>(name: string): Promise<T | undefined> {
+    if (profile) {
+      const v = await storage.getSetting<T>(mine(name));
+      if (v !== undefined) return v;
+    }
+    return storage.getSetting<T>(name);
+  },
+
+  async setMine(name: string, value: unknown) {
+    await storage.setSetting(mine(name), value);
+  },
+
+  /** Each place in the neighbourhood has its own saved scene (one per player). */
   async loadScene(place: string): Promise<SavedScene | null> {
     const get = (key: string) => run('scene', 'readonly', (s) => s.get(key) as IDBRequest<SavedScene | undefined>);
-    let scene = await get(`place:${place}`);
+    let scene = profile ? await get(mine(`place:${place}`)) : undefined;
+    // A player starts from the world as it was before there were players.
+    scene ??= await get(`place:${place}`);
     // Before the neighbourhood existed there was one scene: it's the park now.
     if (!scene && place === 'park') scene = await get('current');
     return scene ?? null;
   },
 
   async saveScene(place: string, scene: SavedScene) {
-    await run('scene', 'readwrite', (s) => s.put(scene, `place:${place}`));
+    await run('scene', 'readwrite', (s) => s.put(scene, mine(`place:${place}`)));
   },
 };
