@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 190" width="170" height="190">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- spade poking out -->
+    <path d="M120 20 L104 92" fill="none" stroke-width="12"/>
+    <path d="M120 20 L104 92" fill="none" stroke="#ff9f1c" stroke-width="5"/>
+    <path d="M112 10 Q122 -2 134 12 L128 34 L110 30 Z" fill="#ff9f1c"/>
+    <!-- handle -->
+    <path d="M30 70 Q85 0 140 70" fill="none"/>
+    <!-- bucket -->
+    <path d="M24 70 L146 70 L130 180 L40 180 Z" fill="#7bd36b"/>
+    <path d="M18 64 L152 64 L150 80 L20 80 Z" fill="#52b788"/>
+    <path d="M60 110 L110 110" fill="none" stroke="#ffffff" stroke-width="5"/>
+  </g>
+</svg>

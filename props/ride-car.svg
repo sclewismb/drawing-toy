@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 220" width="260" height="220">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- roof on two posts -->
+    <path d="M70 22 Q130 4 190 22 L196 40 L64 40 Z" fill="#ffffff"/>
+    <path d="M84 40 L92 110 M176 40 L168 110" fill="none" stroke-width="12"/>
+    <path d="M84 40 L92 110 M176 40 L168 110" fill="none" stroke="#ffffff" stroke-width="5"/>
+    <!-- body -->
+    <path d="M24 120 Q30 98 70 100 L190 100 Q232 100 238 128 L240 168 Q238 182 222 182 L38 182 Q22 182 20 168 Z" fill="#2b6cb0"/>
+    <path d="M60 104 L110 104 L110 150 L60 150 Z" fill="#1d4f86"/>
+    <!-- steering wheel -->
+    <path d="M150 100 L162 76" fill="none"/>
+    <circle cx="164" cy="72" r="12" fill="#ffd93d"/>
+    <!-- lights -->
+    <circle cx="224" cy="130" r="9" fill="#fff3b0"/>
+    <!-- wheels -->
+    <circle cx="66" cy="184" r="26" fill="#2b2d42"/>
+    <circle cx="66" cy="184" r="10" fill="#ffffff"/>
+    <circle cx="196" cy="184" r="26" fill="#2b2d42"/>
+    <circle cx="196" cy="184" r="10" fill="#ffffff"/>
+  </g>
+</svg>
