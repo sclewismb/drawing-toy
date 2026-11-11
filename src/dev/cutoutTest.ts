@@ -2,6 +2,7 @@
 // `npm run dev` is running. Not part of the app that gets deployed.
 import { cutoutFromBlob } from '../cutout';
 import { DEFAULT_OPTIONS, type CutoutOptions } from '../cutout/cutout';
+import { loadImage } from '../loadImage';
 
 interface Sample {
   name: string;
@@ -66,12 +67,7 @@ const scenes: Scene[] = [
   { name: 'Monster in pencil, shadow and lamp', src: '/characters/monster.svg', pencil: true, shadow: true, warm: true, noise: 9 },
 ];
 
-async function loadImg(src: string) {
-  const img = new Image();
-  img.src = src;
-  await img.decode();
-  return img;
-}
+const loadImg = loadImage;
 
 async function makePhoto(s: Scene): Promise<Blob> {
   const W = 1600, H = 1200;
@@ -207,12 +203,12 @@ async function runAll() {
       const small = document.createElement('small');
       small.textContent = `${st.ms} ms · ${st.parts} part${st.parts === 1 ? '' : 's'} · ${st.width}×${st.height}px · ${(st.coverage * 100).toFixed(1)}% of photo${st.lenient ? ' · lenient' : ''}`;
       title.append(small);
-      await im.decode();
+      if (!im.complete) await new Promise((r) => (im.onload = r));
       sheet.push({ name: s.name, input: im, output: res.canvas, info: small.textContent });
     } else {
       output.classList.add('fail');
       output.textContent = 'Nothing found';
-      await im.decode();
+      if (!im.complete) await new Promise((r) => (im.onload = r));
       sheet.push({ name: s.name, input: im, output: null, info: 'NOTHING FOUND' });
     }
   }

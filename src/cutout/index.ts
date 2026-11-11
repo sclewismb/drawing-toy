@@ -1,3 +1,4 @@
+import { loadImage } from '../loadImage';
 import type { CutoutOptions, CutoutResult, CutoutStats } from './cutout';
 
 /** Photos are shrunk to this many pixels on the long side before cutting out. */
@@ -24,15 +25,12 @@ function getWorker() {
   return worker;
 }
 
-async function loadImage(blob: Blob): Promise<HTMLImageElement> {
+async function loadBlobImage(blob: Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(blob);
   try {
-    const img = new Image();
-    img.src = url;
-    await img.decode(); // browsers apply the photo's rotation (EXIF) for us
-    return img;
+    return await loadImage(url); // browsers apply the photo's rotation (EXIF) for us
   } finally {
-    // Safe to revoke once decoded; the image keeps its pixels.
+    // Safe to revoke once loaded; the image keeps its pixels.
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 }
@@ -45,7 +43,7 @@ export async function cutoutFromBlob(
   blob: Blob,
   opts?: CutoutOptions,
 ): Promise<{ canvas: HTMLCanvasElement; stats: CutoutStats } | null> {
-  const img = await loadImage(blob);
+  const img = await loadBlobImage(blob);
   const scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.max(1, Math.round(img.naturalWidth * scale));
   const h = Math.max(1, Math.round(img.naturalHeight * scale));

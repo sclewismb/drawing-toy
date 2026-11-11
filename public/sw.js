@@ -8,7 +8,7 @@
 //
 // Nothing ever leaves the device: this only caches the app's own files.
 
-const CACHE = 'drawing-toy-v1';
+const CACHE = 'drawing-toy-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -33,8 +33,10 @@ self.addEventListener('fetch', (event) => {
 
   if (req.mode === 'navigate') {
     // Network first for the page, fall back to the saved copy.
+    // 'no-cache' = always ask the server if there's a newer page (GitHub
+    // otherwise lets the browser reuse an old copy for 10 minutes).
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put('./', copy));

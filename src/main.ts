@@ -4,6 +4,7 @@ import { cutoutFromBlob } from './cutout';
 import { FlipButton } from './flipButton';
 import { burst } from './fx';
 import { GestureController } from './gestures';
+import { loadImage } from './loadImage';
 
 // Stop iOS Safari's own pinch-to-zoom from fighting with ours.
 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -73,9 +74,7 @@ function addCharacter(picture: HTMLCanvasElement, x: number, y: number, tada = f
 
 /** Load one of the sample SVG drawings into a canvas (same as a real cutout). */
 async function loadSample(name: string): Promise<HTMLCanvasElement> {
-  const img = new Image();
-  img.src = `${import.meta.env.BASE_URL}characters/${name}.svg`;
-  await img.decode();
+  const img = await loadImage(`${import.meta.env.BASE_URL}characters/${name}.svg`);
   const c = document.createElement('canvas');
   c.width = img.naturalWidth * 2; // extra crisp
   c.height = img.naturalHeight * 2;
@@ -89,6 +88,7 @@ samples.forEach((pic, i) => {
 });
 
 // --- Camera button: photo of a drawing -> new character ---
+let addedFromPhoto = false; // until saving exists (milestone 6), don't auto-refresh after this
 const cameraButton = document.getElementById('camera')!;
 const fileInput = cameraButton.querySelector('input')!;
 
@@ -107,6 +107,7 @@ fileInput.addEventListener('change', async () => {
     const result = await cutoutFromBlob(file);
     if (!result) throw new Error('No drawing found in the photo');
     addCharacter(result.canvas, app.screen.width / 2, app.screen.height * 0.5, true);
+    addedFromPhoto = true;
   } catch (err) {
     console.warn(err);
     nope();
@@ -121,10 +122,23 @@ app.renderer.on('resize', () => {
   for (const ch of characters.children as Character[]) gestures.keepOnScreen(ch);
 });
 
-// Offline support. Only in the built app: during development it would
-// keep serving old code and get confusing.
+// Offline support and updates. Only in the built app: during development it
+// would keep serving old code and get confusing.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
+  const hadOldVersion = !!navigator.serviceWorker.controller;
+  const reg = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
+
+  // A Home Screen app on iPad is often just un-paused, not reopened, so
+  // look for a new version whenever it comes back to the front.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') reg.update().catch(() => {});
+  });
+
+  // When a new version has taken over, refresh to show it - but only if
+  // nobody has added a photo yet, so a new character is never lost.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadOldVersion && !addedFromPhoto) location.reload();
+  });
 }
 
 // Handy for testing in the browser console during development.
