@@ -28,6 +28,11 @@ export interface CutoutOptions {
   low?: number;
   /** Gaps in outlines up to about twice this many pixels get closed (at 1024px). */
   closeRadius?: number;
+  /**
+   * Parts further from the main drawing than this fraction of its size are
+   * left out. 0 = keep every part.
+   */
+  nearFraction?: number;
   /** Development: also return a picture of what was detected as ink. */
   debug?: boolean;
 }
@@ -54,6 +59,7 @@ export const DEFAULT_OPTIONS: Required<CutoutOptions> = {
   high: 0.25,
   low: 0.16, // lower picks up paper creases (tuned on a real folded drawing)
   closeRadius: 6,
+  nearFraction: 0.2,
   debug: false,
 };
 
@@ -306,6 +312,7 @@ export function cutout(
     const label = new Int32Array(n);
     const area: number[] = [0];
     const touches: boolean[] = [false];
+    const partSize: number[] = [0];
     let count = 0;
     for (let s = 0; s < n; s++) {
       if (!alpha[s] || label[s]) continue;
@@ -316,11 +323,16 @@ export function cutout(
       qt = 0;
       q[qt++] = s;
       label[s] = count;
+      let cx0 = w, cy0 = h, cx1 = 0, cy1 = 0;
       while (qh < qt) {
         const p = q[qh++];
         a++;
         const x = p % w;
         const y = (p - x) / w;
+        if (x < cx0) cx0 = x;
+        if (x > cx1) cx1 = x;
+        if (y < cy0) cy0 = y;
+        if (y > cy1) cy1 = y;
         if (x === 0 || y === 0 || x === w - 1 || y === h - 1) touch = true;
         for (let dy = -1; dy <= 1; dy++) {
           const yy = y + dy;
@@ -335,20 +347,67 @@ export function cutout(
       }
       area.push(a);
       touches.push(touch);
+      partSize.push(Math.max(cx1 - cx0, cy1 - cy0) + 1);
     }
 
     let largest = 0;
+    let main = 0;
     for (let c = 1; c <= count; c++) {
-      if ((lenient || !touches[c]) && area[c] > largest) largest = area[c];
+      if ((lenient || !touches[c]) && area[c] > largest) (largest = area[c]), (main = c);
     }
     if (largest === 0) return null;
     const minArea = Math.max(n * 0.00008, largest * 0.003);
+    const candidate = new Uint8Array(count + 1);
+    for (let c = 1; c <= count; c++) {
+      if ((lenient || !touches[c]) && area[c] >= minArea) candidate[c] = 1;
+    }
+
+    // Keep the main drawing (the biggest part) and whatever is drawn close
+    // to it - little bees beside a big bee, a sun's rays - but not separate
+    // things further away on the page, like a heart in the corner.
+    // "Close" is measured from ink to ink, and grows as parts join (ray by
+    // ray around a sun).
     const keep = new Uint8Array(count + 1);
+    keep[main] = 1;
+    if (o.nearFraction <= 0) keep.set(candidate);
+    const near = Math.max(4, Math.round(o.nearFraction * partSize[main]));
+    const dist = new Uint16Array(n);
+    for (; o.nearFraction > 0; ) {
+      dist.fill(0xffff);
+      qh = 0;
+      qt = 0;
+      for (let p = 0; p < n; p++) {
+        if (keep[label[p]] && label[p]) (dist[p] = 0), (q[qt++] = p);
+      }
+      let joined = false;
+      while (qh < qt) {
+        const p = q[qh++];
+        const d = dist[p] + 1;
+        if (d > near) continue;
+        const x = p % w;
+        const y = (p - x) / w;
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy;
+          if (yy < 0 || yy >= h) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx;
+            if (xx < 0 || xx >= w) continue;
+            const j = yy * w + xx;
+            if (dist[j] <= d) continue;
+            dist[j] = d;
+            q[qt++] = j;
+            const l = label[j];
+            if (l && candidate[l] && !keep[l]) (keep[l] = 1), (joined = true);
+          }
+        }
+      }
+      if (!joined) break;
+    }
+
     let parts = 0;
     let kept = 0;
     for (let c = 1; c <= count; c++) {
-      if ((lenient || !touches[c]) && area[c] >= minArea) {
-        keep[c] = 1;
+      if (keep[c]) {
         parts++;
         kept += area[c];
       }
