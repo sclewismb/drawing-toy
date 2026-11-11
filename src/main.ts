@@ -5,7 +5,7 @@ import { FlipButton } from './flipButton';
 import { burst } from './fx';
 import { GestureController } from './gestures';
 import { loadImage } from './loadImage';
-import { setupPhotoShare } from './photoShare';
+import { setupGrownUpShare } from './photoShare';
 import { SOUND_FOR } from './reactions';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 
@@ -128,7 +128,8 @@ samples.forEach((pic, i) => {
 let addedFromPhoto = false; // until saving exists (milestone 6), don't auto-refresh after this
 const cameraButton = document.getElementById('camera')!;
 const fileInput = cameraButton.querySelector('input')!;
-const photoShare = setupPhotoShare(cameraButton, document.getElementById('share-photo') as HTMLButtonElement);
+const photoCharacters: Character[] = []; // in the order they were made
+const photoShare = setupGrownUpShare(cameraButton, () => photoCharacters.map((c) => c.picture));
 
 function nope() {
   sfx.nope();
@@ -146,7 +147,9 @@ fileInput.addEventListener('change', async () => {
   try {
     const result = await cutoutFromBlob(file);
     if (!result) throw new Error('No drawing found in the photo');
-    addCharacter(result.canvas, app.screen.width / 2, app.screen.height * 0.5, true);
+    const ch = addCharacter(result.canvas, app.screen.width / 2, app.screen.height * 0.5, true);
+    ch.fromPhoto = true;
+    photoCharacters.push(ch);
     addedFromPhoto = true;
   } catch (err) {
     console.warn(err);

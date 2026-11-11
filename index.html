@@ -90,11 +90,22 @@
         -webkit-touch-callout: none;
       }
 
-      /* Grown-up extra: hold the camera button to share the last photo. */
-      #share-photo {
+      /* Grown-up extras: hold the camera button to share the last photo, or
+         save the characters as pictures (Share menu -> Save to Files). */
+      #grownup {
         position: fixed;
         left: calc(max(16px, env(safe-area-inset-left)) + 108px);
         bottom: max(16px, env(safe-area-inset-bottom));
+        display: none;
+        gap: 16px;
+        z-index: 10;
+      }
+      #grownup.show {
+        display: flex;
+        animation: pop 0.25s ease-out;
+      }
+      #grownup button {
+        position: relative;
         width: 92px;
         height: 92px;
         padding: 0;
@@ -103,27 +114,54 @@
         background: #fff;
         box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
         overflow: hidden;
-        z-index: 10;
-        display: none;
         -webkit-tap-highlight-color: transparent;
       }
-      #share-photo.show {
-        display: block;
-        animation: pop 0.25s ease-out;
+      #grownup button[hidden] {
+        display: none;
       }
-      #share-photo img {
+      #grownup button:disabled {
+        opacity: 0.5;
+      }
+      #grownup img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         display: block;
       }
-      #share-photo svg {
+      /* Characters have see-through backgrounds: show them on a light
+         checkerboard, whole. */
+      #share-characters {
+        background: repeating-conic-gradient(#fff 0 25%, #e6e6e6 0 50%) 0 0 / 16px 16px !important;
+      }
+      #share-characters img {
+        object-fit: contain;
+        padding: 6px;
+        box-sizing: border-box;
+      }
+      #grownup .badge {
         position: absolute;
         right: 4px;
         bottom: 4px;
         background: #4ea8ff;
         border-radius: 10px;
         padding: 4px;
+      }
+      #grownup .count {
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        min-width: 26px;
+        height: 26px;
+        padding: 0 6px;
+        box-sizing: border-box;
+        border-radius: 13px;
+        background: #ff7a59;
+        color: #fff;
+        font: bold 16px/26px system-ui, sans-serif;
+        text-align: center;
+      }
+      #grownup .count:empty {
+        display: none;
       }
       @keyframes pop {
         from { transform: scale(0.3); opacity: 0; }
@@ -151,13 +189,23 @@
       </svg>
       <input type="file" accept="image/*" />
     </label>
-    <button id="share-photo" type="button" aria-label="Share the last photo">
-      <img alt="" />
-      <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
-        <path d="M12 3 V15 M7 8 L12 3 L17 8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="M5 12 V20 H19 V12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
-    </button>
+    <div id="grownup">
+      <button id="share-photo" type="button" aria-label="Share the last photo" hidden>
+        <img alt="" />
+        <svg class="badge" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+          <path d="M12 3 V15 M7 8 L12 3 L17 8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M5 12 V20 H19 V12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+      <button id="share-characters" type="button" aria-label="Save the characters as pictures" hidden>
+        <img alt="" />
+        <span class="count"></span>
+        <svg class="badge" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+          <path d="M12 3 V15 M7 8 L12 3 L17 8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M5 12 V20 H19 V12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

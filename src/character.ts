@@ -67,6 +67,10 @@ export class Character extends Container implements Reactable {
   readonly sprite: Sprite;
   readonly restY: number;
   readonly size: number;
+  /** The cut-out drawing itself (transparent background). */
+  readonly picture: HTMLCanvasElement;
+  /** Made from a photo (rather than one of the built-in samples). */
+  fromPhoto = false;
   private lastReaction: ReactionName | null = null;
   private cancelReaction?: () => void;
   private touchMap: TouchMap;
@@ -86,6 +90,7 @@ export class Character extends Container implements Reactable {
 
   constructor(picture: HTMLCanvasElement, startSize: number) {
     super();
+    this.picture = picture;
     this.picW = picture.width;
     this.picH = picture.height;
     this.sprite = new Sprite(Texture.from(picture));
