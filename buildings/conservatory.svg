@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 280" width="340" height="280">
+  <!-- The butterfly conservatory on the map: a glass dome full of plants, with butterflies on top. -->
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- the low glass wings either side -->
+    <path d="M14 272 L14 170 Q14 150 34 150 L104 150 L104 272 Z" fill="#c9f0e0" />
+    <path d="M326 272 L326 170 Q326 150 306 150 L236 150 L236 272 Z" fill="#c9f0e0" />
+    <!-- the big dome in the middle -->
+    <path d="M84 272 L84 150 Q84 40 170 40 Q256 40 256 150 L256 272 Z" fill="#d8f3dc" />
+    <!-- plants inside, seen through the glass -->
+    <path d="M100 272 Q96 200 130 170 Q120 220 132 272 Z" fill="#52b788" stroke-width="4" />
+    <path d="M150 272 Q150 160 196 120 Q176 200 176 272 Z" fill="#40916c" stroke-width="4" />
+    <path d="M206 272 Q210 200 240 180 Q232 230 236 272 Z" fill="#74c69d" stroke-width="4" />
+    <path d="M30 272 Q30 210 60 196 Q52 240 56 272 Z" fill="#52b788" stroke-width="4" />
+    <path d="M286 272 Q290 214 314 200 Q304 240 306 272 Z" fill="#40916c" stroke-width="4" />
+    <circle cx="118" cy="196" r="9" fill="#ff4d6d" stroke-width="3" />
+    <circle cx="226" cy="206" r="9" fill="#ffd166" stroke-width="3" />
+    <circle cx="48" cy="216" r="8" fill="#ff8fb1" stroke-width="3" />
+    <!-- the white frames of the glass -->
+    <path d="M84 150 L256 150 M84 210 L256 210 M128 60 L128 272 M170 40 L170 272 M212 60 L212 272" fill="none" stroke="#ffffff" stroke-width="7" />
+    <path d="M14 210 L104 210 M236 210 L326 210 M58 150 L58 272 M282 150 L282 272" fill="none" stroke="#ffffff" stroke-width="7" />
+    <path d="M84 272 L84 150 Q84 40 170 40 Q256 40 256 150 L256 272 Z" fill="none" />
+    <path d="M14 272 L14 170 Q14 150 34 150 L104 150 L104 272 Z M326 272 L326 170 Q326 150 306 150 L236 150 L236 272 Z" fill="none" />
+    <!-- a glint on the glass -->
+    <path d="M108 100 Q116 78 134 68" fill="none" stroke="#ffffff" stroke-width="8" />
+    <!-- a white doorway -->
+    <path d="M150 272 L150 232 Q170 214 190 232 L190 272 Z" fill="#ffffff" stroke-width="5" />
+    <!-- the little spire on top -->
+    <path d="M170 40 L170 14" fill="none" stroke-width="5" />
+    <circle cx="170" cy="12" r="7" fill="#ffd166" stroke-width="4" />
+    <!-- butterflies dancing round the top -->
+    <g stroke-width="3">
+      <ellipse cx="96" cy="44" rx="11" ry="13" fill="#ff8c00" /><ellipse cx="118" cy="44" rx="11" ry="13" fill="#ff8c00" />
+      <path d="M107 32 L107 58" stroke-width="4" />
+      <ellipse cx="238" cy="26" rx="10" ry="12" fill="#4ea8ff" /><ellipse cx="258" cy="26" rx="10" ry="12" fill="#4ea8ff" />
+      <path d="M248 15 L248 39" stroke-width="4" />
+      <ellipse cx="296" cy="96" rx="9" ry="11" fill="#ff8fb1" /><ellipse cx="314" cy="96" rx="9" ry="11" fill="#ff8fb1" />
+      <path d="M305 86 L305 106" stroke-width="4" />
+    </g>
+  </g>
+</svg>

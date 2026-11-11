@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 280" width="320" height="280">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+
+    <path d="M60 110 L260 110 L260 270 L60 270 Z" fill="#dee2e6" />
+    <path d="M20 70 L80 70 L80 270 L20 270 Z M240 70 L300 70 L300 270 L240 270 Z" fill="#ced4da" />
+    <path d="M20 70 L20 50 L34 50 L34 62 L44 62 L44 50 L56 50 L56 62 L66 62 L66 50 L80 50 L80 70 Z" fill="#ced4da" />
+    <path d="M240 70 L240 50 L254 50 L254 62 L264 62 L264 50 L276 50 L276 62 L286 62 L286 50 L300 50 L300 70 Z" fill="#ced4da" />
+    <path d="M80 110 L80 92 L100 92 L100 104 L120 104 L120 92 L140 92 L140 104 L180 104 L180 92 L200 92 L200 104 L220 104 L220 92 L240 92 L240 110 Z" fill="#dee2e6" />
+    <path d="M14 70 L50 18 L86 70 Z M234 70 L270 18 L306 70 Z" fill="#4ea8ff" />
+    <path d="M50 18 L50 0 M270 18 L270 0" fill="none" stroke-width="4" />
+    <path d="M50 2 L72 9 L50 16 Z M270 2 L292 9 L270 16 Z" fill="#e5383b" stroke-width="3" />
+    <path d="M130 270 L130 200 Q160 170 190 200 L190 270 Z" fill="#8d5524" />
+    <path d="M140 210 L180 210 M140 230 L180 230 M140 250 L180 250" fill="none" stroke-width="3" />
+    <path d="M40 120 L40 150 M60 120 L60 150 M260 120 L260 150 M280 120 L280 150" fill="none" stroke-width="5" />
+    <path d="M100 150 Q110 130 120 150 Z M200 150 Q210 130 220 150 Z" fill="#2b2d42" stroke-width="4" />
+  </g>
+</svg>
