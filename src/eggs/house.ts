@@ -44,13 +44,26 @@ export function kitchen(kit: EggKit, cleanups: Cleanups) {
       cones.ellipse(x, y, 22, 6).fill(0xfff8d6);
     });
   };
-  const pendantSpots = xs.map((px, i) =>
-    hotspot(kit, new Rectangle(w * px - 34, h * 0.12, 68, h * 0.14), () => {
+  // The lights themselves: drawn here (not in the background) so nothing,
+  // like the window blind behind the middle one, can hide them.
+  const pendantSpots = xs.map((px, i) => {
+    const spot = hotspot(kit, new Rectangle(w * px - 34, h * 0.12, 68, h * 0.14), () => {
       lit[i] = !lit[i];
       sfx.click();
+      drawLamp();
       drawCones();
-    }),
-  );
+    });
+    const lamp = new Graphics();
+    const drawLamp = () => {
+      const x = w * px;
+      lamp.clear().moveTo(x, 0).lineTo(x, h * 0.16).stroke({ width: 3, color: 0x1f1f1f });
+      lamp.poly([x - 26, h * 0.24, x + 26, h * 0.24, x + 14, h * 0.16, x - 14, h * 0.16]).fill(0x2b2b2b).stroke({ width: 3, color: INK });
+      lamp.ellipse(x, h * 0.24, 22, 5).fill(lit[i] ? 0xfffbe6 : 0xd9d2b8);
+    };
+    drawLamp();
+    spot.addChild(lamp);
+    return spot;
+  });
 
   // --- microwave: hums, dings, and popcorn pops out ---
   const mx = w * 0.675, my = h * 0.195, mw = w * 0.09, mh = h * 0.07;
@@ -247,11 +260,11 @@ export function lounge(kit: EggKit, cleanups: Cleanups) {
   glows.eventMode = 'none';
   kit.over.addChild(glows);
   let lampOn = false;
-  hotspot(kit, new Rectangle(w * 0.6, h * 0.28, w * 0.075, h * 0.44), () => {
+  hotspot(kit, new Rectangle(w * 0.578, h * 0.28, w * 0.075, h * 0.44), () => {
     lampOn = !lampOn;
     sfx.click();
     glows.clear();
-    if (lampOn) glow(glows, w * 0.638, h * 0.34, w * 0.1, 0xfff3c4, 1.8);
+    if (lampOn) glow(glows, w * 0.615, h * 0.34, w * 0.1, 0xfff3c4, 1.8);
   });
 
   // --- the ceiling light: disco time! ---

@@ -320,8 +320,8 @@ export const PLACES: PlaceDef[] = [
         if (i === 2) g.poly([fx + 8, fy + fh - 8, fx + fw * 0.4, fy + fh * 0.4, fx + fw - 8, fy + fh - 8]).fill(0x6c757d);
       });
       // floor lamp
-      g.rect(w * 0.635, h * 0.36, 6, h * 0.36 - 6).fill(0x6c757d);
-      g.poly([w * 0.605, h * 0.38, w * 0.67, h * 0.38, w * 0.655, h * 0.29, w * 0.62, h * 0.29]).fill(0xffffff).stroke({ width: 3, color: INK });
+      g.rect(w * 0.612, h * 0.36, 6, h * 0.36 - 6).fill(0x6c757d);
+      g.poly([w * 0.583, h * 0.38, w * 0.647, h * 0.38, w * 0.632, h * 0.29, w * 0.598, h * 0.29]).fill(0xffffff).stroke({ width: 3, color: INK });
     },
   },
   {
@@ -378,12 +378,7 @@ export const PLACES: PlaceDef[] = [
       // island: white top, dark base
       g.rect(w * 0.22, h * 0.6, w * 0.5, fy + h * 0.1 - h * 0.6).fill(0x1b1f2e).stroke({ width: 5, color: 0xffffff });
       g.rect(w * 0.2, h * 0.58, w * 0.54, h * 0.03).fill(0xffffff).stroke({ width: 3, color: INK });
-      // three black pendant lights
-      for (const px of [0.3, 0.47, 0.64]) {
-        g.moveTo(w * px, 0).lineTo(w * px, h * 0.16).stroke({ width: 3, color: 0x1f1f1f });
-        g.poly([w * px - 26, h * 0.24, w * px + 26, h * 0.24, w * px + 14, h * 0.16, w * px - 14, h * 0.16]).fill(0x2b2b2b).stroke({ width: 3, color: INK });
-        g.ellipse(w * px, h * 0.24, 22, 5).fill(0xfff3c4);
-      }
+      // (the three black pendant lights are drawn in front of everything, in eggs/house.ts)
       // a black-and-white picture on the left wall
       frame(g, w * 0.01, h * 0.12, w * 0.12, h * 0.2);
       g.moveTo(w * 0.04, h * 0.3).quadraticCurveTo(w * 0.07, h * 0.12, w * 0.1, h * 0.3).fill(0x9a9a9a);
