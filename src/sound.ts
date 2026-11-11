@@ -196,6 +196,14 @@ export const sfx = {
   poof() {
     hiss({ dur: 0.35, vol: 0.3, from: 2500, to: 300, q: 0.8 });
   },
+  /** Chalk on the blackboard (very short and soft; plays while drawing). */
+  chalk() {
+    hiss({ dur: 0.06, vol: 0.05, from: 3500, to: 5500, q: 2.5 });
+  },
+  /** The duster wiping the board. */
+  wipe() {
+    hiss({ dur: 0.45, vol: 0.18, from: 1200, to: 2600, q: 0.9 });
+  },
   /** Going into a building. */
   dingDong() {
     tone({ type: 'triangle', from: 880, dur: 0.35, vol: 0.18 });

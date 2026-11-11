@@ -1,4 +1,5 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js';
+import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { FlipButton } from './flipButton';
@@ -190,9 +191,9 @@ async function saveNow() {
   }
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') void saveNow();
+  if (document.visibilityState === 'hidden') void saveNow().then(saveChalk);
 });
-window.addEventListener('pagehide', () => void saveNow());
+window.addEventListener('pagehide', () => void saveNow().then(saveChalk));
 
 // --- Gestures and the flip button ---
 const gestures = new GestureController(app, characters);
@@ -253,6 +254,59 @@ async function pictureFor(ref: Ref): Promise<HTMLCanvasElement | null> {
   return library.picture(ref.id) ?? null;
 }
 
+// --- Blackboards you can draw on (the school) ---
+let chalk: Chalkboard | null = null;
+let chalkPlace: PlaceId | null = null;
+let chalkTimer = 0;
+let lastScritch = 0;
+
+function layoutChalk() {
+  const place = chalkPlace && placeById(chalkPlace);
+  if (!chalk || !place?.chalkboard) return;
+  chalk.layout(place.chalkboard(app.screen.width, app.screen.height), app.renderer.resolution);
+}
+
+async function saveChalk() {
+  clearTimeout(chalkTimer);
+  if (!chalk || !chalkPlace) return;
+  try {
+    await storage.setSetting(`chalk:${chalkPlace}`, chalk.getStrokes());
+  } catch (err) {
+    console.warn('Could not save the blackboard', err);
+  }
+}
+
+async function setupChalk(id: PlaceId) {
+  removeChalk();
+  const place = placeById(id);
+  if (!place?.chalkboard) return;
+  chalk = new Chalkboard();
+  chalkPlace = id;
+  world.addChildAt(chalk, world.getChildIndex(backdrop) + 1);
+  layoutChalk();
+  const rect = place.chalkboard(app.screen.width, app.screen.height);
+  const saved = await storage.getSetting<ChalkStroke[]>(`chalk:${id}`).catch(() => undefined);
+  chalk.setStrokes(saved ?? startingDoodles(rect.w / rect.h));
+  chalk.onChange = () => {
+    clearTimeout(chalkTimer);
+    chalkTimer = window.setTimeout(() => void saveChalk(), 600);
+  };
+  chalk.onScritch = () => {
+    const now = performance.now();
+    if (now - lastScritch > 110) (lastScritch = now), sfx.chalk();
+  };
+  chalk.onWipe = () => sfx.wipe();
+  chalk.onPickChalk = () => sfx.pickup(1.5);
+}
+
+function removeChalk() {
+  if (!chalk) return;
+  void saveChalk();
+  chalk.destroy({ children: true });
+  chalk = null;
+  chalkPlace = null;
+}
+
 function clearCharacters() {
   for (const ch of [...characters.children] as Character[]) {
     gestures.release(ch);
@@ -268,6 +322,7 @@ async function showPlace(id: PlaceId) {
   clearCharacters();
   current = id;
   drawBackdrop();
+  await setupChalk(id);
   const saved = await storage.loadScene(id).catch(() => null);
   const { width: W, height: H } = app.screen;
   if (saved) {
@@ -380,6 +435,7 @@ async function goBack() {
       () => (toHouse ? houseView.roomCentre(from as RoomId) : street.buildingCentre(from)),
       () => {
         clearCharacters();
+        removeChalk();
         current = null;
         backdrop.clear();
       },
@@ -527,6 +583,7 @@ app.renderer.on('resize', () => {
   houseView.layout(app.screen.width, app.screen.height, season);
   weather.resize(app.screen.width, app.screen.height);
   drawBackdrop();
+  layoutChalk();
   for (const ch of characters.children as Character[]) gestures.keepOnScreen(ch);
   saveSoon();
 });
@@ -577,6 +634,7 @@ if (import.meta.env.DEV) {
   Object.assign(window, {
     app, gestures, characters, library, storage, street, houseView, saveNow, enterPlace, enterHouse, goBack,
     screen: () => screen,
+    chalk: () => chalk,
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
   });
 }

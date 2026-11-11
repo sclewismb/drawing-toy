@@ -64,6 +64,8 @@ export interface PlaceDef {
   drawBackdrop: (g: Graphics, w: number, h: number, season: Season) => void;
   /** Outdoors: falling blossom, leaves or snow show here too. */
   outdoors?: boolean;
+  /** A blackboard you can draw on: where it is on a w x h screen. */
+  chalkboard?: (w: number, h: number) => { x: number; y: number; w: number; h: number };
 }
 
 const INK = 0x3a3a3a;
@@ -401,34 +403,19 @@ export const PLACES: PlaceDef[] = [
     id: 'school',
     toys: ['school-desk', 'globe', 'books'],
     start: [
-      { name: 'school-desk', x: 0.3, y: 0.82 },
-      { name: 'school-desk', x: 0.62, y: 0.82 },
+      { name: 'school-desk', x: 0.3, y: 0.86 },
+      { name: 'school-desk', x: 0.62, y: 0.86 },
       { name: 'globe', x: 0.88, y: 0.7 },
       { name: 'books', x: 0.12, y: 0.86 },
     ],
+    chalkboard: (w, h) => ({ x: w * 0.2, y: h * 0.08, w: w * 0.6, h: h * 0.4 }),
     drawBackdrop(g, w, h) {
       floorAndWall(g, w, h, 0xfff3b0, 0xc68b59);
-      // blackboard with chalk doodles (no words)
-      const x = w * 0.22, y = h * 0.1, bw = w * 0.56, bh = h * 0.36;
-      g.roundRect(x - 12, y - 12, bw + 24, bh + 24, 10).fill(0xa0522d).stroke({ width: 6, color: INK });
+      // blackboard (you can draw on it: see chalkboard.ts) with a ledge for the chalk
+      const x = w * 0.2, y = h * 0.08, bw = w * 0.6, bh = h * 0.4;
+      g.roundRect(x - 14, y - 14, bw + 28, bh + 28, 10).fill(0xa0522d).stroke({ width: 6, color: INK });
       g.rect(x, y, bw, bh).fill(0x2f6f4f);
-      const chalk = { width: 5, color: 0xffffff, alpha: 0.85 };
-      const sx = x + bw * 0.2, sy = y + bh * 0.4, sr = bh * 0.14;
-      g.circle(sx, sy, sr).stroke(chalk);
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        g.moveTo(sx + Math.cos(a) * sr * 1.3, sy + Math.sin(a) * sr * 1.3).lineTo(sx + Math.cos(a) * sr * 1.8, sy + Math.sin(a) * sr * 1.8);
-      }
-      g.stroke(chalk);
-      const fx = x + bw * 0.55, fy = y + bh * 0.5, fr = bh * 0.22;
-      g.circle(fx, fy, fr).stroke(chalk);
-      g.circle(fx - fr * 0.35, fy - fr * 0.2, 4).circle(fx + fr * 0.35, fy - fr * 0.2, 4).fill({ color: 0xffffff, alpha: 0.85 });
-      const sr2 = fr * 0.55;
-      g.moveTo(fx + Math.cos(0.3) * sr2, fy + Math.sin(0.3) * sr2).arc(fx, fy, sr2, 0.3, Math.PI - 0.3).stroke(chalk);
-      // a little chalk house
-      const hx = x + bw * 0.82, hy = y + bh * 0.5, hs = bh * 0.16;
-      g.rect(hx - hs, hy - hs * 0.2, hs * 2, hs * 1.6).stroke(chalk);
-      g.moveTo(hx - hs * 1.3, hy - hs * 0.2).lineTo(hx, hy - hs * 1.3).lineTo(hx + hs * 1.3, hy - hs * 0.2).stroke(chalk);
+      g.roundRect(x - 24, y + bh + 10, bw + 48, 16, 6).fill(0xc68b59).stroke({ width: 4, color: INK });
       // clock
       const cx = w * 0.9, cy = h * 0.18, cr = Math.min(w, h) * 0.06;
       g.circle(cx, cy, cr).fill(0xffffff).stroke({ width: 6, color: INK });
