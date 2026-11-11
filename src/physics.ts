@@ -51,6 +51,10 @@ export const FURNITURE: Record<string, { top: number; bounce?: number }> = {
   'police-car': { top: 0.2 },
   'rocking-horse': { top: 0.36 },
   wheelbarrow: { top: 0.25 },
+  piano: { top: 0.14 },
+  bookshelf: { top: 0.03 },
+  'dump-truck': { top: 0.22 },
+  'pirate-ship': { top: 0.66 },
 };
 
 /**
@@ -121,6 +125,10 @@ export const SHELVES: Partial<Record<PlaceId, [x0: number, x1: number, y: number
   ],
   niagara: [
     [1.04, 1.76, 0.36], // the bridge
+  ],
+  conservatory: [
+    [1.42, 1.6, 0.655], // the bench
+    [-0.22, -0.12, 0.6], // the fruit stump
   ],
 };
 

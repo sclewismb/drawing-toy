@@ -447,7 +447,10 @@ export function bedroomB(kit: EggKit, cleanups: Cleanups) {
       });
     };
     (b as Container & { fly?: () => void }).fly = fly;
-    tappable(b, fly, new Rectangle(-24, -24, 48, 48));
+    tappable(b, () => {
+      fly();
+      kit.events?.emit('butterfly', i);
+    }, new Rectangle(-24, -24, 48, 48));
   });
 
   // --- ceiling fan: tap to spin it up (the butterflies love it) ---

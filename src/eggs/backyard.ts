@@ -83,6 +83,7 @@ export function backyard(kit: EggKit, cleanups: Cleanups) {
   const sx = w * 0.3, sy = h * 0.64, sw = w * 0.14, sh = h * 0.07;
   hotspot(kit, new Rectangle(sx, sy - 10, sw, sh + 20), oneAtATime((done) => {
     sfx.brrr();
+    kit.events?.emit('dig');
     for (let i = 0; i < 14; i++) {
       tumble(kit, new Graphics().circle(0, 0, rand(2, 4)).fill(winter ? 0xffffff : 0xe9c46a), sx + sw / 2, sy + sh / 2, sy + sh, { vy: rand(-0.6, -0.3), vx: rand(-0.2, 0.2) });
     }

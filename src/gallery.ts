@@ -1,5 +1,6 @@
 import type { Library } from './library';
 import { sfx } from './sound';
+import type { Shelf } from './toyGroups';
 
 export type GalleryPick = { kind: 'sample'; name: string } | { kind: 'photo'; id: string };
 
@@ -8,8 +9,9 @@ const DISARM_AFTER_MS = 5000;
 
 /**
  * The toy box: a big button bottom-right that opens a shelf of every
- * character and toy (newest drawings first, then the built-in ones). No
- * words anywhere.
+ * character and toy, sorted under picture tabs (this place's toys, the
+ * drawings, animals, toys, things that go, furniture, food, outdoors,
+ * treasures). No words anywhere.
  *
  *  - Tap a tile: that character pops into the scene (copies are fine).
  *  - Drag a character onto the toy box: it's put away (main.ts does that).
@@ -19,28 +21,59 @@ const DISARM_AFTER_MS = 5000;
  */
 export function setupGallery(opts: {
   library: Library;
-  /** Built-in characters and toys to show after the drawings (this place's first). */
-  builtins: () => { name: string; url: string }[];
+  /** The built-in characters and toys, in tabs (see toyGroups.ts). The drawings tab is added here. */
+  shelves: () => Shelf[];
   onPick: (pick: GalleryPick) => void;
   onDelete: (id: string) => void;
 }) {
   const button = document.getElementById('toybox')!;
   const shelf = document.getElementById('shelf')!;
   const row = shelf.querySelector('.row')!;
+  const tabBar = shelf.querySelector('.tabs')!;
   let thumbUrls: string[] = [];
   let open = false;
+  /** The tab showing (kept while the app is open). */
+  let tab: string | null = null;
+  const LABELS: Record<string, string> = { here: 'Here', drawings: 'Drawings', animals: 'Animals and people', toys: 'Toys', go: 'Things that go', home: 'Furniture', food: 'Food', outside: 'Outside', treasure: 'Treasures' };
 
   function render() {
     thumbUrls.forEach((u) => URL.revokeObjectURL(u));
     thumbUrls = [];
-    const tiles: HTMLElement[] = [];
-    for (const e of [...opts.library.mine()].reverse()) {
-      const url = URL.createObjectURL(e.png);
-      thumbUrls.push(url);
-      tiles.push(makeTile({ kind: 'photo', id: e.id }, url, true));
+    const tabs = opts.shelves()
+      .filter((s) => s.items.length)
+      .map((s) => ({ id: s.id as string, icon: s.icon, tiles: () => s.items.map((it) => makeTile({ kind: 'sample', name: it.name }, it.url, false)) }));
+    // the drawings (newest first) get their own tab, second, with the newest one as its picture
+    const mine = [...opts.library.mine()].reverse();
+    if (mine.length) {
+      const urls = mine.map((e) => URL.createObjectURL(e.png));
+      thumbUrls.push(...urls);
+      tabs.splice(Math.min(1, tabs.length), 0, { id: 'drawings', icon: urls[0], tiles: () => mine.map((e, i) => makeTile({ kind: 'photo', id: e.id }, urls[i], true)) });
     }
-    for (const s of opts.builtins()) tiles.push(makeTile({ kind: 'sample', name: s.name }, s.url, false));
-    row.replaceChildren(...tiles);
+    if (!tabs.length) return;
+    if (!tab || !tabs.some((t) => t.id === tab)) tab = mine.length ? 'drawings' : tabs[0].id;
+    tabBar.replaceChildren(
+      ...tabs.map((t) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = t.id === tab ? 'tab on' : 'tab';
+        b.setAttribute('aria-label', LABELS[t.id] ?? t.id);
+        const img = new Image();
+        img.src = t.icon;
+        img.alt = '';
+        img.draggable = false;
+        b.append(img);
+        b.addEventListener('contextmenu', (e) => e.preventDefault());
+        b.addEventListener('click', () => {
+          if (tab === t.id) return;
+          tab = t.id;
+          sfx.click();
+          render();
+          row.scrollLeft = 0;
+        });
+        return b;
+      }),
+    );
+    row.replaceChildren(...tabs.find((t) => t.id === tab)!.tiles());
   }
 
   function makeTile(pick: GalleryPick, src: string, deletable: boolean) {

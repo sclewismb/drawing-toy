@@ -5,6 +5,7 @@ import { drawFair, FAIR } from './fair';
 import { drawRestaurant, drawToyshop, drawVet, SHOP_WIDE } from './shops';
 import { fireWide, parkWide, policeWide, schoolWide, TOWN_WIDE } from './townWide';
 import { drawZoo, ZOO } from './zoo';
+import { CONSERVATORY, drawConservatory } from './conservatory';
 import { drawNiagara, drawNinja, NIAGARA, NINJA } from './destinations';
 import type { Season } from './seasons';
 
@@ -43,6 +44,7 @@ export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
   zoo: { left: ZOO.left, right: ZOO.right, draw: drawZoo },
   ninja: { left: NINJA.left, right: NINJA.right, draw: drawNinja },
   niagara: { left: NIAGARA.left, right: NIAGARA.right, draw: drawNiagara },
+  conservatory: { left: CONSERVATORY.left, right: CONSERVATORY.right, draw: drawConservatory },
 };
 
 /** Wall and carpet across a stretch of a bedroom. */

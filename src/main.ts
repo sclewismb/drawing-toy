@@ -6,7 +6,7 @@ import { createEggs, createHouseEggs, createStreetEggs } from './eggs';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { FlipButton } from './flipButton';
-import { burst } from './fx';
+import { burst, hearts } from './fx';
 import { setupGallery, type GalleryPick } from './gallery';
 import { GestureController } from './gestures';
 import { Library } from './library';
@@ -21,11 +21,13 @@ import { MOTIONS } from './library';
 import { MoveButton } from './moveButton';
 import { feetOf, furnitureSurface, Physics, SHELVES, type Surface, type World } from './physics';
 import { SOUND_FOR } from './reactions';
+import { Bus, FOOD_FOR, TREASURES, type Lock, type SecretsApi } from './secrets';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
 import { SEASONS, Weather, type Season } from './seasons';
 import { Sky } from './sky';
 import { StreetView } from './street';
+import { shelves } from './toyGroups';
 import { WIDE } from './wideRooms';
 import { ease, tween } from './tween';
 
@@ -392,6 +394,11 @@ physics.onLand = (ch, speed, bounced, on) => {
   if (speed > 0.9) ch.react('squish');
 };
 physics.onSettle = (ch, on, spun) => {
+  // thrown onto a secret spot, or onto a hungry animal?
+  if (aimed.has(ch)) {
+    aimed.delete(ch);
+    if (checkTargets(ch) === 'used') return;
+  }
   sfx.drop(voice(ch));
   if (on?.owner) {
     restingOn.set(ch, on.owner);
@@ -580,6 +587,7 @@ let eggsCleanup: (() => void) | null = null;
 function teardownEggs() {
   eggsCleanup?.();
   eggsCleanup = null;
+  locks = [];
   for (const layer of [eggsUnder, eggsOver, roomSparkles]) {
     for (const c of layer.removeChildren()) c.destroy({ children: true });
   }
@@ -588,8 +596,168 @@ function teardownEggs() {
 function setupEggs(id: PlaceId) {
   teardownEggs();
   const { x0, x1 } = roomEdges(id, panel);
-  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky });
+  events = new Bus();
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, secrets, events });
 }
+
+// --- Secrets: deeper surprises (see secrets.ts and eggs/secrets.ts) ---
+/** What this player has found ("toy:crown" = the crown is in their toy box now). */
+let found = new Set<string>();
+/** Spots in this place that something can be dropped onto. */
+let locks: Lock[] = [];
+/** This place's surprises tell its secrets what happened. */
+let events = new Bus();
+
+async function loadSecrets() {
+  found = new Set((await storage.getMine<string[]>('secrets').catch(() => undefined)) ?? []);
+}
+
+const secrets: SecretsApi = {
+  has: (id) => found.has(id),
+  find(id, toy, at) {
+    const first = !found.has(id);
+    found.add(id);
+    if (toy) found.add(`toy:${toy}`);
+    void storage.setMine('secrets', [...found]).catch(() => {});
+    if (first) setTimeout(() => sfx.tune([784, 988, 1175, 1568], 0.11), 250);
+    if (!toy || !current) return;
+    const place = current;
+    void pictureFor({ kind: 'sample', name: toy }).then((pic) => {
+      if (!pic || current !== place) return;
+      const p = at ?? toRoom(app.screen.width / 2, app.screen.height * 0.4);
+      const ch = addCharacter(pic, { kind: 'sample', name: toy }, p, true);
+      setTimeout(() => letGo(ch), 650);
+    });
+  },
+  lock(l) {
+    locks.push(l);
+  },
+};
+
+/** A character's box in room coordinates. */
+function roomBox(ch: Character) {
+  const b = ch.getBounds();
+  const a = toRoom(b.minX, b.minY), c = toRoom(b.maxX, b.maxY);
+  return { x: a.x, y: a.y, w: c.x - a.x, h: c.y - a.y };
+}
+type Box = ReturnType<typeof roomBox>;
+/** Is the middle of `box` over `r` (with a little slack)? */
+function over(box: Box, r: Box, slack = 0.25) {
+  const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  const mx = box.w * slack, my = box.h * slack;
+  return cx > r.x - mx && cx < r.x + r.w + mx && cy > r.y - my && cy < r.y + r.h + my;
+}
+
+/** Used up: it shrinks away into `to` (a lock, or an animal's mouth). */
+function gobble(ch: Character, to: { x: number; y: number }, ms = 380) {
+  gestures.release(ch);
+  physics.stop(ch);
+  ch.eventMode = 'none';
+  const from = { x: ch.x, y: ch.y, s: ch.scale.x };
+  tween(
+    ms,
+    (t) => {
+      const e = ease.inOutSine(t);
+      ch.x = from.x + (to.x - from.x) * e;
+      ch.y = from.y + (to.y - from.y) * e;
+      ch.scale.set(Math.max(0.01, from.s * (1 - e)));
+    },
+    () => {
+      characters.removeChild(ch);
+      ch.destroy({ children: true });
+      saveSoon();
+    },
+  );
+}
+
+/** Food dropped onto an animal (or person) that likes it: munch munch, hearts. */
+function feed(food: Character) {
+  if (food.ref.kind !== 'sample') return false;
+  const name = food.ref.name;
+  const box = roomBox(food);
+  const eater = (characters.children as Character[])
+    .filter((o) => o !== food && !o.destroyed && o.ref.kind === 'sample' && FOOD_FOR[o.ref.name]?.includes(name))
+    .reverse()
+    .find((o) => over(box, roomBox(o), 0.4));
+  if (!eater) return false;
+  const e = roomBox(eater);
+  const mouth = { x: e.x + e.w * (eater.facing === 1 ? 0.65 : 0.35), y: e.y + e.h * 0.3 };
+  gobble(food, mouth, 450);
+  const brain = wanderers.get(eater);
+  brain?.rest(2600);
+  if (brain instanceof Wanderer) brain.face(food.x);
+  [450, 620, 790].forEach((ms, i) => setTimeout(() => sfx.pop(1.6 - i * 0.15), ms));
+  setTimeout(() => {
+    if (eater.destroyed) return;
+    hearts(roomSparkles, e.x + e.w / 2, e.y + e.h * 0.2);
+    eater.react('super');
+    if (brain instanceof Wanderer) {
+      brain.kind.voice();
+      brain.doTrick('jump');
+    } else sfx.yippee(voice(eater));
+    if (eater.ref.kind === 'sample') secrets.find(`fed:${eater.ref.name}`);
+  }, 950);
+  return true;
+}
+
+/** The magic wand dropped onto someone: a colour change, a grow, a shrink or a whirl. */
+const WAND_COLOURS = [0xff9ecf, 0x9ad0ff, 0xa8f0a0, 0xffe066, 0xc9a7ff, 0xffb38a];
+let spell = 0;
+function wave(wand: Character) {
+  if (wand.ref.kind !== 'sample' || wand.ref.name !== 'magic-wand') return false;
+  const box = roomBox(wand);
+  const target = (characters.children as Character[])
+    .filter((o) => o !== wand && !o.destroyed && o.eventMode !== 'none')
+    .reverse()
+    .find((o) => over(box, roomBox(o), 0.3));
+  if (!target) return false;
+  sfx.twinkle();
+  const p = target.getGlobalPosition();
+  burst(sparkles, p.x, p.y, 20, 170);
+  const kind = spell++ % 5;
+  if (kind === 0 || kind === 3) {
+    // a new colour (back to normal after the last one)
+    const i = WAND_COLOURS.indexOf(target.sprite.tint as number);
+    target.sprite.tint = i === WAND_COLOURS.length - 1 ? 0xffffff : WAND_COLOURS[(i + 1) % WAND_COLOURS.length];
+    target.react('squish');
+  } else if (kind === 1 || kind === 4) {
+    // bigger or smaller
+    const from = target.scale.x;
+    const to = from > 1.3 ? from * 0.55 : from < 0.75 ? from * 1.6 : from * (Math.random() < 0.5 ? 1.5 : 0.65);
+    sfx.slideWhistle(to > from ? 1.2 : 0.8);
+    tween(500, (t) => !target.destroyed && target.scale.set(from + (to - from) * ease.outBack(t)), () => saveSoon());
+  } else {
+    sfx.yippee(voice(target));
+    target.react('super');
+  }
+  return true;
+}
+
+/** Something was let go: is it on a secret spot, a hungry animal, or is it the wand? */
+function checkTargets(ch: Character): 'used' | 'kept' | null {
+  if (!current || ch.destroyed || ch.ref.kind !== 'sample') return null;
+  const name = ch.ref.name;
+  const box = roomBox(ch);
+  for (const l of [...locks].reverse()) {
+    if (!l.accepts.includes(name)) continue;
+    const a = l.area();
+    if (!over(box, a)) continue;
+    let keep: boolean | void = false;
+    try {
+      keep = l.open(name);
+    } catch (err) {
+      console.warn('Secret failed', err);
+    }
+    if (keep) return 'kept';
+    gobble(ch, { x: a.x + a.w / 2, y: a.y + a.h / 2 });
+    return 'used';
+  }
+  if (feed(ch)) return 'used';
+  if (wave(ch)) return 'kept';
+  return null;
+}
+/** Let go and missed: check again where it lands (thrown onto something). */
+const aimed = new WeakSet<Character>();
 
 // Surprises on the street and outside the house (rebuilt when they're laid out again).
 let viewEggsCleanup: (() => void) | null = null;
@@ -850,11 +1018,12 @@ document.getElementById('map-button')!.addEventListener('click', () => void goBa
 // --- The toy box: a shelf of every character and toy, and somewhere to put them away ---
 const gallery = setupGallery({
   library,
-  builtins() {
-    const here = current ? placeById(current)!.toys : [];
-    // this place's toys, then the animals and people, then everything else
-    const names = [...new Set([...here, ...Object.keys(CRITTERS), 'monster', 'cat', 'robot', ...PLACES.flatMap((p) => p.toys)])];
-    return names.map((name) => ({ name, url: builtinUrl(name) }));
+  shelves() {
+    const place = current ? placeById(current) : undefined;
+    // this place's tab shows its building from the map (the house for its rooms and garden)
+    const building = STREET.find((s) => s.id === (place?.parent ?? current))?.building ?? 'buildings/house.svg';
+    const treasures = new Set(Object.keys(TREASURES).filter((t) => found.has(`toy:${t}`)));
+    return shelves(place?.toys ?? [], treasures, builtinUrl, base + building);
   },
   async onPick(pick: GalleryPick) {
     if (!current) return;
@@ -951,6 +1120,9 @@ gestures.onDrop = (ch, x, y, vx, vy) => {
   gallery.highlight(false);
   gallery.hint(false);
   if (gallery.isOver(x, y)) return putAway(ch);
+  const hit = checkTargets(ch);
+  if (hit === 'used') return;
+  if (!hit) aimed.add(ch);
   const speed = Math.hypot(vx, vy);
   if (speed > 0.7) sfx.whoosh();
   follow = speed > 0.7 ? { ch } : null;
@@ -1043,6 +1215,7 @@ async function startAs(id: PlayerId, resume = false) {
   player = id;
   storage.setProfile(id);
   library.player = id;
+  await loadSecrets();
   try {
     sessionStorage.setItem('player', id);
   } catch {
@@ -1119,6 +1292,7 @@ if (import.meta.env.DEV) {
     chalk: () => chalk,
     eggsUnder,
     eggsOver,
+    secrets: () => ({ found, locks, events, checkTargets }),
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
   });
 }

@@ -443,6 +443,7 @@ export function schoolWideEggs(kit: EggKit, cleanups: Cleanups) {
     kit.under.addChild(bar);
     tappable(bar, () => {
       sfx.tune([f], 0.2);
+      kit.events?.emit('note', i);
       tween(220, (t) => (bar.y = ty - 8 + Math.sin(t * Math.PI) * 6));
     }, new Rectangle(-barW / 2, -bh - 10, barW, bh + 14));
   });

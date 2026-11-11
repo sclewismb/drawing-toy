@@ -155,13 +155,26 @@ export function vet(kit: EggKit, cleanups: Cleanups) {
       for (let i = 0; i < 7; i++) xray.moveTo(xx + xw * (0.25 + i * 0.07), cy - 18).lineTo(xx + xw * (0.25 + i * 0.07), cy + 18).stroke({ width: 3, color: 0xffffff });
       xray.circle(xx + xw * 0.82, cy, 12).stroke({ width: 4, color: 0xffffff });
       xray.poly([xx + xw * 0.15, cy, xx + xw * 0.05, cy - 16, xx + xw * 0.05, cy + 16]).stroke({ width: 3, color: 0xffffff });
+    } else if (showing === 2) {
+      // ...a dinosaur?! (a long neck, a long tail, and lots of ribs)
+      const X = (f: number) => xx + xw * f, Y = (f: number) => xy + xh * f;
+      xray.moveTo(X(0.04), Y(0.62)).quadraticCurveTo(X(0.25), Y(0.4), X(0.45), Y(0.45)).quadraticCurveTo(X(0.62), Y(0.48), X(0.7), Y(0.3)).quadraticCurveTo(X(0.75), Y(0.18), X(0.84), Y(0.17)).stroke({ width: 4, color: 0xffffff });
+      for (let i = 0; i < 6; i++) {
+        const fx = 0.3 + i * 0.045;
+        xray.moveTo(X(fx), Y(0.44)).quadraticCurveTo(X(fx + 0.02), Y(0.58), X(fx), Y(0.66)).stroke({ width: 2.5, color: 0xffffff });
+      }
+      for (const lx of [0.3, 0.37, 0.5, 0.56]) xray.moveTo(X(lx), Y(0.55)).lineTo(X(lx + 0.02), Y(0.72)).lineTo(X(lx), Y(0.88)).lineTo(X(lx + 0.04), Y(0.88)).stroke({ width: 3.5, color: 0xffffff });
+      xray.roundRect(X(0.82), Y(0.11), xw * 0.13, xh * 0.1, 6).stroke({ width: 3, color: 0xffffff });
+      xray.circle(X(0.88), Y(0.14), 2.5).fill(0xffffff);
+      for (let i = 0; i < 4; i++) xray.moveTo(X(0.84 + i * 0.03), Y(0.21)).lineTo(X(0.85 + i * 0.03), Y(0.24)).stroke({ width: 2, color: 0xffffff });
     }
   };
   drawXray();
   tappable(xray, () => {
-    showing = showing === 1 ? -1 : showing + 1;
+    showing = showing === 2 ? -1 : showing + 1;
     sfx.click();
-    if (showing >= 0) sfx.twinkle();
+    if (showing === 2) sfx.rawr();
+    else if (showing >= 0) sfx.twinkle();
     drawXray();
   }, new Rectangle(xx - 8, xy - 8, xw + 16, xh + 16));
 
@@ -474,6 +487,7 @@ export function toyshop(kit: EggKit, cleanups: Cleanups) {
     sfx.tune([523, 587, 659, 523, 659, 523, 659], 0.14);
     later(1050, () => {
       sfx.boing(1.3);
+      kit.events?.emit('jack');
       later(80, () => sfx.giggle(1.4), cleanups);
       tween(200, (t) => (lid.rotation = -2 * t));
       tween(500, (t) => (clown.scale.y = 0.05 + 0.95 * ease.outBack(t)), () => {

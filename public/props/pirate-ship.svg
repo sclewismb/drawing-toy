@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 290" width="320" height="290">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+
+    <path d="M160 30 L160 200" fill="none" stroke-width="12" />
+    <path d="M160 30 L160 200" fill="none" stroke="#8d5524" stroke-width="5" />
+    <path d="M166 40 Q240 90 166 160 Z" fill="#fff8e1" />
+    <path d="M154 60 Q100 100 154 150 Z" fill="#fff8e1" />
+    <path d="M160 30 L210 40 L160 52 Z" fill="#1f1f1f" stroke-width="4" />
+    <circle cx="190" cy="98" r="14" fill="#1f1f1f" stroke-width="3" />
+    <circle cx="186" cy="96" r="3" fill="#fff" stroke="none" /><circle cx="194" cy="96" r="3" fill="#fff" stroke="none" />
+    <path d="M10 186 L310 186 L276 270 L44 270 Z" fill="#a0522d" />
+    <path d="M18 206 L302 206" fill="none" stroke="#ffd166" stroke-width="7" />
+    <circle cx="90" cy="236" r="10" fill="#2b2d42" stroke-width="4" /><circle cx="160" cy="236" r="10" fill="#2b2d42" stroke-width="4" /><circle cx="230" cy="236" r="10" fill="#2b2d42" stroke-width="4" />
+    <path d="M0 280 Q40 266 80 280 Q120 266 160 280 Q200 266 240 280 Q280 266 320 280" fill="none" stroke="#4ea8ff" stroke-width="7" />
+  </g>
+</svg>

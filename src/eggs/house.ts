@@ -217,6 +217,7 @@ export function lounge(kit: EggKit, cleanups: Cleanups) {
   }, cleanups);
   hotspot(kit, new Rectangle(sx - 10, sy - 10, sw + 20, sh + 20), () => {
     channel = (channel + 1) % 5;
+    kit.events?.emit('tv', channel);
     sfx.tvStatic();
     if (channel === 0) sfx.click();
   });
@@ -263,6 +264,7 @@ export function lounge(kit: EggKit, cleanups: Cleanups) {
   let lampOn = false;
   hotspot(kit, new Rectangle(w * 0.578, h * 0.28, w * 0.075, h * 0.44), () => {
     lampOn = !lampOn;
+    kit.events?.emit('lamp', lampOn);
     sfx.click();
     glows.clear();
     if (lampOn) glow(glows, w * 0.615, h * 0.34, w * 0.1, 0xfff3c4, 1.8);
@@ -279,6 +281,7 @@ export function lounge(kit: EggKit, cleanups: Cleanups) {
   const spotColours = [0xff4d6d, 0x4cc9f0, 0xffd60a, 0x7bd36b, 0xb07de8];
   hotspot(kit, new Rectangle(w * 0.43, 0, w * 0.14, h * 0.07), oneAtATime((done) => {
     sfx.tune();
+    kit.events?.emit('disco');
     later(1500, () => sfx.tune([659, 784, 988, 784, 1047, 988, 784, 659]), cleanups);
     tween(3200, (t) => {
       party.clear().rect(roomSpan(kit).x, 0, roomSpan(kit).w, h).fill({ color: 0x0b1026, alpha: 0.35 * Math.sin(t * Math.PI) });

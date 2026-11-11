@@ -2,6 +2,7 @@ import type { Container } from 'pixi.js';
 import type { PlaceId } from '../places';
 import { backyard } from './backyard';
 import { bedroomA, bedroomB } from './bedrooms';
+import { conservatory } from './conservatory';
 import { fair } from './fair';
 import { restaurant, toyshop, vet } from './shops';
 import { zoo } from './zoo';
@@ -9,6 +10,7 @@ import { niagara, ninjaGym } from './destinations';
 import type { Cleanups, EggKit } from './common';
 import { kitchen, lounge } from './house';
 import { fireStation, park, policeStation, school } from './town';
+import { SECRET_EGGS } from './secrets';
 import { houseEggs, streetEggs, type HouseGeom, type StreetGeom } from './views';
 import { WIDE_EGGS } from './wide';
 
@@ -33,6 +35,7 @@ const PLACE_EGGS: Record<PlaceId, (kit: EggKit, cleanups: Cleanups) => void> = {
   zoo,
   ninja: ninjaGym,
   niagara,
+  conservatory,
 };
 
 const run = (build: (cleanups: Cleanups) => void) => {
@@ -46,6 +49,7 @@ export function createEggs(id: PlaceId, kit: EggKit): () => void {
   return run((c) => {
     PLACE_EGGS[id](kit, c);
     WIDE_EGGS[id]?.(kit, c); // the new parts either side of the wide rooms
+    SECRET_EGGS[id]?.(kit, c); // deeper secrets, on top of everything else
   });
 }
 

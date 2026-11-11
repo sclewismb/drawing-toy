@@ -29,3 +29,31 @@ export function burst(layer: Container, x: number, y: number, count = 16, reach 
     );
   }
 }
+
+/** Little hearts floating up from a point (a happy animal). */
+export function hearts(layer: Container, x: number, y: number, count = 6) {
+  for (let i = 0; i < count; i++) {
+    const h = new Graphics()
+      .circle(-6, -3, 7)
+      .circle(6, -3, 7)
+      .poly([-12.5, 0, 12.5, 0, 0, 14])
+      .fill(i % 3 === 0 ? 0xff5d8f : i % 3 === 1 ? 0xff8fb1 : 0xe5383b);
+    h.position.set(x, y);
+    h.scale.set(0.01);
+    layer.addChild(h);
+    const dx = (Math.random() - 0.5) * 140;
+    const rise = 120 + Math.random() * 90;
+    const wait = i * 90;
+    tween(
+      1300 + wait,
+      (t) => {
+        const k = Math.max(0, (t * (1300 + wait) - wait) / 1300);
+        h.x = x + dx * k + Math.sin(k * 9 + i) * 10;
+        h.y = y - rise * ease.outCubic(k);
+        h.scale.set(k < 0.2 ? k * 5 * 0.9 : 0.9);
+        h.alpha = k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1;
+      },
+      () => h.destroy(),
+    );
+  }
+}

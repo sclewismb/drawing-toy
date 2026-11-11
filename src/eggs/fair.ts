@@ -58,6 +58,7 @@ export function fair(kit: EggKit, cleanups: Cleanups) {
   }, cleanups);
   tappable(wheel, oneAtATime((done) => {
     sfx.tune([523, 659, 784, 1047, 784, 659], 0.16);
+    kit.events?.emit('wheel');
     flash = 1;
     tween(3000, (t) => (spin = 0.00022 + Math.sin(t * Math.PI) * 0.0035), () => {
       spin = 0.00022;
@@ -193,6 +194,7 @@ export function fair(kit: EggKit, cleanups: Cleanups) {
       sfx.ding();
       const prize = new Graphics().star(0, 0, 5, 16, 8).fill(0xffd166).stroke({ width: 2, color: INK });
       tumble(kit, prize, x0, y0 - 30, gy + h * 0.12, { vy: -0.6, vx: rand(-0.15, 0.15) });
+      kit.events?.emit('duck-prize', x0, y0);
       burst(kit.sparkles, x0, y0 - 30, 8, 50);
       done();
     });

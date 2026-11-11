@@ -37,6 +37,7 @@ const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number
   fair: { fx: 0.94, side: 'above', size: 1.45 },
   ninja: { fx: 1.065, side: 'above' },
   niagara: { fx: 1.17, side: 'above', size: 1.5 },
+  conservatory: { fx: 1.29, side: 'above', size: 1.3 },
 };
 
 /**
@@ -207,7 +208,7 @@ export class StreetView extends Container {
     // Places are set out by fractions of B; the map carries on past it (to the
     // gym and Niagara Falls at the far end), so it's M wide in all.
     const B = Math.max(w * 2.6, h * 3.8);
-    const M = B * 1.24;
+    const M = B * 1.37;
     const P = (fx: number, fy: number) => ({ x: fx * B, y: fy * h });
     const g = this.bg.clear();
     const keep = this.camera.x / Math.max(1, this.geom.w || M);
@@ -243,16 +244,16 @@ export class StreetView extends Container {
       for (const p of s) g.lineTo(p.x, p.y);
       g.lineTo(M, h).closePath().fill(color);
     };
-    hill([P(0, 0.44), P(0.06, 0.36), P(0.14, 0.3), P(0.24, 0.34), P(0.33, 0.37), P(0.42, 0.31), P(0.52, 0.35), P(0.62, 0.33), P(0.72, 0.3), P(0.82, 0.36), P(0.9, 0.32), P(1, 0.36), P(1.1, 0.3), P(1.18, 0.34), P(1.25, 0.32)], pal.hillBack);
+    hill([P(0, 0.44), P(0.06, 0.36), P(0.14, 0.3), P(0.24, 0.34), P(0.33, 0.37), P(0.42, 0.31), P(0.52, 0.35), P(0.62, 0.33), P(0.72, 0.3), P(0.82, 0.36), P(0.9, 0.32), P(1, 0.36), P(1.1, 0.3), P(1.18, 0.34), P(1.25, 0.32), P(1.32, 0.36), P(1.38, 0.33)], pal.hillBack);
     // patchwork fields on the far hill
     const fieldCols = winter ? [0xf4f7fa, 0xe9eff5] : season === 'autumn' ? [0xe9c46a, 0xd4a373] : [0xc7e59f, 0xe9d985];
     for (const [i, [fx, fy]] of [[0.04, 0.43], [0.08, 0.4], [0.12, 0.375], [0.75, 0.37], [0.79, 0.385]].entries()) {
       const x = B * fx, y = h * fy, fw = u * 0.12, fh = h * 0.035;
       g.poly([x, y, x + fw, y - fh * 0.4, x + fw * 1.05, y + fh * 0.6, x + fw * 0.05, y + fh]).fill(fieldCols[i % 2]).stroke({ width: 2, color: 0xa47e4b });
     }
-    hill([P(0, 0.56), P(0.08, 0.5), P(0.18, 0.55), P(0.27, 0.5), P(0.36, 0.54), P(0.46, 0.49), P(0.56, 0.45), P(0.66, 0.5), P(0.76, 0.48), P(0.86, 0.5), P(0.95, 0.46), P(1.04, 0.5), P(1.12, 0.47), P(1.25, 0.5)], pal.hillFront);
-    hill([P(0, 0.8), P(0.12, 0.78), P(0.25, 0.84), P(0.38, 0.8), P(0.5, 0.83), P(0.63, 0.79), P(0.76, 0.84), P(0.88, 0.8), P(1, 0.82), P(1.12, 0.8), P(1.25, 0.83)], pal.grass);
-    for (const [cx, seed] of [[0.15, 7], [0.4, 8], [0.62, 9], [0.88, 10], [1.13, 11]]) hillDots(g, B * cx, h * 0.97, B * 0.08, h * 0.14, pal.dots, seed);
+    hill([P(0, 0.56), P(0.08, 0.5), P(0.18, 0.55), P(0.27, 0.5), P(0.36, 0.54), P(0.46, 0.49), P(0.56, 0.45), P(0.66, 0.5), P(0.76, 0.48), P(0.86, 0.5), P(0.95, 0.46), P(1.04, 0.5), P(1.12, 0.47), P(1.25, 0.5), P(1.31, 0.47), P(1.38, 0.5)], pal.hillFront);
+    hill([P(0, 0.8), P(0.12, 0.78), P(0.25, 0.84), P(0.38, 0.8), P(0.5, 0.83), P(0.63, 0.79), P(0.76, 0.84), P(0.88, 0.8), P(1, 0.82), P(1.12, 0.8), P(1.25, 0.83), P(1.38, 0.8)], pal.grass);
+    for (const [cx, seed] of [[0.15, 7], [0.4, 8], [0.62, 9], [0.88, 10], [1.13, 11], [1.32, 12]]) hillDots(g, B * cx, h * 0.97, B * 0.08, h * 0.14, pal.dots, seed);
 
     // --- the pond, with a little jetty ---
     const pond = { x: B * 0.045, y: h * 0.89, rx: u * 0.13, ry: h * 0.065 };
@@ -262,7 +263,7 @@ export class StreetView extends Container {
 
     // --- trees far away along the hill, and the tunnel ---
     const treeG = winter ? 0x6a9a7f : 0x52b788, treeD = winter ? 0x557f69 : 0x2d6a4f;
-    for (let fx = 0.02; fx < 1.24; fx += 0.035) {
+    for (let fx = 0.02; fx < 1.37; fx += 0.035) {
       if ((fx > 0.4 && fx < 0.62) || rnd() < 0.3) continue; // (the city is there)
       const x = B * fx, y = h * (0.36 + rnd() * 0.06), r = u * 0.018;
       g.circle(x, y, r).fill(treeG).stroke({ width: 2, color: INK });
@@ -274,7 +275,7 @@ export class StreetView extends Container {
 
     // --- the roads: a long one winding along, and one up to the tunnel ---
     const roadW = u * 0.045;
-    const road = spline([P(-0.02, 0.73), P(0.05, 0.71), P(0.14, 0.71), P(0.23, 0.74), P(0.32, 0.76), P(0.4, 0.77), P(0.48, 0.71), P(0.57, 0.66), P(0.66, 0.7), P(0.74, 0.73), P(0.82, 0.73), P(0.9, 0.7), P(0.97, 0.69), P(1.04, 0.72), P(1.11, 0.74), P(1.18, 0.71), P(1.26, 0.72)], 16);
+    const road = spline([P(-0.02, 0.73), P(0.05, 0.71), P(0.14, 0.71), P(0.23, 0.74), P(0.32, 0.76), P(0.4, 0.77), P(0.48, 0.71), P(0.57, 0.66), P(0.66, 0.7), P(0.74, 0.73), P(0.82, 0.73), P(0.9, 0.7), P(0.97, 0.69), P(1.04, 0.72), P(1.11, 0.74), P(1.18, 0.71), P(1.26, 0.72), P(1.33, 0.74), P(1.39, 0.72)], 16);
     const roadY = (x: number) => road.reduce((best, p) => (Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best), road[0]).y;
     const branchStart = road.reduce((best, p) => (Math.abs(p.x - tunnel.x) < Math.abs(best.x - tunnel.x) ? p : best), road[0]);
     const branch = spline([branchStart, { x: tunnel.x + u * 0.02, y: (branchStart.y + tunnel.y) / 2 + h * 0.04 }, { x: tunnel.x, y: tunnel.y }], 14);
@@ -339,18 +340,18 @@ export class StreetView extends Container {
       });
     };
     // behind the buildings, just above the road
-    for (const fx of [0.005, 0.045, 0.11, 0.195, 0.27, 0.335, 0.41, 0.5, 0.62, 0.7, 0.775, 0.885, 0.995, 1.11, 1.235]) {
+    for (const fx of [0.005, 0.045, 0.11, 0.195, 0.27, 0.335, 0.41, 0.5, 0.62, 0.7, 0.775, 0.885, 0.995, 1.11, 1.235, 1.35]) {
       const y = (roadY(B * fx) - h * 0.075) / h;
       if (Math.round(fx * 1000) % 2) cypress(fx, y, 0.028);
       else tree(fx, y, 0.03);
     }
     // big trees at the front
     const trees: { x: number; y: number; r: number }[] = [];
-    for (const [fx, fy, s] of [[0.12, 0.93, 0.045], [0.2, 0.9, 0.04], [0.29, 0.94, 0.045], [0.4, 0.9, 0.04], [0.62, 0.93, 0.045], [0.7, 0.9, 0.04], [0.79, 0.94, 0.045], [0.88, 0.9, 0.04], [0.985, 0.92, 0.05], [1.08, 0.94, 0.045], [1.22, 0.9, 0.04]]) {
+    for (const [fx, fy, s] of [[0.12, 0.93, 0.045], [0.2, 0.9, 0.04], [0.29, 0.94, 0.045], [0.4, 0.9, 0.04], [0.62, 0.93, 0.045], [0.7, 0.9, 0.04], [0.79, 0.94, 0.045], [0.88, 0.9, 0.04], [0.985, 0.92, 0.05], [1.08, 0.94, 0.045], [1.22, 0.9, 0.04], [1.34, 0.93, 0.045]]) {
       tree(fx, fy, s);
       trees.push({ x: B * fx, y: h * fy - u * s * 1.1, r: u * s });
     }
-    for (const fx of [0.1, 0.25, 0.45, 0.66, 0.84, 0.93, 1.14]) {
+    for (const fx of [0.1, 0.25, 0.45, 0.66, 0.84, 0.93, 1.14, 1.25]) {
       const x = B * fx, y = h * 0.8, r = u * 0.022;
       g.circle(x - r, y, r).circle(x + r, y, r).circle(x, y - r * 0.7, r * 1.1).fill(treeG).stroke({ width: 2, color: INK });
     }

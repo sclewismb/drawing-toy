@@ -1,6 +1,7 @@
 import { Container, Graphics, Rectangle, Ticker, type FederatedPointerEvent } from 'pixi.js';
 import { markEggTouch, touchState } from '../gestures';
 import { windowView } from '../places';
+import type { Bus, SecretsApi } from '../secrets';
 import type { Sky } from '../sky';
 import type { Season } from '../seasons';
 import { sfx } from '../sound';
@@ -24,6 +25,10 @@ export interface EggKit {
   x1?: number;
   /** Outdoors: the sky, with its drifting clouds. */
   sky?: Sky;
+  /** Deeper secrets: treasures that become toys, and spots to drop things on. */
+  secrets?: SecretsApi;
+  /** Surprises say what just happened here, so secrets can listen ("lights", "note"...). */
+  events?: Bus;
 }
 
 /** Tap a drifting cloud and it rains (or snows in winter) down to `groundAt(cloud y)`. */
@@ -153,6 +158,7 @@ export function roomLights(kit: EggKit, onLevel: (level: number) => void = () =>
     },
     toggle() {
       on = !on;
+      kit.events?.emit('lights', on);
       const from = level;
       const to = on ? 0 : darkness;
       tween(350, (t) => {

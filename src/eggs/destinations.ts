@@ -64,6 +64,7 @@ export function niagara(kit: EggKit, cleanups: Cleanups) {
   }, cleanups);
   hotspot(kit, new Rectangle(f.x0, f.top - f.bulge, f.x1 - f.x0, f.bottom - f.top + f.bulge), oneAtATime((done) => {
     sfx.water(2.6);
+    kit.events?.emit('roar');
     tween(3000, (t) => (roar = Math.sin(t * Math.PI)), done);
   }));
 
@@ -252,6 +253,7 @@ export function ninjaGym(kit: EggKit, cleanups: Cleanups) {
   kit.under.addChild(bell);
   const ring = () => {
     sfx.bell();
+    kit.events?.emit('bell');
     tween(600, (t) => (bell.rotation = Math.sin(t * Math.PI * 6) * 0.4 * (1 - t)));
     for (let i = 0; i < 18; i++) {
       const c = new Graphics().rect(-4, -6, 8, 12).fill(COLOURS[i % COLOURS.length]);

@@ -3,8 +3,10 @@ import { drawClockFace } from './clock';
 import { backyardSky } from './backyard';
 import { fairSky } from './fair';
 import { zooSky } from './zoo';
+import { conservatorySky } from './conservatory';
 import { niagaraSky } from './destinations';
 import { CRITTERS } from './critters';
+import { TREASURES } from './secrets';
 import type { SkyDef } from './sky';
 import { hillDots, PALETTE, type Season } from './seasons';
 
@@ -64,8 +66,36 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   // the restaurant
   pizza: { url: 'props/pizza.svg', size: 0.5 },
   burger: { url: 'props/burger.svg', size: 0.45 },
+  // more toys (lots of them were asked for)
+  dinosaur: { url: 'props/dinosaur.svg', size: 0.9 },
+  rocket: { url: 'props/rocket.svg', size: 0.9 },
+  castle: { url: 'props/castle.svg', size: 1.2 },
+  'pirate-ship': { url: 'props/pirate-ship.svg', size: 1.2 },
+  digger: { url: 'props/digger.svg', size: 1.3 },
+  'dump-truck': { url: 'props/dump-truck.svg', size: 1.3 },
+  'race-car': { url: 'props/race-car.svg', size: 1.1 },
+  skateboard: { url: 'props/skateboard.svg', size: 0.6 },
+  drum: { url: 'props/drum.svg', size: 0.6 },
+  'building-blocks': { url: 'props/building-blocks.svg', size: 0.6 },
+  tent: { url: 'props/tent.svg', size: 1.3 },
+  snowman: { url: 'props/snowman.svg', size: 0.95 },
+  'soccer-goal': { url: 'props/soccer-goal.svg', size: 1.4 },
+  'watering-can': { url: 'props/watering-can.svg', size: 0.55 },
+  'butterfly-net': { url: 'props/butterfly-net.svg', size: 0.8 },
+  magnifier: { url: 'props/magnifier.svg', size: 0.5 },
+  'ice-cream': { url: 'props/ice-cream.svg', size: 0.45 },
+  apple: { url: 'props/apple.svg', size: 0.3 },
+  cupcake: { url: 'props/cupcake.svg', size: 0.38 },
+  watermelon: { url: 'props/watermelon.svg', size: 0.45 },
+  banana: { url: 'props/banana.svg', size: 0.4 },
+  lamp: { url: 'props/lamp.svg', size: 1.1 },
+  piano: { url: 'props/piano.svg', size: 1.3 },
+  fishbowl: { url: 'props/fishbowl.svg', size: 0.55 },
+  bookshelf: { url: 'props/bookshelf.svg', size: 1.3 },
   // animals and little people that walk about by themselves (see critters.ts)
   ...Object.fromEntries(Object.entries(CRITTERS).map(([name, c]) => [name, { url: c.url, size: c.size }])),
+  // treasures found by solving secrets (see secrets.ts)
+  ...TREASURES,
 };
 
 /** Where the floor starts in each place (a fraction of the screen's height): critters walk below it. */
@@ -86,6 +116,7 @@ export const FLOOR: Record<PlaceId, number> = {
   zoo: 0.66,
   ninja: 0.74,
   niagara: 0.8,
+  conservatory: 0.74,
 };
 
 /**
@@ -128,6 +159,10 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
     { name: 'kid-girl', x: 1.0, y: 0.86 },
     { name: 'grownup', x: -0.1, y: 0.84 },
   ],
+  conservatory: [
+    { name: 'kid-girl', x: 0.2, y: 0.86 },
+    { name: 'grandma', x: 1.5, y: 0.86 },
+  ],
   niagara: [
     { name: 'kid-girl', x: 0.3, y: 0.9 },
     { name: 'grandma', x: 0.7, y: 0.9 },
@@ -145,7 +180,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
   ],
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -169,6 +204,7 @@ export const STREET: {
   { id: 'fair', building: 'buildings/fair.svg' },
   { id: 'ninja', building: 'buildings/ninja.svg' },
   { id: 'niagara', building: 'buildings/niagara.svg' },
+  { id: 'conservatory', building: 'buildings/conservatory.svg' },
 ];
 
 export interface PlaceDef {
@@ -287,7 +323,7 @@ export const PLACES: PlaceDef[] = [
     // First bedroom (its name is set on the iPad): geometric painted wall, daybed.
     id: 'bedroom-a',
     parent: 'house',
-    toys: ['daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse'],
+    toys: ['daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse', 'dinosaur', 'rocket', 'castle', 'building-blocks', 'drum', 'bookshelf'],
     start: [
       { name: 'daybed', x: 0.66, y: 0.79 },
       { name: 'ball', x: 0.4, y: 0.9 },
@@ -332,7 +368,7 @@ export const PLACES: PlaceDef[] = [
     // Second bedroom (its name is set on the iPad): turquoise wall, butterflies, tie-dye bed.
     id: 'bedroom-b',
     parent: 'house',
-    toys: ['bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant'],
+    toys: ['bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant', 'lamp', 'bookshelf', 'fishbowl', 'magnifier'],
     start: [
       { name: 'bed-tiedye', x: 0.48, y: 0.78 },
       { name: 'books', x: 0.88, y: 0.66 },
@@ -389,7 +425,7 @@ export const PLACES: PlaceDef[] = [
     // Lounge room: grey walls, big window with blinds, TV, pictures, grey couch.
     id: 'lounge',
     parent: 'house',
-    toys: ['couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant'],
+    toys: ['couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant', 'piano', 'lamp', 'fishbowl'],
     start: [
       { name: 'couch', x: 0.68, y: 0.7 },
       { name: 'armchair', x: 0.16, y: 0.76 },
@@ -442,7 +478,7 @@ export const PLACES: PlaceDef[] = [
     // Kitchen: white cupboards, tiled splashback, three black pendant lights, island.
     id: 'kitchen',
     parent: 'house',
-    toys: ['fridge', 'stool', 'table', 'birthday-cake', 'potted-plant'],
+    toys: ['fridge', 'stool', 'table', 'birthday-cake', 'potted-plant', 'apple', 'banana', 'cupcake', 'watermelon', 'ice-cream'],
     start: [
       { name: 'fridge', x: 0.1, y: 0.58 },
       { name: 'stool', x: 0.32, y: 0.9 },
@@ -500,7 +536,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'fire',
-    toys: ['fire-engine', 'helmet', 'hydrant', 'bicycle'],
+    toys: ['fire-engine', 'helmet', 'hydrant', 'bicycle', 'digger', 'dump-truck'],
     start: [
       { name: 'fire-engine', x: 0.62, y: 0.76 },
       { name: 'helmet', x: 0.25, y: 0.86 },
@@ -554,7 +590,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'school',
-    toys: ['school-desk', 'globe', 'books', 'toy-train'],
+    toys: ['school-desk', 'globe', 'books', 'toy-train', 'building-blocks', 'magnifier', 'piano'],
     start: [
       { name: 'school-desk', x: 0.3, y: 0.86 },
       { name: 'school-desk', x: 0.62, y: 0.86 },
@@ -577,7 +613,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'park',
-    toys: ['bench', 'slide', 'flower', 'ball', 'kite', 'bicycle', 'scooter'],
+    toys: ['bench', 'slide', 'flower', 'ball', 'kite', 'bicycle', 'scooter', 'soccer-goal', 'skateboard', 'ice-cream'],
     start: [
       { name: 'monster', x: 0.25, y: 0.68 },
       { name: 'cat', x: 0.5, y: 0.68 },
@@ -619,7 +655,7 @@ PLACES.push({
   // (like the rooms), and all of it is drawn in backyard.ts.
   id: 'backyard',
   parent: 'house',
-  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower', 'bicycle', 'scooter', 'kite', 'wheelbarrow'],
+  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower', 'bicycle', 'scooter', 'kite', 'wheelbarrow', 'tent', 'soccer-goal', 'watering-can', 'snowman', 'digger', 'dump-truck'],
   start: [
     { name: 'ride-car', x: -0.2, y: 0.86 },
     { name: 'sand-bucket', x: 0.28, y: 0.8 },
@@ -635,7 +671,7 @@ PLACES.push({
 PLACES.push({
   // The fairground: wide, outdoors, and all of it drawn in fair.ts.
   id: 'fair',
-  toys: ['candy-floss', 'balloon', 'teddy', 'ball', 'kite'],
+  toys: ['candy-floss', 'balloon', 'teddy', 'ball', 'kite', 'ice-cream', 'cupcake'],
   start: [
     { name: 'balloon', x: -0.05, y: 0.62 },
     { name: 'candy-floss', x: 0.85, y: 0.84 },
@@ -655,7 +691,7 @@ PLACES.push(
   { id: 'vet', toys: ['ball', 'teddy', 'flower'], start: [{ name: 'ball', x: 0.35, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
   {
     id: 'restaurant',
-    toys: ['pizza', 'burger', 'birthday-cake', 'table', 'stool'],
+    toys: ['pizza', 'burger', 'birthday-cake', 'table', 'stool', 'ice-cream', 'cupcake', 'watermelon'],
     start: [
       { name: 'pizza', x: 0.17, y: 0.52 },
       { name: 'burger', x: 0.83, y: 0.53 },
@@ -664,26 +700,34 @@ PLACES.push(
   },
   {
     id: 'toyshop',
-    toys: ['teddy', 'toy-train', 'rocking-horse', 'ball', 'kite', 'guitar', 'scooter', 'balloon'],
+    toys: ['teddy', 'toy-train', 'rocking-horse', 'ball', 'kite', 'guitar', 'scooter', 'balloon', 'dinosaur', 'rocket', 'castle', 'pirate-ship', 'race-car', 'skateboard', 'drum', 'building-blocks'],
     start: [{ name: 'rocking-horse', x: -0.5, y: 0.82 }],
     drawBackdrop: allDrawnElsewhere,
   },
   {
     id: 'zoo',
-    toys: ['balloon', 'ball', 'teddy', 'candy-floss'],
+    toys: ['balloon', 'ball', 'teddy', 'candy-floss', 'banana', 'apple', 'watermelon'],
     start: [],
     outdoors: true,
     sky: (w, h, season) => zooSky(w, h, season),
     drawBackdrop: allDrawnElsewhere,
   },
   // the ninja kids gym and Niagara Falls (drawn in destinations.ts)
-  { id: 'ninja', toys: ['ball', 'trampoline', 'bench'], start: [{ name: 'ball', x: 0.45, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
+  { id: 'ninja', toys: ['ball', 'trampoline', 'bench', 'soccer-goal', 'skateboard'], start: [{ name: 'ball', x: 0.45, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
   {
     id: 'niagara',
-    toys: ['balloon', 'kite', 'ball', 'teddy'],
+    toys: ['balloon', 'kite', 'ball', 'teddy', 'pirate-ship', 'tent'],
     start: [{ name: 'kite', x: 1.0, y: 0.45 }],
     outdoors: true,
     sky: (w, h, season) => niagaraSky(w, h, season),
+    drawBackdrop: allDrawnElsewhere,
+  },
+  // the butterfly conservatory: a glasshouse, with the sky showing through (drawn in conservatory.ts)
+  {
+    id: 'conservatory',
+    toys: ['flower', 'potted-plant', 'watering-can', 'butterfly-net', 'bench', 'magnifier'],
+    start: [{ name: 'watering-can', x: 0.66, y: 0.88 }],
+    sky: (w, h, season) => conservatorySky(w, h, season),
     drawBackdrop: allDrawnElsewhere,
   },
 );
