@@ -494,15 +494,24 @@ async function zoomIn(at: { x: number; y: number }, open: () => Promise<void> | 
     view?.setZoom(at, t);
     drawFade(ease.inOutSine(t));
   });
-  await open();
+  try {
+    await open();
+  } catch (err) {
+    console.warn('Could not open that place', err); // still fade back in, never stay white
+  }
   view?.setZoom(at, 0);
   await animate(300, (t) => drawFade(1 - t));
+  drawFade(0);
 }
 
 /** Fade out, show the outer screen, and zoom back out from where we were. */
 async function zoomOut(to: 'street' | 'house', at: () => { x: number; y: number }, before: () => void) {
   await animate(220, (t) => drawFade(t));
-  before();
+  try {
+    before();
+  } catch (err) {
+    console.warn('Could not tidy up', err);
+  }
   setScreen(to);
   const view = viewFor(to)!;
   const point = at();
@@ -510,6 +519,8 @@ async function zoomOut(to: 'street' | 'house', at: () => { x: number; y: number 
     view.setZoom(point, 1 - t);
     drawFade(1 - t);
   });
+  view.setZoom(point, 0);
+  drawFade(0);
 }
 
 function rememberPlace(id: PlaceId | null) {
@@ -526,12 +537,15 @@ async function enterPlace(id: PlaceId, at: { x: number; y: number }) {
   if (switching) return;
   switching = true;
   sfx.dingDong();
-  await zoomIn(at, async () => {
-    await showPlace(id);
-    setScreen('place');
-  });
-  rememberPlace(id);
-  switching = false;
+  try {
+    await zoomIn(at, async () => {
+      await showPlace(id);
+      setScreen('place');
+    });
+    rememberPlace(id);
+  } finally {
+    switching = false;
+  }
 }
 
 /** From the street into the house: choose a room. */
@@ -539,8 +553,11 @@ async function enterHouse(at: { x: number; y: number }) {
   if (switching) return;
   switching = true;
   sfx.dingDong();
-  await zoomIn(at, () => setScreen('house'));
-  switching = false;
+  try {
+    await zoomIn(at, () => setScreen('house'));
+  } finally {
+    switching = false;
+  }
 }
 
 /** The back button: a room goes back to the house, everything else to the street. */
@@ -548,26 +565,29 @@ async function goBack() {
   if (switching) return;
   switching = true;
   sfx.zoomOut();
-  if (screen === 'place' && current) {
-    await saveNow();
-    const from = current;
-    const toHouse = placeById(from)?.parent === 'house';
-    await zoomOut(
-      toHouse ? 'house' : 'street',
-      () => (toHouse ? houseView.roomCentre(from as RoomId) : street.buildingCentre(from)),
-      () => {
-        clearCharacters();
-        removeChalk();
-        teardownEggs();
-        current = null;
-        backdrop.clear();
-      },
-    );
-    rememberPlace(null);
-  } else if (screen === 'house') {
-    await zoomOut('street', () => street.buildingCentre('house'), () => {});
+  try {
+    if (screen === 'place' && current) {
+      await saveNow();
+      const from = current;
+      const toHouse = placeById(from)?.parent === 'house';
+      await zoomOut(
+        toHouse ? 'house' : 'street',
+        () => (toHouse ? houseView.roomCentre(from as RoomId) : street.buildingCentre(from)),
+        () => {
+          current = null;
+          clearCharacters();
+          removeChalk();
+          teardownEggs();
+          backdrop.clear();
+        },
+      );
+      rememberPlace(null);
+    } else if (screen === 'house') {
+      await zoomOut('street', () => street.buildingCentre('house'), () => {});
+    }
+  } finally {
+    switching = false;
   }
-  switching = false;
 }
 
 street.onBuildingTap = () => gallery.close();

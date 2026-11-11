@@ -72,7 +72,13 @@ export function glow(g: Graphics, x: number, y: number, r: number, color: number
 
 /** Run something every frame until the place is left. */
 export function everyFrame(fn: (dtMs: number) => void, cleanups: Cleanups) {
-  const tick = (t: Ticker) => fn(t.deltaMS);
+  const tick = (t: Ticker) => {
+    try {
+      fn(t.deltaMS);
+    } catch {
+      Ticker.shared.remove(tick); // something it used has gone: stop, don't freeze everything else
+    }
+  };
   Ticker.shared.add(tick);
   cleanups.push(() => Ticker.shared.remove(tick));
 }

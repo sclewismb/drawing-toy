@@ -25,10 +25,24 @@ export function tween(
   const step = (tk: Ticker) => {
     elapsed += tk.deltaMS;
     const t = Math.min(1, elapsed / durationMs);
-    update(t);
+    try {
+      update(t);
+    } catch (err) {
+      // Usually something that was taken away mid-animation (e.g. we left the
+      // room). Stop this animation quietly: an error here would otherwise
+      // repeat every frame and freeze every other animation, like the fade
+      // between places, leaving the screen stuck on white.
+      ticker.remove(step);
+      if (import.meta.env.DEV) console.warn('Animation stopped:', err);
+      return;
+    }
     if (t >= 1) {
       ticker.remove(step);
-      done?.();
+      try {
+        done?.();
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('Animation end failed:', err);
+      }
     }
   };
   ticker.add(step);
