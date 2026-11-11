@@ -4,3 +4,7 @@ dist
 # Family details stay on this PC, not in the public repo
 CLAUDE.md
 matilda-app-brief.md
+
+# Real photos of the kids' drawings for tuning: private, never uploaded
+test-photos/
+test-output/

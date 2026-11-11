@@ -185,7 +185,7 @@ export class GestureController {
     }
   }
 
-  private select(ch: Character | null) {
+  select(ch: Character | null) {
     this.selected = ch;
     this.onSelect(ch);
   }

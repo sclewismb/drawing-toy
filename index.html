@@ -35,9 +35,69 @@
       canvas {
         display: block;
       }
+
+      /* Big round camera button, bottom-left. No words. */
+      #camera {
+        position: fixed;
+        left: max(16px, env(safe-area-inset-left));
+        bottom: max(16px, env(safe-area-inset-bottom));
+        width: 92px;
+        height: 92px;
+        border-radius: 50%;
+        background: #fff;
+        border: 4px solid #3a3a3a;
+        box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+        display: grid;
+        place-items: center;
+        box-sizing: border-box;
+        z-index: 10;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.1s;
+      }
+      #camera:active {
+        transform: scale(0.9);
+      }
+      /* The real file picker covers the whole button, invisibly, so a tap
+         always reaches it (the most reliable way on iPad Safari). */
+      #camera input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+      }
+      #camera.busy {
+        pointer-events: none;
+      }
+      #camera.busy svg {
+        animation: wiggle 0.5s ease-in-out infinite;
+      }
+      #camera.nope {
+        animation: shake 0.45s;
+      }
+      @keyframes wiggle {
+        0%, 100% { transform: rotate(-12deg) scale(1.05); }
+        50% { transform: rotate(12deg) scale(0.95); }
+      }
+      @keyframes shake {
+        0%, 100% { translate: 0; }
+        20%, 60% { translate: -10px; }
+        40%, 80% { translate: 10px; }
+      }
     </style>
   </head>
   <body>
+    <label id="camera" aria-label="Add a drawing">
+      <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+        <path d="M21 19 L25 10 H39 L43 19" fill="#ff7a59" stroke="#3a3a3a" stroke-width="4" stroke-linejoin="round" />
+        <rect x="5" y="18" width="54" height="38" rx="9" fill="#ff7a59" stroke="#3a3a3a" stroke-width="4" />
+        <circle cx="32" cy="37" r="12" fill="#bfe8ff" stroke="#3a3a3a" stroke-width="4" />
+        <circle cx="28" cy="33" r="3.5" fill="#fff" />
+        <circle cx="50" cy="26" r="3" fill="#ffe066" />
+      </svg>
+      <input type="file" accept="image/*" />
+    </label>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -1,6 +1,8 @@
-import { Application, Assets, Container, Graphics, Texture } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import { Character } from './character';
+import { cutoutFromBlob } from './cutout';
 import { FlipButton } from './flipButton';
+import { burst } from './fx';
 import { GestureController } from './gestures';
 
 // Stop iOS Safari's own pinch-to-zoom from fighting with ours.
@@ -54,23 +56,63 @@ app.ticker.add(() => {
   flipButton.y = Math.min(height - r - 8, Math.max(r + 8, b.minY - r * 0.3));
 });
 
-// --- Sample characters (stand-ins until Matilda's drawings arrive) ---
-const names = ['monster', 'cat', 'robot'];
-const textures: Texture[] = await Promise.all(
-  names.map((n) =>
-    Assets.load<Texture>({
-      src: `${import.meta.env.BASE_URL}characters/${n}.svg`,
-      data: { resolution: 2 }, // render the drawing extra crisp
-    }),
-  ),
-);
+// --- Characters ---
+const startSize = () => Math.min(app.screen.width, app.screen.height) * 0.3;
 
-const startSize = Math.min(app.screen.width, app.screen.height) * 0.28;
-textures.forEach((tex, i) => {
-  const ch = new Character(tex, startSize);
-  ch.x = app.screen.width * ((i + 1) / (textures.length + 1));
-  ch.y = app.screen.height * 0.68;
+function addCharacter(picture: HTMLCanvasElement, x: number, y: number, tada = false) {
+  const ch = new Character(picture, startSize());
+  ch.position.set(x, y);
   characters.addChild(ch);
+  if (tada) {
+    ch.popIn();
+    burst(ui, x, y);
+    gestures.select(ch);
+  }
+  return ch;
+}
+
+/** Load one of the sample SVG drawings into a canvas (same as a real cutout). */
+async function loadSample(name: string): Promise<HTMLCanvasElement> {
+  const img = new Image();
+  img.src = `${import.meta.env.BASE_URL}characters/${name}.svg`;
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth * 2; // extra crisp
+  c.height = img.naturalHeight * 2;
+  c.getContext('2d', { willReadFrequently: true })!.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+
+const samples = await Promise.all(['monster', 'cat', 'robot'].map(loadSample));
+samples.forEach((pic, i) => {
+  addCharacter(pic, app.screen.width * ((i + 1) / (samples.length + 1)), app.screen.height * 0.68);
+});
+
+// --- Camera button: photo of a drawing -> new character ---
+const cameraButton = document.getElementById('camera')!;
+const fileInput = cameraButton.querySelector('input')!;
+
+function nope() {
+  cameraButton.classList.remove('nope');
+  void cameraButton.offsetWidth; // restart the animation
+  cameraButton.classList.add('nope');
+}
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files?.[0];
+  fileInput.value = ''; // so picking the same photo again still works
+  if (!file) return;
+  cameraButton.classList.add('busy');
+  try {
+    const result = await cutoutFromBlob(file);
+    if (!result) throw new Error('No drawing found in the photo');
+    addCharacter(result.canvas, app.screen.width / 2, app.screen.height * 0.5, true);
+  } catch (err) {
+    console.warn(err);
+    nope();
+  } finally {
+    cameraButton.classList.remove('busy');
+  }
 });
 
 // When the iPad rotates, redraw the backdrop and pull everyone back on screen.
@@ -86,4 +128,4 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 // Handy for testing in the browser console during development.
-if (import.meta.env.DEV) Object.assign(window, { app, gestures, characters });
+if (import.meta.env.DEV) Object.assign(window, { app, gestures, characters, addCharacter });

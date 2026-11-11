@@ -2,6 +2,56 @@ import { Container, Sprite, Texture } from 'pixi.js';
 import { ease, tween } from './tween';
 
 /**
+ * Which parts of a picture count as "touchable": a coarse grid of cells that
+ * contain drawing, grown a little so small fingers don't have to be exact.
+ * Touching the see-through space around a drawing doesn't grab it.
+ */
+class TouchMap {
+  private constructor(
+    private cell: number,
+    private cols: number,
+    private rows: number,
+    private bits: Uint8Array,
+  ) {}
+
+  static fromCanvas(canvas: HTMLCanvasElement): TouchMap {
+    const { width: w, height: h } = canvas;
+    const cell = Math.max(4, Math.round(Math.max(w, h) / 48));
+    const cols = Math.ceil(w / cell);
+    const rows = Math.ceil(h / cell);
+    const raw = new Uint8Array(cols * rows);
+    const data = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > 64) raw[Math.floor(y / cell) * cols + Math.floor(x / cell)] = 1;
+      }
+    }
+    // Grow by 2 cells: a generous target for fingers.
+    const bits = new Uint8Array(cols * rows);
+    const grow = 2;
+    for (let cy = 0; cy < rows; cy++) {
+      for (let cx = 0; cx < cols; cx++) {
+        if (!raw[cy * cols + cx]) continue;
+        for (let dy = -grow; dy <= grow; dy++) {
+          for (let dx = -grow; dx <= grow; dx++) {
+            const x = cx + dx, y = cy + dy;
+            if (x >= 0 && y >= 0 && x < cols && y < rows) bits[y * cols + x] = 1;
+          }
+        }
+      }
+    }
+    return new TouchMap(cell, cols, rows, bits);
+  }
+
+  /** px, py are in picture pixels, (0,0) = top-left. */
+  hit(px: number, py: number) {
+    const cx = Math.floor(px / this.cell);
+    const cy = Math.floor(py / this.cell);
+    return cx >= 0 && cy >= 0 && cx < this.cols && cy < this.rows && this.bits[cy * this.cols + cx] === 1;
+  }
+}
+
+/**
  * One of Matilda's drawings, living in the scene.
  *
  * Layers (outside to inside):
@@ -12,6 +62,9 @@ import { ease, tween } from './tween';
 export class Character extends Container {
   readonly body = new Container();
   readonly sprite: Sprite;
+  private touchMap: TouchMap;
+  private picW: number;
+  private picH: number;
 
   /** 1 = facing the way it was drawn, -1 = mirrored. */
   facing = 1;
@@ -24,19 +77,33 @@ export class Character extends Container {
   static readonly MIN_SCALE = 0.3;
   static readonly MAX_SCALE = 4;
 
-  constructor(texture: Texture, startSize: number) {
+  constructor(picture: HTMLCanvasElement, startSize: number) {
     super();
-    this.sprite = new Sprite(texture);
+    this.picW = picture.width;
+    this.picH = picture.height;
+    this.sprite = new Sprite(Texture.from(picture));
     this.sprite.anchor.set(0.5);
-    const fit = startSize / Math.max(texture.width, texture.height);
-    this.sprite.scale.set(fit);
+    this.sprite.scale.set(startSize / Math.max(this.picW, this.picH));
 
     this.body.addChild(this.sprite);
     this.addChild(this.body);
 
-    // Let the event system know this can be touched.
+    // Touchable only where there's drawing, not the see-through corners.
+    this.touchMap = TouchMap.fromCanvas(picture);
     this.eventMode = 'static';
+    this.interactiveChildren = false;
+    this.hitArea = { contains: (x: number, y: number) => this.touches(x, y) };
     this.cursor = 'grab';
+  }
+
+  /** Is the point (in this character's own coordinates) on the drawing? */
+  private touches(x: number, y: number) {
+    const sx = this.body.scale.x;
+    const sy = this.body.scale.y;
+    if (Math.abs(sx) < 0.05) return false; // edge-on, mid-flip
+    const px = (x - this.body.x) / sx / this.sprite.scale.x + this.picW / 2;
+    const py = (y - this.body.y) / sy / this.sprite.scale.y + this.picH / 2;
+    return this.touchMap.hit(px, py);
   }
 
   private applyBody() {
@@ -67,6 +134,15 @@ export class Character extends Container {
       this.flipX = from + (to - from) * ease.inOutSine(t);
       this.hop = Math.sin(Math.PI * t) * hopHeight;
       this.applyBody();
+    });
+  }
+
+  /** Arrive with a springy pop and a little twist. */
+  popIn() {
+    this.scale.set(0.01);
+    tween(600, (t) => {
+      this.scale.set(Math.max(0.01, ease.outBack(t)));
+      this.rotation = -0.6 * (1 - ease.outCubic(t));
     });
   }
 }
