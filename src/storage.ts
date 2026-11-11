@@ -31,6 +31,8 @@ export interface SavedScene {
   items: SceneItem[];
   /** Wide rooms: how far along the room was slid (a fraction of the main view's width). */
   scroll?: number;
+  /** The place's animals and little people have moved in (so they're only added once). */
+  residents?: boolean;
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;

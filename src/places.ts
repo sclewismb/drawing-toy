@@ -1,5 +1,6 @@
 import type { Graphics } from 'pixi.js';
 import { drawClockFace } from './clock';
+import { CRITTERS } from './critters';
 import { hillDots, PALETTE, type Season } from './seasons';
 
 /**
@@ -41,6 +42,56 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   // backyard
   'ride-car': { url: 'props/ride-car.svg', size: 0.9 },
   'sand-bucket': { url: 'props/sand-bucket.svg', size: 0.45 },
+  // more toys, for anywhere
+  teddy: { url: 'props/teddy.svg', size: 0.55 },
+  'potted-plant': { url: 'props/potted-plant.svg', size: 0.6 },
+  guitar: { url: 'props/guitar.svg', size: 0.7 },
+  'birthday-cake': { url: 'props/birthday-cake.svg', size: 0.55 },
+  bicycle: { url: 'props/bicycle.svg', size: 1 },
+  scooter: { url: 'props/scooter.svg', size: 0.7 },
+  kite: { url: 'props/kite.svg', size: 0.65 },
+  wheelbarrow: { url: 'props/wheelbarrow.svg', size: 0.9 },
+  'rocking-horse': { url: 'props/rocking-horse.svg', size: 0.9 },
+  'toy-train': { url: 'props/toy-train.svg', size: 0.9 },
+  // animals and little people that walk about by themselves (see critters.ts)
+  ...Object.fromEntries(Object.entries(CRITTERS).map(([name, c]) => [name, { url: c.url, size: c.size }])),
+};
+
+/** Where the floor starts in each place (a fraction of the screen's height): critters walk below it. */
+export const FLOOR: Record<PlaceId, number> = {
+  'bedroom-a': 0.74,
+  'bedroom-b': 0.74,
+  lounge: 0.72,
+  kitchen: 0.74,
+  fire: 0.74,
+  police: 0.72,
+  school: 0.72,
+  park: 0.7,
+  backyard: 0.58,
+};
+
+/**
+ * Animals and little people who live in each place. They move in once, even
+ * where a scene was already saved (positions as fractions, like `start`).
+ */
+export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]> = {
+  'bedroom-a': [{ name: 'hedgehog', x: 0.3, y: 0.88 }],
+  'bedroom-b': [{ name: 'bunny', x: 0.72, y: 0.86 }],
+  lounge: [{ name: 'dog', x: 0.56, y: 0.83 }],
+  kitchen: [{ name: 'kitten', x: 0.84, y: 0.86 }],
+  fire: [{ name: 'grownup', x: 0.24, y: 0.8 }],
+  police: [{ name: 'dog', x: 0.78, y: 0.84 }],
+  school: [{ name: 'kid-boy', x: 0.46, y: 0.8 }],
+  park: [
+    { name: 'duck', x: 0.3, y: 0.86 },
+    { name: 'kid-girl', x: 0.56, y: 0.8 },
+    { name: 'grandma', x: 0.74, y: 0.8 },
+  ],
+  backyard: [
+    { name: 'chicken', x: 0.16, y: 0.78 },
+    { name: 'turtle', x: 0.86, y: 0.74 },
+    { name: 'duck', x: -0.4, y: 0.8 },
+  ],
 };
 
 export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | RoomId;
@@ -176,7 +227,7 @@ export const PLACES: PlaceDef[] = [
     // First bedroom (its name is set on the iPad): geometric painted wall, daybed.
     id: 'bedroom-a',
     parent: 'house',
-    toys: ['daybed', 'ball', 'books'],
+    toys: ['daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse'],
     start: [
       { name: 'daybed', x: 0.66, y: 0.79 },
       { name: 'ball', x: 0.4, y: 0.9 },
@@ -221,7 +272,7 @@ export const PLACES: PlaceDef[] = [
     // Second bedroom (its name is set on the iPad): turquoise wall, butterflies, tie-dye bed.
     id: 'bedroom-b',
     parent: 'house',
-    toys: ['bed-tiedye', 'flower', 'books', 'ball'],
+    toys: ['bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant'],
     start: [
       { name: 'bed-tiedye', x: 0.48, y: 0.78 },
       { name: 'books', x: 0.88, y: 0.66 },
@@ -278,7 +329,7 @@ export const PLACES: PlaceDef[] = [
     // Lounge room: grey walls, big window with blinds, TV, pictures, grey couch.
     id: 'lounge',
     parent: 'house',
-    toys: ['couch', 'armchair', 'trampoline', 'ball'],
+    toys: ['couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant'],
     start: [
       { name: 'couch', x: 0.68, y: 0.7 },
       { name: 'armchair', x: 0.16, y: 0.76 },
@@ -331,7 +382,7 @@ export const PLACES: PlaceDef[] = [
     // Kitchen: white cupboards, tiled splashback, three black pendant lights, island.
     id: 'kitchen',
     parent: 'house',
-    toys: ['fridge', 'stool', 'table'],
+    toys: ['fridge', 'stool', 'table', 'birthday-cake', 'potted-plant'],
     start: [
       { name: 'fridge', x: 0.1, y: 0.58 },
       { name: 'stool', x: 0.32, y: 0.9 },
@@ -389,7 +440,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'fire',
-    toys: ['fire-engine', 'helmet', 'hydrant'],
+    toys: ['fire-engine', 'helmet', 'hydrant', 'bicycle'],
     start: [
       { name: 'fire-engine', x: 0.62, y: 0.76 },
       { name: 'helmet', x: 0.25, y: 0.86 },
@@ -414,7 +465,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'police',
-    toys: ['police-car', 'police-hat', 'cone'],
+    toys: ['police-car', 'police-hat', 'cone', 'bicycle'],
     start: [
       { name: 'police-car', x: 0.35, y: 0.8 },
       { name: 'police-hat', x: 0.12, y: 0.86 },
@@ -443,7 +494,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'school',
-    toys: ['school-desk', 'globe', 'books'],
+    toys: ['school-desk', 'globe', 'books', 'toy-train'],
     start: [
       { name: 'school-desk', x: 0.3, y: 0.86 },
       { name: 'school-desk', x: 0.62, y: 0.86 },
@@ -466,7 +517,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'park',
-    toys: ['bench', 'slide', 'flower', 'ball'],
+    toys: ['bench', 'slide', 'flower', 'ball', 'kite', 'bicycle', 'scooter'],
     start: [
       { name: 'monster', x: 0.25, y: 0.68 },
       { name: 'cat', x: 0.5, y: 0.68 },
@@ -500,7 +551,7 @@ PLACES.push({
   // (like the rooms), and all of it is drawn in backyard.ts.
   id: 'backyard',
   parent: 'house',
-  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower'],
+  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower', 'bicycle', 'scooter', 'kite', 'wheelbarrow'],
   start: [
     { name: 'ride-car', x: -0.2, y: 0.86 },
     { name: 'sand-bucket', x: 0.28, y: 0.8 },

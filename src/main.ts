@@ -14,7 +14,8 @@ import { loadImage } from './loadImage';
 import { setupGrownUpShare } from './photoShare';
 import { setupHouseSettings, upgradeHouseSettings, type HouseSettings } from './houseSettings';
 import { HouseView, ROOM_FURNITURE } from './houseView';
-import { BUILTIN, PLACES, placeById, STREET, type PlaceId, type RoomId } from './places';
+import { BUILTIN, FLOOR, PLACES, placeById, RESIDENTS, STREET, type PlaceId } from './places';
+import { CRITTERS, sayHellos, Wanderer } from './critters';
 import { SOUND_FOR } from './reactions';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
@@ -226,7 +227,7 @@ async function saveNow() {
     });
   }
   try {
-    await storage.saveScene(place, { version: 1, items, scroll: camera.x / panel });
+    await storage.saveScene(place, { version: 1, items, scroll: camera.x / panel, residents: true });
   } catch (err) {
     console.warn('Could not save the scene', err);
   }
@@ -276,6 +277,33 @@ app.ticker.add((t) => {
 /** A point on the screen, in room coordinates. */
 const toRoom = (x: number, y: number) => characters.toLocal({ x, y });
 
+// --- Animals and little people walking about by themselves (see critters.ts) ---
+const wanderers = new WeakMap<Character, Wanderer>();
+let critterSaveTimer = 0;
+/** They wander a lot, so save their spots now and then rather than every step. */
+function critterMoved() {
+  if (critterSaveTimer) return;
+  critterSaveTimer = window.setTimeout(() => {
+    critterSaveTimer = 0;
+    void saveNow();
+  }, 4000);
+}
+app.ticker.add((t) => {
+  if (screen !== 'place' || !current || switching) return;
+  const now = performance.now();
+  const { x0, x1 } = roomEdges(current, panel);
+  const area = { x0, x1, floor: roomH * FLOOR[current], bottom: roomH, screenW: app.screen.width };
+  const list: Wanderer[] = [];
+  for (const ch of characters.children as Character[]) {
+    const w = wanderers.get(ch);
+    if (!w || ch.destroyed || ch.eventMode === 'none') continue;
+    const sx = ch.x - camera.x;
+    w.update(Math.min(t.deltaMS, 50), area, gestures.isHeld(ch), sx > 0 && sx < app.screen.width, now);
+    list.push(w);
+  }
+  sayHellos(list, now);
+});
+
 // Keep the flip button floating at the top-right corner of the selected character.
 app.ticker.add(() => {
   const ch = gestures.selected;
@@ -309,6 +337,12 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
   if (at.facing === -1) ch.setFacing(-1);
   characters.addChild(ch);
   gestures.keepOnScreen(ch);
+  if (ref.kind === 'sample' && CRITTERS[ref.name]) {
+    const w = new Wanderer(ch, CRITTERS[ref.name]);
+    w.onMoved = critterMoved;
+    wanderers.set(ch, w);
+    if (tada) w.rest(1500); // let it land before it wanders off
+  }
   if (tada) {
     ch.popIn();
     const g = ch.getGlobalPosition();
@@ -460,8 +494,17 @@ async function showPlace(id: PlaceId) {
       addCharacter(pic, { kind: 'sample', name: s.name }, { x: s.x * W, y: s.y * H });
     }
   }
+  // The animals and little people who live here move in (just once, even
+  // into a scene that was saved before they existed).
+  const newcomers = !saved?.residents;
+  if (newcomers) {
+    for (const s of RESIDENTS[id] ?? []) {
+      const pic = await svgPicture(builtinUrl(s.name));
+      addCharacter(pic, { kind: 'sample', name: s.name }, { x: s.x * W, y: s.y * H });
+    }
+  }
   restoring = false;
-  if (!saved) void saveNow();
+  if (!saved || newcomers) void saveNow();
 }
 
 /** Show one screen (street, house or a place) and the right buttons for it. */
@@ -600,7 +643,8 @@ const gallery = setupGallery({
   library,
   builtins() {
     const here = current ? placeById(current)!.toys : [];
-    const names = [...new Set([...here, 'monster', 'cat', 'robot', ...PLACES.flatMap((p) => p.toys)])];
+    // this place's toys, then the animals and people, then everything else
+    const names = [...new Set([...here, ...Object.keys(CRITTERS), 'monster', 'cat', 'robot', ...PLACES.flatMap((p) => p.toys)])];
     return names.map((name) => ({ name, url: builtinUrl(name) }));
   },
   async onPick(pick: GalleryPick) {
@@ -609,7 +653,15 @@ const gallery = setupGallery({
     if (!pic) return;
     const { width: W, height: H } = app.screen;
     const jitter = () => (Math.random() - 0.5) * Math.min(W, H) * 0.25;
-    addCharacter(pic, pick, toRoom(W / 2 + jitter(), H * 0.42 + jitter() * 0.4), true);
+    const at = toRoom(W / 2 + jitter(), H * 0.42 + jitter() * 0.4);
+    if (pick.kind === 'sample' && CRITTERS[pick.name]) {
+      // animals and people arrive standing on the floor, ready to wander off
+      const floor = roomH * FLOOR[current];
+      const feet = floor + (roomH - floor) * (0.35 + Math.random() * 0.3);
+      const halfHeight = (startSize() * CRITTERS[pick.name].size * pic.height) / Math.max(pic.width, pic.height) / 2;
+      at.y = feet - halfHeight;
+    }
+    addCharacter(pic, pick, at, true);
   },
   onDelete(id: string) {
     // Gone for good: remove it from this place too, in a puff of stars.
@@ -657,7 +709,11 @@ function putAway(ch: Character) {
 // --- Every touch does something ---
 gestures.onTap = (ch) => {
   const name = ch.react();
-  sfx[SOUND_FOR[name]](voice(ch));
+  const critter = wanderers.get(ch);
+  if (critter) {
+    critter.kind.voice(); // animals and people answer in their own voice
+    critter.rest(1600);
+  } else sfx[SOUND_FOR[name]](voice(ch));
   if (name === 'super') {
     const p = ch.getGlobalPosition();
     burst(sparkles, p.x, p.y, 20, 220);
