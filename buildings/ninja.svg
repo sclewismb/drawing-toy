@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 280" width="320" height="280">
+  <!-- The ninja kids gym on the map: a big gym with a ninja-mask sign and a climbing wall. -->
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="24" y="80" width="272" height="196" fill="#1d3557" />
+    <path d="M14 86 L160 34 L306 86 Z" fill="#2b2d42" />
+    <rect x="70" y="96" width="180" height="56" rx="12" fill="#ffb703" />
+    <circle cx="160" cy="124" r="22" fill="#2b2d42" />
+    <rect x="138" y="116" width="44" height="14" fill="#ffd6a5" stroke-width="3" />
+    <circle cx="151" cy="123" r="3" fill="#3a3a3a" stroke="none" /><circle cx="169" cy="123" r="3" fill="#3a3a3a" stroke="none" />
+    <path d="M182 120 L206 110 M182 128 L206 134" fill="none" stroke="#e5383b" stroke-width="5" />
+    <path d="M90 116 L110 116 M210 132 L232 132" fill="none" stroke="#fff" stroke-width="4" />
+    <rect x="40" y="168" width="70" height="108" fill="#e9ecef" />
+    <circle cx="56" cy="186" r="6" fill="#e5383b" stroke-width="3" /><circle cx="88" cy="196" r="6" fill="#7bd36b" stroke-width="3" />
+    <circle cx="62" cy="220" r="6" fill="#4ea8ff" stroke-width="3" /><circle cx="94" cy="236" r="6" fill="#ffd166" stroke-width="3" />
+    <circle cx="58" cy="256" r="6" fill="#b07de8" stroke-width="3" />
+    <rect x="132" y="176" width="64" height="100" fill="#ffb703" />
+    <rect x="214" y="168" width="66" height="54" fill="#bfe8ff" />
+    <path d="M247 168 L247 222 M214 195 L280 195" fill="none" stroke-width="4" />
+  </g>
+</svg>

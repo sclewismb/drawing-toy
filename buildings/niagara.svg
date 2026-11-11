@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 300" width="380" height="300">
+  <!-- Niagara Falls on the map: a great curved waterfall with mist, a rainbow and a little boat. -->
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M10 120 Q60 70 120 96 L120 220 L10 220 Z" fill="#8d8d8d" />
+    <path d="M370 120 Q320 70 260 96 L260 220 L370 220 Z" fill="#8d8d8d" />
+    <path d="M10 112 Q60 62 120 88 Q190 40 260 88 Q320 62 370 112 L370 122 Q320 76 260 98 Q190 52 120 98 Q60 76 10 122 Z" fill="#52b788" />
+    <path d="M120 96 Q190 52 260 96 L268 230 L112 230 Z" fill="#7fdde0" />
+    <path d="M140 92 L136 226 M164 78 L160 228 M190 72 L190 228 M216 78 L220 228 M240 90 L244 226" fill="none" stroke="#fff" stroke-width="5" />
+    <path d="M20 228 L360 228 L360 296 L20 296 Z" fill="#4ea8ff" />
+    <path d="M96 230 Q120 200 150 222 Q170 196 200 220 Q228 194 252 222 Q276 206 290 232 Z" fill="#fff" />
+    <path d="M70 230 A120 120 0 0 1 310 230" fill="none" stroke="#e5383b" stroke-width="7" stroke-opacity="0.75" />
+    <path d="M82 230 A108 108 0 0 1 298 230" fill="none" stroke="#ffd166" stroke-width="7" stroke-opacity="0.75" />
+    <path d="M94 230 A96 96 0 0 1 286 230" fill="none" stroke="#7bd36b" stroke-width="7" stroke-opacity="0.75" />
+    <path d="M150 268 L250 268 L238 290 L162 290 Z" fill="#fff" />
+    <rect x="172" y="250" width="56" height="18" fill="#1d3557" />
+    <circle cx="186" cy="244" r="7" fill="#4ea8ff" stroke-width="3" /><circle cx="206" cy="244" r="7" fill="#4ea8ff" stroke-width="3" />
+  </g>
+</svg>
