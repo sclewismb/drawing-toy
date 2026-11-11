@@ -2,7 +2,9 @@ import type { Graphics } from 'pixi.js';
 import { frame, INK, seeded, type PlaceId } from './places';
 import { drawBackyard, YARD } from './backyard';
 import { drawFair, FAIR } from './fair';
+import { drawRestaurant, drawToyshop, drawVet, SHOP_WIDE } from './shops';
 import { fireWide, parkWide, policeWide, schoolWide, TOWN_WIDE } from './townWide';
+import { drawZoo, ZOO } from './zoo';
 import type { Season } from './seasons';
 
 /**
@@ -33,6 +35,11 @@ export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
   police: { ...TOWN_WIDE.police, draw: policeWide },
   school: { ...TOWN_WIDE.school, draw: schoolWide },
   park: { ...TOWN_WIDE.park, draw: parkWide },
+  // the vet, the restaurant, the toy shop and the zoo (all drawn in shops.ts and zoo.ts)
+  vet: { ...SHOP_WIDE.vet, draw: drawVet },
+  restaurant: { ...SHOP_WIDE.restaurant, draw: drawRestaurant },
+  toyshop: { ...SHOP_WIDE.toyshop, draw: drawToyshop },
+  zoo: { left: ZOO.left, right: ZOO.right, draw: drawZoo },
 };
 
 /** Wall and carpet across a stretch of a bedroom. */

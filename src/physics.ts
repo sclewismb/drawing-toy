@@ -93,6 +93,29 @@ export const SHELVES: Partial<Record<PlaceId, [x0: number, x1: number, y: number
     [1.13, 1.37, 0.66], // picnic table
     [1.71, 1.86, 0.58], // TV room counter
   ],
+  vet: [
+    [0.05, 0.37, 0.48], // reception desk
+    [1.08, 1.32, 0.55], // check-up table
+    [0.78, 0.96, 0.52], // under the fish tank
+  ],
+  restaurant: [
+    [-0.31, -0.01, 0.44], // the kitchen hatch
+    [0.09, 0.25, 0.58], // tables
+    [0.42, 0.58, 0.58],
+    [0.75, 0.91, 0.58],
+    [1.04, 1.28, 0.46], // dessert counter
+  ],
+  toyshop: [
+    [-0.55, -0.13, 0.52], // train table
+    [0.04, 0.44, 0.3], // shelves
+    [0.04, 0.44, 0.46],
+    [0.04, 0.44, 0.62],
+    [0.56, 0.96, 0.3],
+    [0.56, 0.96, 0.46],
+    [0.56, 0.96, 0.62],
+    [0.41, 0.59, 0.5], // till counter
+    [1.4, 1.56, 0.56], // the jack-in-the-box's table
+  ],
 };
 
 const GRAVITY = 0.0028; // pixels per ms, per ms

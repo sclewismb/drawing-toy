@@ -2,6 +2,7 @@ import type { Graphics } from 'pixi.js';
 import { drawClockFace } from './clock';
 import { backyardSky } from './backyard';
 import { fairSky } from './fair';
+import { zooSky } from './zoo';
 import { CRITTERS } from './critters';
 import type { SkyDef } from './sky';
 import { hillDots, PALETTE, type Season } from './seasons';
@@ -59,6 +60,9 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   // the fairground
   'candy-floss': { url: 'props/candy-floss.svg', size: 0.55 },
   balloon: { url: 'props/balloon.svg', size: 0.6 },
+  // the restaurant
+  pizza: { url: 'props/pizza.svg', size: 0.5 },
+  burger: { url: 'props/burger.svg', size: 0.45 },
   // animals and little people that walk about by themselves (see critters.ts)
   ...Object.fromEntries(Object.entries(CRITTERS).map(([name, c]) => [name, { url: c.url, size: c.size }])),
 };
@@ -75,6 +79,10 @@ export const FLOOR: Record<PlaceId, number> = {
   park: 0.7,
   backyard: 0.58,
   fair: 0.7,
+  vet: 0.72,
+  restaurant: 0.72,
+  toyshop: 0.72,
+  zoo: 0.66,
 };
 
 /**
@@ -94,6 +102,24 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
     { name: 'kid-girl', x: 0.56, y: 0.8 },
     { name: 'grandma', x: 0.74, y: 0.8 },
   ],
+  vet: [
+    { name: 'grownup', x: 0.24, y: 0.8 },
+    { name: 'kitten', x: 0.5, y: 0.86 },
+    { name: 'bunny', x: 1.2, y: 0.86 },
+  ],
+  restaurant: [
+    { name: 'grownup', x: -0.15, y: 0.8 },
+    { name: 'kid-girl', x: 0.66, y: 0.82 },
+  ],
+  toyshop: [
+    { name: 'grandma', x: 0.5, y: 0.8 },
+    { name: 'kid-boy', x: 1.3, y: 0.82 },
+  ],
+  zoo: [
+    { name: 'kid-boy', x: 0.2, y: 0.86 },
+    { name: 'grandma', x: 0.9, y: 0.86 },
+    { name: 'duck', x: 1.0, y: 0.92 },
+  ],
   fair: [
     { name: 'kid-girl', x: -0.2, y: 0.82 },
     { name: 'kid-boy', x: 0.3, y: 0.84 },
@@ -106,7 +132,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
   ],
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -123,6 +149,10 @@ export const STREET: {
   { id: 'police', building: 'buildings/police.svg' },
   { id: 'school', building: 'buildings/school.svg', clock: { x: 150, y: 80, r: 20 } },
   { id: 'park', building: 'buildings/park.svg' },
+  { id: 'vet', building: 'buildings/vet.svg' },
+  { id: 'restaurant', building: 'buildings/restaurant.svg' },
+  { id: 'toyshop', building: 'buildings/toyshop.svg' },
+  { id: 'zoo', building: 'buildings/zoo.svg' },
   { id: 'fair', building: 'buildings/fair.svg' },
 ];
 
@@ -601,5 +631,36 @@ PLACES.push({
     /* see fair.ts */
   },
 });
+
+// The vet, the restaurant, the toy shop and the zoo: wide, and all drawn in shops.ts and zoo.ts.
+const allDrawnElsewhere = () => {
+  /* see shops.ts / zoo.ts */
+};
+PLACES.push(
+  { id: 'vet', toys: ['ball', 'teddy', 'flower'], start: [{ name: 'ball', x: 0.35, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
+  {
+    id: 'restaurant',
+    toys: ['pizza', 'burger', 'birthday-cake', 'table', 'stool'],
+    start: [
+      { name: 'pizza', x: 0.17, y: 0.52 },
+      { name: 'burger', x: 0.83, y: 0.53 },
+    ],
+    drawBackdrop: allDrawnElsewhere,
+  },
+  {
+    id: 'toyshop',
+    toys: ['teddy', 'toy-train', 'rocking-horse', 'ball', 'kite', 'guitar', 'scooter', 'balloon'],
+    start: [{ name: 'rocking-horse', x: -0.5, y: 0.82 }],
+    drawBackdrop: allDrawnElsewhere,
+  },
+  {
+    id: 'zoo',
+    toys: ['balloon', 'ball', 'teddy', 'candy-floss'],
+    start: [],
+    outdoors: true,
+    sky: (w, h, season) => zooSky(w, h, season),
+    drawBackdrop: allDrawnElsewhere,
+  },
+);
 
 export const placeById = (id: string) => PLACES.find((p) => p.id === id);

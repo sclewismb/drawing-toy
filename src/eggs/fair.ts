@@ -26,7 +26,8 @@ export function fair(kit: EggKit, cleanups: Cleanups) {
   }
   rim.stroke({ width: 4, color: INK });
   const lights = new Graphics();
-  rim.addChild(lights);
+  const turning = new Container(); // the rim and its lights turn together
+  turning.addChild(rim, lights);
   const hub = new Graphics().circle(0, 0, 16).fill(0xffd166).stroke({ width: 4, color: INK });
   const cabins: Graphics[] = [];
   for (let i = 0; i < 8; i++) {
@@ -36,13 +37,13 @@ export function fair(kit: EggKit, cleanups: Cleanups) {
     c.rect(-14, -2, 28, 10).fill(0xbfe8ff).stroke({ width: 2, color: INK });
     cabins.push(c);
   }
-  wheel.addChild(rim, ...cabins, hub);
+  wheel.addChild(turning, ...cabins, hub);
   kit.under.addChild(wheel);
   let angle = 0, spin = 0.00022, flash = 0, time = 0;
   everyFrame((dt) => {
     time += dt;
     angle += spin * dt;
-    rim.rotation = angle;
+    turning.rotation = angle;
     cabins.forEach((c, i) => {
       const a = angle + (i / 8) * Math.PI * 2;
       c.position.set(Math.cos(a) * R, Math.sin(a) * R + 16);
