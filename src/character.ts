@@ -1,4 +1,5 @@
 import { Container, Sprite, Texture } from 'pixi.js';
+import { playReaction, TAP_REACTIONS, type Reactable, type ReactionName } from './reactions';
 import { ease, tween } from './tween';
 
 /**
@@ -56,12 +57,18 @@ class TouchMap {
  *
  * Layers (outside to inside):
  *   Character (this)  - position, rotation and pinch size. Moved by gestures.
- *     body            - flip (mirror) and the "picked up" lift. Animated.
- *       sprite        - the picture itself, scaled to a sensible starting size.
+ *     body            - flip (mirror), "picked up" lift, spins. Animated.
+ *       fx            - tap reactions: squash, stretch, wobble from the feet.
+ *         sprite      - the picture itself, scaled to a sensible starting size.
  */
-export class Character extends Container {
+export class Character extends Container implements Reactable {
   readonly body = new Container();
+  readonly fx = new Container();
   readonly sprite: Sprite;
+  readonly restY: number;
+  readonly size: number;
+  private lastReaction: ReactionName | null = null;
+  private cancelReaction?: () => void;
   private touchMap: TouchMap;
   private picW: number;
   private picH: number;
@@ -85,7 +92,15 @@ export class Character extends Container {
     this.sprite.anchor.set(0.5);
     this.sprite.scale.set(startSize / Math.max(this.picW, this.picH));
 
-    this.body.addChild(this.sprite);
+    // fx pivots on the bottom-middle of the drawing, so squashes and wobbles
+    // happen "from the feet" like a jelly.
+    this.size = this.picH * this.sprite.scale.y;
+    this.restY = this.size / 2;
+    this.fx.pivot.set(0, this.restY);
+    this.fx.position.set(0, this.restY);
+
+    this.fx.addChild(this.sprite);
+    this.body.addChild(this.fx);
     this.addChild(this.body);
 
     // Touchable only where there's drawing, not the see-through corners.
@@ -135,6 +150,25 @@ export class Character extends Container {
       this.hop = Math.sin(Math.PI * t) * hopHeight;
       this.applyBody();
     });
+  }
+
+  /**
+   * React to a tap. Picks a different reaction from last time, with a rare
+   * surprise now and then. Returns which one, so the right sound can play.
+   */
+  react(force?: ReactionName): ReactionName {
+    let name = force;
+    if (!name) {
+      if (Math.random() < 1 / 12) name = 'super';
+      else {
+        const options = TAP_REACTIONS.filter((r) => r !== this.lastReaction);
+        name = options[Math.floor(Math.random() * options.length)];
+      }
+    }
+    this.lastReaction = name;
+    this.cancelReaction?.();
+    this.cancelReaction = playReaction(this, name);
+    return name;
   }
 
   /** Arrive with a springy pop and a little twist. */

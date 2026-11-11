@@ -1,4 +1,4 @@
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container, Graphics, Ticker } from 'pixi.js';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { FlipButton } from './flipButton';
@@ -6,6 +6,8 @@ import { burst } from './fx';
 import { GestureController } from './gestures';
 import { loadImage } from './loadImage';
 import { setupPhotoShare } from './photoShare';
+import { SOUND_FOR } from './reactions';
+import { audioState, setMuted, sfx, unlockAudio } from './sound';
 
 // Stop iOS Safari's own pinch-to-zoom from fighting with ours.
 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -40,12 +42,45 @@ function drawBackdrop() {
 }
 drawBackdrop();
 
+// --- Sound: the iPad only allows it after a touch, so wake it on every touch
+// (cheap once it's running; also recovers after the app was in the background).
+for (const type of ['pointerdown', 'pointerup', 'touchend', 'click']) {
+  document.addEventListener(type, unlockAudio, { capture: true, passive: true });
+}
+
+/** Each character's "voice": bigger ones sound lower, with a little variety. */
+const voice = (ch: Character) =>
+  Math.min(1.6, Math.max(0.6, Math.pow(ch.scale.x, -0.35))) * (0.92 + Math.random() * 0.18);
+
 // --- Gestures and the flip button ---
 const gestures = new GestureController(app, characters);
-const flipButton = new FlipButton(() => gestures.selected?.flip());
+const flipButton = new FlipButton(() => {
+  gestures.selected?.flip();
+  sfx.whoosh();
+});
 ui.addChild(flipButton);
 
 gestures.onSelect = (ch) => (ch ? flipButton.show() : flipButton.hide());
+
+// Every touch does something.
+gestures.onTap = (ch) => {
+  const name = ch.react();
+  sfx[SOUND_FOR[name]](voice(ch));
+  if (name === 'super') {
+    const p = ch.getGlobalPosition();
+    burst(ui, p.x, p.y, 20, 220);
+  }
+};
+gestures.onDragStart = (ch) => sfx.pickup(voice(ch));
+gestures.onDrop = (ch) => sfx.drop(voice(ch));
+gestures.onShake = (ch) => {
+  ch.react('dizzy');
+  sfx.dizzy(voice(ch));
+};
+gestures.onTapEmpty = (x, y) => {
+  burst(ui, x, y, 6, 50);
+  sfx.pling();
+};
 
 // Keep the flip button floating at the top-right corner of the selected character.
 app.ticker.add(() => {
@@ -68,6 +103,7 @@ function addCharacter(picture: HTMLCanvasElement, x: number, y: number, tada = f
   if (tada) {
     ch.popIn();
     burst(ui, x, y);
+    sfx.tada();
     gestures.select(ch);
   }
   return ch;
@@ -95,6 +131,7 @@ const fileInput = cameraButton.querySelector('input')!;
 const photoShare = setupPhotoShare(cameraButton, document.getElementById('share-photo') as HTMLButtonElement);
 
 function nope() {
+  sfx.nope();
   cameraButton.classList.remove('nope');
   void cameraButton.offsetWidth; // restart the animation
   cameraButton.classList.add('nope');
@@ -145,4 +182,4 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 // Handy for testing in the browser console during development.
-if (import.meta.env.DEV) Object.assign(window, { app, gestures, characters, addCharacter });
+if (import.meta.env.DEV) Object.assign(window, { app, gestures, characters, addCharacter, setMuted, audioState, sfx, Ticker });
