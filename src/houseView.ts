@@ -1,4 +1,5 @@
 import { Container, Graphics, Rectangle, Sprite, Text, Texture, type FederatedPointerEvent } from 'pixi.js';
+import type { HouseGeom } from './eggs';
 import { ROOMS, type RoomId } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
 import { ease, tween } from './tween';
@@ -32,11 +33,16 @@ export class HouseView extends Container {
   private tiles: RoomTile[] = [];
   private busy = false;
   private names: Partial<Record<RoomId, string>> = {};
+  /** Surprises outside the house (see eggs/views.ts): behind it and in front. */
+  readonly eggsBehind = new Container();
+  readonly eggs = new Container();
+  readonly eggsFront = new Container();
+  geom: HouseGeom = { w: 0, h: 0, x0: 0, houseW: 0, ridgeY: 0, ground: 0, rooms: [], season: 'spring' };
   onEnter: (id: RoomId, at: { x: number; y: number }) => void = () => {};
 
   constructor(pictures: Map<string, HTMLCanvasElement>) {
     super();
-    this.addChild(this.bg, this.shell);
+    this.addChild(this.bg, this.eggsBehind, this.shell);
     for (const id of ROOMS) {
       const holder = new Container();
       const art = new Graphics();
@@ -62,6 +68,7 @@ export class HouseView extends Container {
       this.addChild(holder);
       this.tiles.push(tile);
     }
+    this.addChild(this.eggs, this.eggsFront);
   }
 
   setNames(names: Partial<Record<RoomId, string>>) {
@@ -140,6 +147,16 @@ export class HouseView extends Container {
       this.drawRoom(t);
       this.drawLabel(t);
     });
+    this.geom = {
+      w,
+      h,
+      x0,
+      houseW,
+      ridgeY: h * 0.08,
+      ground,
+      rooms: this.tiles.map((t) => new Rectangle(t.holder.x - t.w / 2, t.holder.y - t.h / 2, t.w, t.h)),
+      season,
+    };
   }
 
   private drawRoom(t: RoomTile) {

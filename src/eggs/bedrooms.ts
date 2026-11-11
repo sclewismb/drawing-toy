@@ -1,108 +1,17 @@
-import { Container, Graphics, Rectangle, Ticker, type FederatedPointerEvent } from 'pixi.js';
-import { burst } from './fx';
-import type { PlaceId } from './places';
-import { sfx } from './sound';
-import { ease, tween } from './tween';
+import { Container, Graphics, Rectangle } from 'pixi.js';
+import { burst } from '../fx';
+import { sfx } from '../sound';
+import { ease, tween } from '../tween';
+import { everyFrame, glow, INK, lightSwitch, MultiHit, rand, roomLights, tappable, type Cleanups, type EggKit } from './common';
 
 /**
- * Hidden surprises in the rooms ("Easter eggs"), Toca Boca style: tap the
- * right thing and something fun happens. No goals, no scores.
- *
- *   under: things on the walls and furniture (behind characters)
- *   over:  darkness, glows, things flying round the room (in front)
+ * Surprises in the two bedrooms (drawn after the family's photos).
  */
-export interface EggKit {
-  under: Container;
-  over: Container;
-  sparkles: Container;
-  w: number;
-  h: number;
-}
-
-const INK = 0x3a3a3a;
-
-/** Make something tappable without it counting as a tap on empty space. */
-function tappable(c: Container, onTap: () => void, hit?: Rectangle) {
-  c.eventMode = 'static';
-  c.cursor = 'pointer';
-  if (hit) c.hitArea = hit;
-  c.on('pointerdown', (e: FederatedPointerEvent) => e.stopPropagation());
-  c.on('pointertap', () => onTap());
-}
-
-/** A soft round glow (several faint circles). */
-function glow(g: Graphics, x: number, y: number, r: number, color: number, strength = 1) {
-  for (let i = 7; i >= 1; i--) g.circle(x, y, (r * i) / 7).fill({ color, alpha: Math.min(1, 0.055 * strength) });
-}
-
-const rand = (a: number, b: number) => a + Math.random() * (b - a);
-
-/** Room lights: a dark blue veil over the room when they're off. */
-function roomLights(kit: EggKit, onLevel: (level: number) => void) {
-  const veil = new Graphics();
-  veil.eventMode = 'none';
-  kit.over.addChildAt(veil, 0);
-  let on = true;
-  let level = 0;
-  const draw = () => {
-    veil.clear();
-    if (level > 0.001) veil.rect(0, 0, kit.w, kit.h).fill({ color: 0x0b1026, alpha: level });
-  };
-  return {
-    get on() {
-      return on;
-    },
-    get level() {
-      return level;
-    },
-    toggle() {
-      on = !on;
-      const from = level;
-      const to = on ? 0 : 0.62;
-      tween(350, (t) => {
-        level = from + (to - from) * t;
-        draw();
-        onLevel(level);
-      });
-    },
-  };
-}
-
-function lightSwitch(kit: EggKit, x: number, y: number, lights: { on: boolean; toggle: () => void }) {
-  const g = new Graphics();
-  const draw = () =>
-    g
-      .clear()
-      .roundRect(x, y, 28, 42, 5)
-      .fill(0xffffff)
-      .stroke({ width: 3, color: INK })
-      .roundRect(x + 9, y + (lights.on ? 8 : 21), 10, 13, 3)
-      .fill(0xdee2e6)
-      .stroke({ width: 2, color: INK });
-  draw();
-  kit.under.addChild(g);
-  tappable(
-    g,
-    () => {
-      sfx.click();
-      lights.toggle();
-      draw();
-    },
-    new Rectangle(x - 20, y - 20, 68, 82),
-  );
-}
-
-/** Run something every frame until the room is left. */
-function everyFrame(fn: (dtMs: number) => void, cleanups: (() => void)[]) {
-  const tick = (t: Ticker) => fn(t.deltaMS);
-  Ticker.shared.add(tick);
-  cleanups.push(() => Ticker.shared.remove(tick));
-}
 
 // ---------------------------------------------------------------------------
 // First bedroom: geometric wall, blackout blind, turquoise dresser, daybed
 // ---------------------------------------------------------------------------
-function bedroomA(kit: EggKit, cleanups: (() => void)[]) {
+export function bedroomA(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const fy = h * 0.74;
   const glows = new Graphics();
@@ -396,7 +305,7 @@ function bedroomA(kit: EggKit, cleanups: (() => void)[]) {
 // ---------------------------------------------------------------------------
 // Second bedroom: turquoise wall, butterflies, curtains, ceiling fan, desk
 // ---------------------------------------------------------------------------
-function bedroomB(kit: EggKit, cleanups: (() => void)[]) {
+export function bedroomB(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const fy = h * 0.74;
   const glows = new Graphics();
@@ -457,7 +366,7 @@ function bedroomB(kit: EggKit, cleanups: (() => void)[]) {
     curtains.stroke({ width: 2, color: 0xdee2e6 });
     // closed: the whole window is the button; open: only the curtains, so the penguin can be tapped
     curtains.hitArea = isOpen
-      ? new CurtainHit(new Rectangle(wx - 26, wy - 6, leftW, ch), new Rectangle(wx + ww + 26 - rightW, wy - 6, rightW, ch))
+      ? new MultiHit(new Rectangle(wx - 26, wy - 6, leftW, ch), new Rectangle(wx + ww + 26 - rightW, wy - 6, rightW, ch))
       : new Rectangle(wx - 30, wy - 10, ww + 60, ch + 10);
   };
   drawCurtains();
@@ -648,27 +557,3 @@ function bedroomB(kit: EggKit, cleanups: (() => void)[]) {
   lightSwitch(kit, w * 0.07, h * 0.42, lights);
 }
 
-/** Two rectangles as one tap area (the open curtains). */
-class CurtainHit {
-  constructor(
-    private a: Rectangle,
-    private b: Rectangle,
-  ) {}
-  contains(x: number, y: number) {
-    return this.a.contains(x, y) || this.b.contains(x, y);
-  }
-}
-
-const ROOMS_WITH_EGGS: Partial<Record<PlaceId, (kit: EggKit, cleanups: (() => void)[]) => void>> = {
-  'bedroom-a': bedroomA,
-  'bedroom-b': bedroomB,
-};
-
-/** Set up a place's surprises. Returns a clean-up function (or null if it has none). */
-export function createEggs(id: PlaceId, kit: EggKit): (() => void) | null {
-  const build = ROOMS_WITH_EGGS[id];
-  if (!build) return null;
-  const cleanups: (() => void)[] = [];
-  build(kit, cleanups);
-  return () => cleanups.forEach((fn) => fn());
-}

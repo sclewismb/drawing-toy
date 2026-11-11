@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite, Text, Texture, type FederatedPointerEvent } from 'pixi.js';
 import { drawClockHands } from './clock';
+import type { StreetGeom } from './eggs';
 import { STREET, type PlaceId } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
 import { ease, tween } from './tween';
@@ -31,6 +32,11 @@ export class StreetView extends Container {
     text: '',
     style: { fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 18, fontWeight: '700', fill: 0x3a3a3a },
   });
+  /** Surprises on the street (see eggs/views.ts): on top of the buildings. */
+  readonly eggs = new Container();
+  readonly eggsFront = new Container();
+  /** Where things are, for the surprises. */
+  geom: StreetGeom = { w: 0, h: 0, ground: 0, roadTop: 0, roadH: 0, slot: 0, xs: [] };
   onEnter: (id: StreetId, at: { x: number; y: number }) => void = () => {};
   onBuildingTap: () => void = () => {};
   onHouseHold: () => void = () => {};
@@ -79,7 +85,7 @@ export class StreetView extends Container {
     this.signText.anchor.set(0.5);
     this.sign.visible = false;
     this.sign.eventMode = 'none';
-    this.addChild(this.sign);
+    this.addChild(this.sign, this.eggs, this.eggsFront);
   }
 
   private tap(b: Building) {
@@ -173,6 +179,7 @@ export class StreetView extends Container {
     this.signText.style.fontSize = Math.max(13, Math.min(20, slot * 0.075));
     this.placeSign();
     this.updateClock();
+    this.geom = { w, h, ground, roadTop, roadH: h * 0.22, slot, xs: this.buildings.map((b) => b.holder.x) };
   }
 
   /** Move the clock hands on buildings to the real time. */

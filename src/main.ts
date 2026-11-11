@@ -1,7 +1,7 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
-import { createEggs } from './eggs';
+import { createEggs, createHouseEggs, createStreetEggs } from './eggs';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { FlipButton } from './flipButton';
@@ -142,6 +142,7 @@ function setSeason(s: Season, withSound = true) {
   for (const b of seasonButtons) b.classList.toggle('on', b.dataset.season === s);
   street.layout(app.screen.width, app.screen.height, season);
   houseView.layout(app.screen.width, app.screen.height, season);
+  setupViewEggs();
   drawBackdrop();
   weather.set(s);
   if (withSound) sfx.season(s);
@@ -286,7 +287,20 @@ function teardownEggs() {
 
 function setupEggs(id: PlaceId) {
   teardownEggs();
-  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles, w: app.screen.width, h: app.screen.height });
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles, w: app.screen.width, h: app.screen.height, season });
+}
+
+// Surprises on the street and outside the house (rebuilt when they're laid out again).
+let viewEggsCleanup: (() => void) | null = null;
+function setupViewEggs() {
+  viewEggsCleanup?.();
+  for (const layer of [street.eggs, street.eggsFront, houseView.eggsBehind, houseView.eggs, houseView.eggsFront]) {
+    for (const c of layer.removeChildren()) c.destroy({ children: true });
+  }
+  const { width: w, height: h } = app.screen;
+  const a = createStreetEggs({ under: street.eggs, over: street.eggsFront, sparkles, w, h, season }, street.geom);
+  const b = createHouseEggs({ under: houseView.eggs, over: houseView.eggsFront, sparkles, w, h, season }, houseView.eggsBehind, houseView.geom);
+  viewEggsCleanup = () => (a(), b());
 }
 
 // --- Blackboards you can draw on (the school) ---
@@ -618,6 +632,7 @@ fileInput.addEventListener('change', async () => {
 app.renderer.on('resize', () => {
   street.layout(app.screen.width, app.screen.height, season);
   houseView.layout(app.screen.width, app.screen.height, season);
+  setupViewEggs();
   weather.resize(app.screen.width, app.screen.height);
   drawBackdrop();
   layoutChalk();

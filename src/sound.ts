@@ -222,6 +222,75 @@ export const sfx = {
   flutter() {
     for (let i = 0; i < 6; i++) hiss({ dur: 0.05, vol: 0.06, from: 2500, to: 1800, q: 2, delay: i * 0.06 });
   },
+  honk() {
+    for (const d of [0, 0.22]) {
+      tone({ type: 'square', from: 420, dur: 0.16, vol: 0.1, delay: d, filter: { type: 'lowpass', freq: 1400 } });
+      tone({ type: 'square', from: 520, dur: 0.16, vol: 0.08, delay: d, filter: { type: 'lowpass', freq: 1400 } });
+    }
+  },
+  meow() {
+    tone({ type: 'triangle', from: 600, to: 950, dur: 0.18, vol: 0.14, wobbleRate: 8, wobbleDepth: 20 });
+    tone({ type: 'triangle', from: 950, to: 520, dur: 0.35, vol: 0.14, delay: 0.17, wobbleRate: 8, wobbleDepth: 30 });
+  },
+  woof() {
+    for (const d of [0, 0.28]) {
+      tone({ type: 'sawtooth', from: 320, to: 140, dur: 0.14, vol: 0.18, delay: d, filter: { type: 'lowpass', freq: 900 } });
+      hiss({ dur: 0.1, vol: 0.08, from: 800, to: 400, delay: d });
+    }
+  },
+  quack() {
+    for (const d of [0, 0.25]) {
+      tone({ type: 'sawtooth', from: 760, to: 520, dur: 0.16, vol: 0.12, delay: d, filter: { type: 'bandpass', freq: 1100, q: 4 } });
+    }
+  },
+  ding() {
+    tone({ type: 'triangle', from: 1760, dur: 1.2, vol: 0.16 });
+    tone({ from: 3520, dur: 0.6, vol: 0.04 });
+  },
+  water(dur = 1.6) {
+    hiss({ dur, vol: 0.12, from: 1400, to: 900, q: 0.8 });
+  },
+  blub() {
+    tone({ from: 300, to: 900, dur: 0.08, vol: 0.12 });
+    tone({ from: 350, to: 1000, dur: 0.08, vol: 0.1, delay: 0.12 });
+  },
+  siren() {
+    for (let i = 0; i < 4; i++) tone({ from: i % 2 ? 1000 : 700, to: i % 2 ? 700 : 1000, dur: 0.4, vol: 0.1, delay: i * 0.4 });
+  },
+  bell() {
+    for (let i = 0; i < 12; i++) tone({ type: 'triangle', from: 2100, dur: 0.09, vol: 0.09, delay: i * 0.07 });
+  },
+  cuckoo() {
+    for (const d of [0, 0.6]) {
+      tone({ from: 740, dur: 0.22, vol: 0.14, delay: d });
+      tone({ from: 587, dur: 0.3, vol: 0.14, delay: d + 0.24 });
+    }
+  },
+  clank() {
+    tone({ type: 'square', from: 230, to: 180, dur: 0.18, vol: 0.1, filter: { type: 'highpass', freq: 500 } });
+    tone({ type: 'square', from: 345, to: 300, dur: 0.14, vol: 0.06, filter: { type: 'highpass', freq: 600 } });
+    hiss({ dur: 0.12, vol: 0.1, from: 4000, to: 2000 });
+  },
+  chirp() {
+    for (let i = 0; i < 3; i++) tone({ from: 2600, to: 3600, dur: 0.06, vol: 0.08, delay: i * 0.1, wobbleRate: 40, wobbleDepth: 150 });
+  },
+  coo() {
+    tone({ from: 420, to: 380, dur: 0.35, vol: 0.12, wobbleRate: 9, wobbleDepth: 25 });
+    tone({ from: 400, to: 340, dur: 0.4, vol: 0.12, delay: 0.4, wobbleRate: 9, wobbleDepth: 25 });
+  },
+  rain(dur = 2.5) {
+    hiss({ dur, vol: 0.14, from: 5000, to: 3000, q: 0.5 });
+  },
+  burner() {
+    hiss({ dur: 0.8, vol: 0.2, from: 300, to: 200, q: 0.6 });
+  },
+  tvStatic() {
+    hiss({ dur: 0.18, vol: 0.12, from: 2000, to: 6000, q: 0.3 });
+  },
+  /** A little tune (disco, music box). */
+  tune(notes = [523, 659, 784, 659, 880, 784, 659, 523], step = 0.18) {
+    notes.forEach((f, i) => tone({ type: 'triangle', from: f, dur: step * 0.9, vol: 0.1, delay: i * step }));
+  },
   /** Chalk on the blackboard (very short and soft; plays while drawing). */
   chalk() {
     hiss({ dur: 0.06, vol: 0.05, from: 3500, to: 5500, q: 2.5 });

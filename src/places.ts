@@ -111,7 +111,7 @@ export function isNight(now = new Date()) {
   return h >= 19 || h < 7;
 }
 
-function windowView(g: Graphics, x: number, y: number, ww: number, wh: number) {
+export function windowView(g: Graphics, x: number, y: number, ww: number, wh: number) {
   if (isNight()) {
     g.rect(x, y, ww, wh).fill(0x1d2b53);
     g.circle(x + ww * 0.7, y + wh * 0.3, Math.min(ww, wh) * 0.12).fill(0xfff3c4);
