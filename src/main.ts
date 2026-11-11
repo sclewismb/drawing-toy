@@ -1,4 +1,5 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js';
+import { Camera } from './camera';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
 import { createEggs, createHouseEggs, createStreetEggs } from './eggs';
@@ -19,6 +20,7 @@ import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
 import { SEASONS, Weather, type Season } from './seasons';
 import { StreetView } from './street';
+import { WIDE } from './wideRooms';
 import { ease, tween } from './tween';
 
 // Stop iOS Safari's own pinch-to-zoom from fighting with ours.
@@ -38,15 +40,21 @@ await app.init({
 document.body.appendChild(app.canvas);
 
 // --- Layers, back to front ---
-//   world:    the place you're in (background, characters, flip button)
+//   world:    the place you're in. Its `room` holds the background, surprises
+//             and characters, and slides sideways in the wide rooms; the
+//             arrows and the flip button stay put on the screen.
 //   street:   the neighbourhood map
 //   sparkles: star bursts, on top of whichever is showing
 //   fade:     white flash when moving between the street and a place
 const world = new Container();
+const camera = new Camera();
+const room = camera.view;
 const backdrop = new Graphics();
 const characters = new Container();
+const roomSparkles = new Container(); // star bursts from surprises (they slide with the room)
 const ui = new Container();
-world.addChild(backdrop, characters, ui);
+room.addChild(backdrop, characters, roomSparkles);
+world.addChild(room, camera.arrows, ui);
 const sparkles = new Container();
 const fade = new Graphics();
 fade.eventMode = 'none';
@@ -157,9 +165,37 @@ function drawFade(alpha: number) {
   if (alpha > 0) fade.rect(0, 0, app.screen.width, app.screen.height).fill({ color: 0xffffff, alpha });
 }
 
+// --- Room size. A place's main view is the size of the screen (a bit wider in
+// the wide rooms when the iPad is upright, so they don't look squashed).
+// The wide rooms carry on to the left (negative x) and right (beyond it).
+// Saved positions are fractions of the main view, so older saves still fit.
+let panel = 1; // width of the current place's main view
+let roomH = 1; // and its height (the screen's)
+
+function panelWidth(id: PlaceId) {
+  const { width: w, height: h } = app.screen;
+  return WIDE[id] ? Math.max(w, Math.round(h * 1.3)) : w;
+}
+
+function roomEdges(id: PlaceId, P = panelWidth(id)) {
+  const wide = WIDE[id];
+  return { x0: -(wide?.left ?? 0) * P, x1: (1 + (wide?.right ?? 0)) * P };
+}
+
+/** Fit the room to the screen (when opening a place, or when the iPad turns). */
+function sizeRoom(id: PlaceId) {
+  panel = panelWidth(id);
+  roomH = app.screen.height;
+  const { x0, x1 } = roomEdges(id, panel);
+  camera.setRoom(x0, x1, app.screen.width, roomH);
+}
+
 function drawBackdrop() {
   backdrop.clear();
-  if (current) placeById(current)!.drawBackdrop(backdrop, app.screen.width, app.screen.height, season);
+  if (current) {
+    placeById(current)!.drawBackdrop(backdrop, panel, roomH, season);
+    WIDE[current]?.draw(backdrop, panel, roomH, season);
+  }
   updateClocks();
 }
 
@@ -176,22 +212,21 @@ async function saveNow() {
   clearTimeout(saveTimer);
   const place = current;
   if (restoring || !place) return;
-  const { width: W, height: H } = app.screen;
   const items: SceneItem[] = [];
   for (const ch of characters.children as Character[]) {
     if (ch.destroyed || ch.eventMode === 'none') continue; // being put away
     if (ch.ref.kind === 'photo' && !ch.ref.id) continue; // still being saved
     items.push({
       ...ch.ref,
-      x: ch.x / W,
-      y: ch.y / H,
+      x: ch.x / panel,
+      y: ch.y / roomH,
       scale: ch.scale.x,
       rotation: ch.rotation,
       facing: ch.facing < 0 ? -1 : 1,
     });
   }
   try {
-    await storage.saveScene(place, { version: 1, items });
+    await storage.saveScene(place, { version: 1, items, scroll: camera.x / panel });
   } catch (err) {
     console.warn('Could not save the scene', err);
   }
@@ -211,6 +246,35 @@ const flipButton = new FlipButton(() => {
 ui.addChild(flipButton);
 
 gestures.onSelect = (ch) => (ch ? flipButton.show() : flipButton.hide());
+
+// --- Sliding along the wide rooms: drag empty space, let go to glide; carry
+// a character to the edge of the screen and the room slides along with it.
+gestures.canPan = () => screen === 'place' && camera.scrolls;
+gestures.onPanStart = () => camera.hold();
+gestures.onPan = (dx) => camera.drag(dx);
+gestures.onPanEnd = (vx) => {
+  camera.fling(vx);
+  saveSoon();
+};
+gestures.bounds = () => {
+  if (screen !== 'place' || !current) return { x0: 0, x1: app.screen.width, y0: 0, y1: app.screen.height };
+  const { x0, x1 } = roomEdges(current, panel);
+  return { x0, x1, y0: 0, y1: roomH };
+};
+camera.onMove = () => gestures.refresh();
+const EDGE = 90; // carrying a character this close to the edge slides the room
+app.ticker.add((t) => {
+  if (screen !== 'place') return;
+  camera.update(t.deltaMS);
+  const p = gestures.dragPoint;
+  if (!p || !camera.scrolls || gallery.isOver(p.x, p.y)) return;
+  const W = app.screen.width;
+  const k = p.x < EDGE ? -(1 - p.x / EDGE) : p.x > W - EDGE ? (p.x - (W - EDGE)) / EDGE : 0;
+  if (k) camera.set(camera.x + k * 0.8 * t.deltaMS);
+});
+
+/** A point on the screen, in room coordinates. */
+const toRoom = (x: number, y: number) => characters.toLocal({ x, y });
 
 // Keep the flip button floating at the top-right corner of the selected character.
 app.ticker.add(() => {
@@ -247,7 +311,8 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
   gestures.keepOnScreen(ch);
   if (tada) {
     ch.popIn();
-    burst(sparkles, ch.x, ch.y);
+    const g = ch.getGlobalPosition();
+    burst(sparkles, g.x, g.y);
     sfx.tada();
     gestures.select(ch);
   }
@@ -262,11 +327,11 @@ async function pictureFor(ref: Ref): Promise<HTMLCanvasElement | null> {
 
 // --- Clocks that show the real time (the classroom, and the school on the street) ---
 const clockHands = new Graphics();
-world.addChildAt(clockHands, world.getChildIndex(backdrop) + 1);
+room.addChildAt(clockHands, room.getChildIndex(backdrop) + 1);
 function updateClocks() {
   const now = new Date();
   street.updateClock(now);
-  const c = current ? placeById(current)?.clock?.(app.screen.width, app.screen.height) : undefined;
+  const c = current ? placeById(current)?.clock?.(panel, roomH) : undefined;
   if (c) drawClockHands(clockHands, c.x, c.y, c.r, now, true);
   else clockHands.clear();
 }
@@ -275,21 +340,22 @@ setInterval(updateClocks, 1000);
 // --- Hidden surprises in the rooms (tap things to find them) ---
 const eggsUnder = new Container(); // on the walls and furniture, behind characters
 const eggsOver = new Container(); // darkness, glows, things flying, in front of characters
-world.addChildAt(eggsUnder, world.getChildIndex(characters));
-world.addChildAt(eggsOver, world.getChildIndex(characters) + 1);
+room.addChildAt(eggsUnder, room.getChildIndex(characters));
+room.addChildAt(eggsOver, room.getChildIndex(characters) + 1);
 let eggsCleanup: (() => void) | null = null;
 
 function teardownEggs() {
   eggsCleanup?.();
   eggsCleanup = null;
-  for (const layer of [eggsUnder, eggsOver]) {
+  for (const layer of [eggsUnder, eggsOver, roomSparkles]) {
     for (const c of layer.removeChildren()) c.destroy({ children: true });
   }
 }
 
 function setupEggs(id: PlaceId) {
   teardownEggs();
-  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles, w: app.screen.width, h: app.screen.height, season });
+  const { x0, x1 } = roomEdges(id, panel);
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1 });
 }
 
 // Surprises on the street and outside the house (rebuilt when they're laid out again).
@@ -314,7 +380,7 @@ let lastScritch = 0;
 function layoutChalk() {
   const place = chalkPlace && placeById(chalkPlace);
   if (!chalk || !place?.chalkboard) return;
-  chalk.layout(place.chalkboard(app.screen.width, app.screen.height), app.renderer.resolution);
+  chalk.layout(place.chalkboard(panel, roomH), app.renderer.resolution);
 }
 
 async function saveChalk() {
@@ -333,9 +399,9 @@ async function setupChalk(id: PlaceId) {
   if (!place?.chalkboard) return;
   chalk = new Chalkboard();
   chalkPlace = id;
-  world.addChildAt(chalk, world.getChildIndex(backdrop) + 1);
+  room.addChildAt(chalk, room.getChildIndex(backdrop) + 1);
   layoutChalk();
-  const rect = place.chalkboard(app.screen.width, app.screen.height);
+  const rect = place.chalkboard(panel, roomH);
   const saved = await storage.getSetting<ChalkStroke[]>(`chalk:${id}`).catch(() => undefined);
   chalk.setStrokes(saved ?? startingDoodles(rect.w / rect.h));
   chalk.onChange = () => {
@@ -372,11 +438,15 @@ async function showPlace(id: PlaceId) {
   restoring = true;
   clearCharacters();
   current = id;
+  sizeRoom(id);
   drawBackdrop();
   await setupChalk(id);
   setupEggs(id);
   const saved = await storage.loadScene(id).catch(() => null);
-  const { width: W, height: H } = app.screen;
+  const W = panel, H = roomH;
+  // Start where we were last time (or with the room's main view in the middle).
+  camera.hold();
+  camera.set(saved?.scroll !== undefined ? saved.scroll * W : (W - app.screen.width) / 2);
   if (saved) {
     for (const item of saved.items) {
       const ref: Ref = item.kind === 'sample' ? { kind: 'sample', name: item.name } : { kind: 'photo', id: item.id };
@@ -519,14 +589,15 @@ const gallery = setupGallery({
     if (!pic) return;
     const { width: W, height: H } = app.screen;
     const jitter = () => (Math.random() - 0.5) * Math.min(W, H) * 0.25;
-    addCharacter(pic, pick, { x: W / 2 + jitter(), y: H * 0.42 + jitter() * 0.4 }, true);
+    addCharacter(pic, pick, toRoom(W / 2 + jitter(), H * 0.42 + jitter() * 0.4), true);
   },
   onDelete(id: string) {
     // Gone for good: remove it from this place too, in a puff of stars.
     // (Other places simply skip it next time they open.)
     for (const ch of [...characters.children] as Character[]) {
       if (ch.ref.kind === 'photo' && ch.ref.id === id) {
-        burst(sparkles, ch.x, ch.y, 10, 90);
+        const g = ch.getGlobalPosition();
+        burst(sparkles, g.x, g.y, 10, 90);
         gestures.release(ch);
         characters.removeChild(ch);
         ch.destroy({ children: true });
@@ -543,7 +614,8 @@ function putAway(ch: Character) {
   ch.eventMode = 'none';
   sfx.putAway(voice(ch));
   gallery.gulp();
-  const target = gallery.centre();
+  const c = gallery.centre();
+  const target = toRoom(c.x, c.y);
   const from = { x: ch.x, y: ch.y, s: ch.scale.x, r: ch.rotation };
   tween(
     300,
@@ -620,7 +692,7 @@ fileInput.addEventListener('change', async () => {
     // Always keep the drawing; show it here if we're still in a place.
     const entry = await library.add(result.canvas);
     if (current) {
-      addCharacter(result.canvas, { kind: 'photo', id: entry.id }, { x: app.screen.width / 2, y: app.screen.height * 0.5 }, true);
+      addCharacter(result.canvas, { kind: 'photo', id: entry.id }, toRoom(app.screen.width / 2, app.screen.height * 0.5), true);
     }
   } catch (err) {
     console.warn(err);
@@ -636,6 +708,13 @@ app.renderer.on('resize', () => {
   houseView.layout(app.screen.width, app.screen.height, season);
   setupViewEggs();
   weather.resize(app.screen.width, app.screen.height);
+  if (current) {
+    // Keep everyone in the same spot in the room, and the same part in view.
+    const oldP = panel, oldH = roomH, oldX = camera.x;
+    sizeRoom(current);
+    for (const ch of characters.children as Character[]) ch.position.set((ch.x * panel) / oldP, (ch.y * roomH) / oldH);
+    camera.set((oldX * panel) / oldP);
+  }
   drawBackdrop();
   layoutChalk();
   if (current) setupEggs(current);
@@ -687,7 +766,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 // Handy for testing in the browser console during development.
 if (import.meta.env.DEV) {
   Object.assign(window, {
-    app, gestures, characters, library, storage, street, houseView, saveNow, enterPlace, enterHouse, goBack,
+    app, gestures, characters, library, camera, storage, street, houseView, saveNow, enterPlace, enterHouse, goBack,
     screen: () => screen,
     chalk: () => chalk,
     eggsUnder,

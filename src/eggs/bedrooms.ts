@@ -2,7 +2,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import { burst } from '../fx';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
-import { everyFrame, glow, INK, lightSwitch, MultiHit, rand, roomLights, tappable, type Cleanups, type EggKit } from './common';
+import { everyFrame, glow, INK, lightSwitch, MultiHit, rand, roomLights, roomSpan, tappable, type Cleanups, type EggKit } from './common';
 
 /**
  * Surprises in the two bedrooms (drawn after the family's photos).
@@ -179,14 +179,15 @@ export function bedroomA(kit: EggKit, cleanups: Cleanups) {
   sky.eventMode = 'none';
   sky.visible = false;
   kit.over.addChild(sky);
-  const dim = new Graphics().rect(0, 0, w, h).fill({ color: 0x0b1026, alpha: 0.5 });
+  const span = roomSpan(kit);
+  const dim = new Graphics().rect(span.x, 0, span.w, h).fill({ color: 0x0b1026, alpha: 0.5 });
   sky.addChild(dim);
   const starField = new Container();
   starField.position.set(px, py);
   sky.addChild(starField);
   const starList: Graphics[] = [];
   for (let i = 0; i < 160; i++) {
-    const r = Math.max(w, h) * Math.sqrt(Math.random()) * 1.15;
+    const r = Math.max(span.w, h) * Math.sqrt(Math.random()) * 1.15;
     const a = Math.random() * Math.PI * 2;
     const c = [0xff4d4d, 0xff9f43, 0xffffff, 0xffd166, 0xff6b9d][i % 5];
     const s = new Graphics();

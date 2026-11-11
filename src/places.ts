@@ -76,7 +76,7 @@ export interface PlaceDef {
   clock?: (w: number, h: number) => { x: number; y: number; r: number };
 }
 
-const INK = 0x3a3a3a;
+export const INK = 0x3a3a3a;
 
 function floorAndWall(g: Graphics, w: number, h: number, wall: number, floor: number, floorTop = 0.72) {
   g.rect(0, 0, w, h * floorTop).fill(wall);
@@ -140,28 +140,28 @@ export function windowView(g: Graphics, x: number, y: number, ww: number, wh: nu
 }
 
 /** A small seeded random generator, so decorations land in the same place every time. */
-function seeded(seed: number) {
+export function seeded(seed: number) {
   let s = seed;
   return () => ((s = (s * 9301 + 49297) % 233280) / 233280);
 }
 
-function darkWoodFloor(g: Graphics, w: number, h: number, top: number) {
+export function darkWoodFloor(g: Graphics, w: number, h: number, top: number) {
   g.rect(0, h * top, w, h * (1 - top)).fill(0x3b2620);
   for (let y = h * top + 24; y < h; y += 30) g.moveTo(0, y).lineTo(w, y);
   g.stroke({ width: 2, color: 0x2a1b17 });
   g.rect(0, h * top - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
 }
 
-function blinds(g: Graphics, x: number, y: number, ww: number, wh: number, frame: number) {
+export function blinds(g: Graphics, x: number, y: number, ww: number, wh: number, frame: number) {
   g.rect(x, y, ww, wh).fill(0xf4f4f4).stroke({ width: 10, color: frame });
   for (let yy = y + 10; yy < y + wh - 6; yy += 18) g.rect(x + 5, yy, ww - 10, 8).fill(0xc9cdd2);
 }
 
-function frame(g: Graphics, x: number, y: number, fw: number, fh: number) {
+export function frame(g: Graphics, x: number, y: number, fw: number, fh: number) {
   g.rect(x, y, fw, fh).fill(0xf1f1f1).stroke({ width: 7, color: 0x1f1f1f });
 }
 
-function butterfly(g: Graphics, x: number, y: number, s: number, color: number, tilt: number) {
+export function butterfly(g: Graphics, x: number, y: number, s: number, color: number, tilt: number) {
   const dx = Math.cos(tilt) * s, dy = Math.sin(tilt) * s;
   g.ellipse(x - dx * 0.6, y - dy * 0.6 - s * 0.2, s * 0.6, s * 0.8).ellipse(x + dx * 0.6, y + dy * 0.6 - s * 0.2, s * 0.6, s * 0.8).fill(color);
   g.ellipse(x - dx * 0.5, y - dy * 0.5 + s * 0.5, s * 0.4, s * 0.5).ellipse(x + dx * 0.5, y + dy * 0.5 + s * 0.5, s * 0.4, s * 0.5).fill(color);

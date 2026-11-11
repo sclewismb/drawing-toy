@@ -1,4 +1,5 @@
 import { Container, Graphics, Rectangle, Ticker, type FederatedPointerEvent } from 'pixi.js';
+import { markEggTouch, touchState } from '../gestures';
 import { windowView } from '../places';
 import type { Season } from '../seasons';
 import { sfx } from '../sound';
@@ -17,6 +18,15 @@ export interface EggKit {
   w: number;
   h: number;
   season: Season;
+  /** Wide rooms: the room's left and right edges (it carries on past 0..w). */
+  x0?: number;
+  x1?: number;
+}
+
+/** The whole room from side to side (wider than w in the wide rooms). */
+export function roomSpan(kit: EggKit) {
+  const x0 = kit.x0 ?? 0;
+  return { x: x0, w: (kit.x1 ?? kit.w) - x0 };
 }
 
 export type Cleanups = (() => void)[];
@@ -30,8 +40,11 @@ export function tappable(c: Container, onTap: () => void, hit?: { contains(x: nu
   c.eventMode = 'static';
   c.cursor = 'pointer';
   if (hit) c.hitArea = hit;
-  c.on('pointerdown', (e: FederatedPointerEvent) => e.stopPropagation());
-  c.on('pointertap', () => onTap());
+  // Not "empty space", but a finger that slides from here still moves the room.
+  c.on('pointerdown', (e: FederatedPointerEvent) => markEggTouch(e.pointerId));
+  c.on('pointertap', () => {
+    if (!touchState.panned) onTap();
+  });
 }
 
 /** An invisible tappable area over something in the background. */
@@ -103,7 +116,8 @@ export function roomLights(kit: EggKit, onLevel: (level: number) => void = () =>
   let level = 0;
   const draw = () => {
     veil.clear();
-    if (level > 0.001) veil.rect(0, 0, kit.w, kit.h).fill({ color: 0x0b1026, alpha: level });
+    const span = roomSpan(kit);
+    if (level > 0.001) veil.rect(span.x, 0, span.w, kit.h).fill({ color: 0x0b1026, alpha: level });
   };
   return {
     get on() {

@@ -5,6 +5,7 @@ import type { Cleanups, EggKit } from './common';
 import { kitchen, lounge } from './house';
 import { fireStation, park, policeStation, school } from './town';
 import { houseEggs, streetEggs, type HouseGeom, type StreetGeom } from './views';
+import { WIDE_EGGS } from './wide';
 
 /**
  * Hidden surprises ("Easter eggs"), Toca Boca style: tap the right thing
@@ -29,7 +30,10 @@ const run = (build: (cleanups: Cleanups) => void) => {
 
 /** Set up a place's surprises. Returns a clean-up function. */
 export function createEggs(id: PlaceId, kit: EggKit): () => void {
-  return run((c) => PLACE_EGGS[id](kit, c));
+  return run((c) => {
+    PLACE_EGGS[id](kit, c);
+    WIDE_EGGS[id]?.(kit, c); // the new parts either side of the wide rooms
+  });
 }
 
 export function createStreetEggs(kit: EggKit, geom: StreetGeom) {

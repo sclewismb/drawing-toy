@@ -37,6 +37,28 @@ const SHAKE_REVERSALS = 4;
 const SHAKE_WINDOW_MS = 900;
 
 /**
+ * Shared with the surprises: a finger that went down on a surprise and then
+ * slid the room along shouldn't also set the surprise off.
+ */
+export const touchState = { panned: false };
+const eggTouches = new Set<number>();
+/** A surprise was touched (it still lets the room slide if the finger moves). */
+export function markEggTouch(pointerId: number) {
+  eggTouches.add(pointerId);
+}
+
+/** A finger on empty space (or a surprise): a tap, or sliding the room along. */
+interface Pan {
+  id: number;
+  start: Pt;
+  last: Pt;
+  lastT: number;
+  vx: number; // pixels per ms
+  moved: boolean;
+  egg: boolean; // started on a surprise
+}
+
+/**
  * Turns raw touches and mouse input into character moves.
  *
  * - One finger on a character drags it.
@@ -65,6 +87,22 @@ export class GestureController {
   onShake: (ch: Character) => void = () => {};
   /** All fingers lifted off a character (after a tap, drag or pinch). */
   onGestureEnd: (ch: Character) => void = () => {};
+  /** Can empty space be dragged to slide the room along? */
+  canPan: () => boolean = () => false;
+  /** A finger went down on empty space (stop any glide). */
+  onPanStart: () => void = () => {};
+  /** Sliding the room: how far the finger moved (screen pixels). */
+  onPan: (dx: number) => void = () => {};
+  /** Let go after sliding: the finger's speed (pixels per ms). */
+  onPanEnd: (vx: number) => void = () => {};
+  /** Where characters may go, in their layer's coordinates (default: the screen). */
+  bounds: () => { x0: number; x1: number; y0: number; y1: number } = () => ({
+    x0: 0,
+    x1: this.app.screen.width,
+    y0: 0,
+    y1: this.app.screen.height,
+  });
+  private pan: Pan | null = null;
 
   constructor(
     private app: Application,
@@ -96,8 +134,10 @@ export class GestureController {
     const id = e.pointerId;
     const pos = { x: e.global.x, y: e.global.y };
     this.pointers.set(id, pos);
+    if (this.pointers.size === 1) touchState.panned = false;
+    const onEgg = eggTouches.delete(id);
 
-    const hit = GestureController.findCharacter(e.target) ?? this.characterAt(pos);
+    const hit = onEgg ? null : (GestureController.findCharacter(e.target) ?? this.characterAt(pos));
 
     // A finger on a character that nobody is holding: start dragging it.
     if (hit && !this.gestures.has(hit)) {
@@ -110,7 +150,7 @@ export class GestureController {
     // that becomes a pinch on that character.
     const target =
       hit ??
-      (this.gestures.size === 1 ? [...this.gestures.keys()][0] : null);
+      (!onEgg && this.gestures.size === 1 ? [...this.gestures.keys()][0] : null);
     const g = target ? this.gestures.get(target) : undefined;
     if (g && g.ids.length === 1) {
       g.ids.push(id);
@@ -120,11 +160,18 @@ export class GestureController {
       return;
     }
 
-    // Tapping empty space with nothing held: deselect (and a little sparkle).
-    if (!hit && this.gestures.size === 0) {
-      this.select(null);
-      this.onTapEmpty(pos.x, pos.y);
+    // Empty space (or a surprise) with nothing held: a tap, or the start of
+    // sliding the room along. We find out which when the finger moves or lifts.
+    if (!hit && this.gestures.size === 0 && !this.pan) {
+      this.pan = { id, start: pos, last: pos, lastT: performance.now(), vx: 0, moved: false, egg: onEgg };
+      if (this.canPan()) this.onPanStart();
     }
+  }
+
+  /** A finger's position in the characters' layer (which may be slid along). */
+  private local(id: number): Pt {
+    const p = this.pointers.get(id)!;
+    return this.layer.toLocal(p);
   }
 
   /**
@@ -183,10 +230,10 @@ export class GestureController {
     g.r0 = ch.rotation;
     g.p0 = { x: ch.x, y: ch.y };
     if (g.ids.length === 1) {
-      const p = this.pointers.get(g.ids[0])!;
+      const p = this.local(g.ids[0]);
       g.offset = { x: ch.x - p.x, y: ch.y - p.y };
     } else {
-      const [a, b] = g.ids.map((i) => this.pointers.get(i)!);
+      const [a, b] = g.ids.map((i) => this.local(i));
       g.d0 = Math.max(10, Math.hypot(b.x - a.x, b.y - a.y));
       g.a0 = Math.atan2(b.y - a.y, b.x - a.x);
       g.c0 = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -196,15 +243,35 @@ export class GestureController {
   private move(e: FederatedPointerEvent) {
     const id = e.pointerId;
     if (!this.pointers.has(id)) return; // mouse hovering, not pressed
-    this.pointers.set(id, { x: e.global.x, y: e.global.y });
+    const pos = { x: e.global.x, y: e.global.y };
+    this.pointers.set(id, pos);
+
+    const pan = this.pan;
+    if (pan && pan.id === id) {
+      const now = performance.now();
+      if (!pan.moved && this.canPan() && Math.hypot(pos.x - pan.start.x, pos.y - pan.start.y) > TAP_SLOP) {
+        pan.moved = true;
+        touchState.panned = true;
+        pan.last = { ...pan.start };
+      }
+      if (pan.moved) {
+        const dx = pos.x - pan.last.x;
+        const dt = now - pan.lastT;
+        if (dt > 0) pan.vx = pan.vx * 0.3 + (dx / dt) * 0.7;
+        this.onPan(dx);
+        pan.last = pos;
+        pan.lastT = now;
+      }
+      return;
+    }
 
     const ch = this.owner.get(id);
     const g = ch && this.gestures.get(ch);
     if (!g) return;
 
+    this.apply(g);
     if (g.ids.length === 1) {
       const p = this.pointers.get(g.ids[0])!;
-      ch.position.set(p.x + g.offset.x, p.y + g.offset.y);
       if (!g.moved && Math.hypot(p.x - g.start.x, p.y - g.start.y) > TAP_SLOP) {
         g.moved = true;
         if (!g.pinched) this.onDragStart(ch);
@@ -213,7 +280,17 @@ export class GestureController {
       this.checkShake(g, p);
     } else {
       g.moved = true;
-      const [a, b] = g.ids.map((i) => this.pointers.get(i)!);
+    }
+  }
+
+  /** Put a held character where its finger(s) say. */
+  private apply(g: Gesture) {
+    const ch = g.ch;
+    if (g.ids.length === 1) {
+      const p = this.local(g.ids[0]);
+      ch.position.set(p.x + g.offset.x, p.y + g.offset.y);
+    } else {
+      const [a, b] = g.ids.map((i) => this.local(i));
       const d = Math.max(10, Math.hypot(b.x - a.x, b.y - a.y));
       const ang = Math.atan2(b.y - a.y, b.x - a.x);
       const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -226,10 +303,37 @@ export class GestureController {
     this.keepOnScreen(ch);
   }
 
+  /** The room slid along under the fingers: held characters stay with them. */
+  refresh() {
+    for (const g of this.gestures.values()) this.apply(g);
+  }
+
+  /** Where a character is being carried by one finger (screen position), if any. */
+  get dragPoint(): Pt | null {
+    for (const g of this.gestures.values()) {
+      if (g.ids.length === 1 && g.moved) return this.pointers.get(g.ids[0]) ?? null;
+    }
+    return null;
+  }
+
   private up(e: FederatedPointerEvent) {
     const id = e.pointerId;
     const lastPos = this.pointers.get(id) ?? { x: e.global.x, y: e.global.y };
     this.pointers.delete(id);
+    eggTouches.delete(id);
+
+    const pan = this.pan;
+    if (pan && pan.id === id) {
+      this.pan = null;
+      if (pan.moved) {
+        this.onPanEnd(performance.now() - pan.lastT < 80 ? pan.vx : 0);
+      } else if (!pan.egg) {
+        // Tapping empty space: deselect (and a little sparkle).
+        this.select(null);
+        this.onTapEmpty(pan.start.x, pan.start.y);
+      }
+      return;
+    }
     const ch = this.owner.get(id);
     this.owner.delete(id);
     const g = ch && this.gestures.get(ch);
@@ -292,11 +396,11 @@ export class GestureController {
     this.onSelect(ch);
   }
 
-  /** Never let a character get lost off the edge of the screen. */
+  /** Never let a character get lost off the edge of the room. */
   keepOnScreen(ch: Character) {
-    const { width, height } = this.app.screen;
-    ch.x = clamp(ch.x, 0, width);
-    ch.y = clamp(ch.y, 0, height);
+    const b = this.bounds();
+    ch.x = clamp(ch.x, b.x0, b.x1);
+    ch.y = clamp(ch.y, b.y0, b.y1);
   }
 
   /** True while any finger is holding this character. */

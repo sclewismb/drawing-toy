@@ -19,7 +19,7 @@ export interface StoredCharacter {
 }
 
 export type SceneItem = ({ kind: 'photo'; id: string } | { kind: 'sample'; name: string }) & {
-  x: number; // 0..1 across the screen
+  x: number; // across the place's main view (0..1; the wide rooms carry on below 0 and above 1)
   y: number; // 0..1 down the screen
   scale: number;
   rotation: number;
@@ -29,6 +29,8 @@ export type SceneItem = ({ kind: 'photo'; id: string } | { kind: 'sample'; name:
 export interface SavedScene {
   version: 1;
   items: SceneItem[];
+  /** Wide rooms: how far along the room was slid (a fraction of the main view's width). */
+  scroll?: number;
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;

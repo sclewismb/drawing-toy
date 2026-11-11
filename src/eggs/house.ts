@@ -10,6 +10,7 @@ import {
   later,
   oneAtATime,
   raisableBlinds,
+  roomSpan,
   rand,
   tumble,
   type Cleanups,
@@ -280,7 +281,7 @@ export function lounge(kit: EggKit, cleanups: Cleanups) {
     sfx.tune();
     later(1500, () => sfx.tune([659, 784, 988, 784, 1047, 988, 784, 659]), cleanups);
     tween(3200, (t) => {
-      party.clear().rect(0, 0, w, h).fill({ color: 0x0b1026, alpha: 0.35 * Math.sin(t * Math.PI) });
+      party.clear().rect(roomSpan(kit).x, 0, roomSpan(kit).w, h).fill({ color: 0x0b1026, alpha: 0.35 * Math.sin(t * Math.PI) });
       spotColours.forEach((c, i) => {
         const a = t * Math.PI * 4 + (i * Math.PI * 2) / spotColours.length;
         const x = w * 0.5 + Math.cos(a) * w * 0.32;
