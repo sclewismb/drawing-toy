@@ -1,7 +1,7 @@
 import { Container, Graphics, Sprite, Text, Texture, type FederatedPointerEvent } from 'pixi.js';
 import { drawClockHands } from './clock';
 import type { StreetGeom } from './eggs';
-import { STREET, type PlaceId } from './places';
+import { INK, seeded, STREET, type PlaceId } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
 import { ease, tween } from './tween';
 
@@ -35,7 +35,20 @@ export class StreetView extends Container {
   readonly eggs = new Container();
   readonly eggsFront = new Container();
   /** Where things are, for the surprises. */
-  geom: StreetGeom = { w: 0, h: 0, ground: 0, roadTop: 0, roadH: 0, slot: 0, xs: [] };
+  geom: StreetGeom = {
+    w: 0,
+    h: 0,
+    road: [],
+    roadW: 0,
+    branch: [],
+    buildings: {},
+    sun: { x: 0, y: 0, r: 0 },
+    clouds: [],
+    tunnel: { x: 0, y: 0, r: 0 },
+    pond: { x: 0, y: 0, rx: 0, ry: 0 },
+    trees: [],
+    ground: 0,
+  };
   onEnter: (id: StreetId, at: { x: number; y: number }) => void = () => {};
   onBuildingTap: () => void = () => {};
   onHouseHold: () => void = () => {};
@@ -139,45 +152,146 @@ export class StreetView extends Container {
     this.scale.set(s);
   }
 
+  /**
+   * The neighbourhood seen from above: rolling hills, a winding road with
+   * the buildings along it, trees, a pond, a tunnel into the hill and a city
+   * far away. Everything is placed by fractions of the screen, so it fits
+   * the iPad either way up. Colours follow the season.
+   */
   layout(w: number, h: number, season: Season) {
     const pal = PALETTE[season];
-    const ground = h * 0.66;
+    const winter = season === 'winter';
+    const u = Math.min(w, h); // a size that suits both ways up
+    const P = (fx: number, fy: number) => ({ x: fx * w, y: fy * h });
     const g = this.bg.clear();
-    // sky, sun, clouds, hills (coloured by the season)
-    g.rect(0, 0, w, h).fill(pal.sky);
-    g.circle(w * 0.9, h * 0.13, Math.min(w, h) * 0.07 * pal.sunSize).fill(pal.sun);
-    for (const [cx, cy, s] of [[0.12, 0.12, 1], [0.48, 0.08, 0.8], [0.7, 0.2, 0.6]]) {
-      const x = w * cx, y = h * cy, r = Math.min(w, h) * 0.045 * s;
-      g.circle(x, y, r).circle(x + r, y - r * 0.4, r * 1.2).circle(x + r * 2.1, y, r).fill(pal.cloud);
-    }
-    g.ellipse(w * 0.15, ground, w * 0.35, h * 0.22).fill(pal.hillBack);
-    hillDots(g, w * 0.15, ground, w * 0.35, h * 0.22, pal.dots, 1);
-    g.ellipse(w * 0.7, ground, w * 0.5, h * 0.26).fill(pal.hillFront);
-    hillDots(g, w * 0.7, ground, w * 0.5, h * 0.26, pal.dots, 2);
-    if (season === 'winter') {
-      g.ellipse(w * 0.15, ground, w * 0.35, h * 0.22).stroke({ width: 3, color: 0xc9d6e3 });
-      g.ellipse(w * 0.7, ground, w * 0.5, h * 0.26).stroke({ width: 3, color: 0xc9d6e3 });
-    }
-    // pavement, road with a dashed line, grass verge (snowy in winter)
-    g.rect(0, ground - 6, w, h * 0.06).fill(season === 'winter' ? 0xeef3f8 : 0xd9d9d9).stroke({ width: 4, color: 0x3a3a3a });
-    const roadTop = ground - 6 + h * 0.06;
-    g.rect(0, roadTop, w, h * 0.22).fill(0x5c5c5c);
-    for (let x = 20; x < w; x += 90) g.roundRect(x, roadTop + h * 0.105, 50, 10, 5).fill(0xffffff);
-    g.rect(0, roadTop + h * 0.22, w, h).fill(pal.grass);
-    if (season === 'winter') g.rect(0, roadTop + h * 0.22, w, 4).fill(0xc9d6e3);
 
-    // Buildings in a row along the pavement.
-    const margin = w * 0.02;
-    const slot = (w - margin * 2) / this.buildings.length;
-    for (const [i, b] of this.buildings.entries()) {
-      const tex = b.sprite.texture;
-      const k = Math.min((slot * 0.94) / tex.width, (h * 0.46) / tex.height);
-      b.sprite.scale.set(k);
-      b.holder.position.set(margin + slot * (i + 0.5), ground);
+    // --- sky, sun, clouds, and a city far away ---
+    g.rect(0, 0, w, h).fill(pal.sky);
+    const sun = { x: w * 0.86, y: h * 0.11, r: u * 0.065 * pal.sunSize };
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      g.moveTo(sun.x + Math.cos(a) * sun.r * 1.25, sun.y + Math.sin(a) * sun.r * 1.25)
+        .lineTo(sun.x + Math.cos(a) * sun.r * 1.6, sun.y + Math.sin(a) * sun.r * 1.6);
     }
+    g.stroke({ width: 4, color: pal.sun, cap: 'round' });
+    g.circle(sun.x, sun.y, sun.r).fill(pal.sun).stroke({ width: 3, color: 0xf4a261, alpha: 0.6 });
+    const clouds: [number, number, number][] = [];
+    for (const [cx, cy, s] of [[0.1, 0.1, 1], [0.4, 0.06, 0.8], [0.64, 0.15, 0.65]]) {
+      const x = w * cx, y = h * cy, r = u * 0.045 * s;
+      g.circle(x, y, r).circle(x + r, y - r * 0.4, r * 1.2).circle(x + r * 2.1, y, r).fill(pal.cloud);
+      clouds.push([x, y, r]);
+    }
+    const city = winter ? 0xc5d3e0 : 0xa9c4dc;
+    const rnd = seeded(5);
+    for (let x = w * 0.5; x < w * 0.8; x += u * 0.035) {
+      const bh = h * (0.06 + rnd() * 0.1);
+      g.rect(x, h * 0.33 - bh, u * 0.03, bh).fill({ color: city, alpha: 0.8 });
+    }
+
+    // --- hills: far, middle, and the meadow at the front ---
+    const hill = (pts: { x: number; y: number }[], color: number) => {
+      const s = spline(pts, 10);
+      g.moveTo(0, h);
+      for (const p of s) g.lineTo(p.x, p.y);
+      g.lineTo(w, h).closePath().fill(color);
+    };
+    hill([P(0, 0.44), P(0.15, 0.36), P(0.32, 0.29), P(0.5, 0.33), P(0.66, 0.37), P(0.86, 0.3), P(1, 0.35)], pal.hillBack);
+    // patchwork fields on the far hill
+    const fieldCols = winter ? [0xf4f7fa, 0xe9eff5] : season === 'autumn' ? [0xe9c46a, 0xd4a373] : [0xc7e59f, 0xe9d985];
+    for (const [i, [fx, fy]] of [[0.1, 0.43], [0.19, 0.4], [0.28, 0.375]].entries()) {
+      const x = w * fx, y = h * fy, fw = w * 0.085, fh = h * 0.035;
+      g.poly([x, y, x + fw, y - fh * 0.4, x + fw * 1.05, y + fh * 0.6, x + fw * 0.05, y + fh]).fill(fieldCols[i % 2]).stroke({ width: 2, color: 0xa47e4b });
+    }
+    hill([P(0, 0.56), P(0.18, 0.5), P(0.4, 0.55), P(0.58, 0.5), P(0.75, 0.45), P(0.9, 0.48), P(1, 0.5)], pal.hillFront);
+    hill([P(0, 0.8), P(0.25, 0.78), P(0.5, 0.84), P(0.75, 0.8), P(1, 0.82)], pal.grass);
+    hillDots(g, w * 0.3, h * 0.95, w * 0.3, h * 0.14, pal.dots, 7);
+    hillDots(g, w * 0.85, h * 0.62, w * 0.12, h * 0.1, pal.dots, 8);
+
+    // --- the pond, with a little jetty ---
+    const pond = { x: w * 0.14, y: h * 0.89, rx: w * 0.11, ry: h * 0.065 };
+    g.ellipse(pond.x, pond.y, pond.rx + 6, pond.ry + 6).fill(winter ? 0xe3edf5 : 0xc9b48a);
+    g.ellipse(pond.x, pond.y, pond.rx, pond.ry).fill(winter ? 0xd6eef8 : 0x6ec6ff).stroke({ width: 3, color: winter ? 0xb7d3e6 : 0x4a9fd8 });
+    g.rect(pond.x + pond.rx * 0.45, pond.y - pond.ry * 0.9, pond.rx * 0.45, 10).fill(0xa47e4b).stroke({ width: 2, color: INK });
+
+    // --- trees far away on the hill, and the tunnel ---
+    const treeG = winter ? 0x6a9a7f : 0x52b788, treeD = winter ? 0x557f69 : 0x2d6a4f;
+    for (const [fx, fy] of [[0.04, 0.43], [0.07, 0.42], [0.21, 0.335], [0.24, 0.325], [0.27, 0.32], [0.36, 0.305], [0.4, 0.31], [0.83, 0.315], [0.88, 0.315], [0.92, 0.325]]) {
+      const x = w * fx, y = h * fy, r = u * 0.018;
+      g.circle(x, y, r).fill(treeG).stroke({ width: 2, color: INK });
+      if (winter) g.ellipse(x, y - r * 0.5, r * 0.6, r * 0.3).fill(0xffffff);
+    }
+    const tunnel = { x: w * 0.47, y: h * 0.5, r: u * 0.05 };
+    g.moveTo(tunnel.x - tunnel.r - 10, tunnel.y).arc(tunnel.x, tunnel.y, tunnel.r + 10, Math.PI, 0).lineTo(tunnel.x - tunnel.r - 10, tunnel.y).fill(0xadb5bd).stroke({ width: 3, color: INK });
+    g.moveTo(tunnel.x - tunnel.r, tunnel.y).arc(tunnel.x, tunnel.y, tunnel.r, Math.PI, 0).lineTo(tunnel.x - tunnel.r, tunnel.y).fill(0x1f1f1f);
+
+    // --- the roads: one winding along the hill, one up to the tunnel ---
+    const roadW = u * 0.045;
+    const road = spline([P(-0.06, 0.73), P(0.08, 0.7), P(0.22, 0.71), P(0.38, 0.75), P(0.52, 0.77), P(0.64, 0.7), P(0.77, 0.635), P(0.9, 0.67), P(1.06, 0.71)], 14);
+    const branch = spline([P(0.52, 0.77), P(0.51, 0.66), P(0.48, 0.57), { x: tunnel.x, y: tunnel.y }], 12);
+    drawRoad(g, branch, roadW * 0.85, winter);
+    drawRoad(g, road, roadW, winter);
+
+    // --- the buildings, each on its own patch beside the road ---
+    const spots: Record<string, [number, number]> = {
+      house: [0.17, 0.63],
+      fire: [0.35, 0.665],
+      school: [0.7, 0.555],
+      police: [0.89, 0.6],
+      park: [0.62, 0.975],
+    };
+    const maxW = Math.min(w * 0.16, u * 0.28), maxH = Math.min(h * 0.2, u * 0.26);
+    const placed: StreetGeom['buildings'] = {};
+    for (const b of this.buildings) {
+      const [fx, fy] = spots[b.id] ?? [0.5, 0.6];
+      const tex = b.sprite.texture;
+      const k = Math.min(maxW / tex.width, maxH / tex.height);
+      b.sprite.scale.set(k);
+      const x = w * fx, y = h * fy;
+      b.holder.position.set(x, y);
+      const bw = tex.width * k, bh = tex.height * k;
+      placed[b.id] = { x, y, w: bw, h: bh };
+      // a driveway down to the road, and a patch to stand on
+      const near = road.reduce((best, p) => (Math.hypot(p.x - x, p.y - y) < Math.hypot(best.x - x, best.y - y) ? p : best), road[0]);
+      if (b.id !== 'park') {
+        g.moveTo(x, y - 4).lineTo(near.x, near.y).stroke({ width: roadW * 0.5, color: INK, cap: 'round' });
+        g.moveTo(x, y - 4).lineTo(near.x, near.y).stroke({ width: roadW * 0.5 - 6, color: winter ? 0xf1f5f9 : 0xe9e3d3, cap: 'round' });
+      }
+      g.ellipse(x, y, bw * 0.58, Math.max(10, bh * 0.08)).fill(winter ? 0xf1f5f9 : 0xe9e3d3).stroke({ width: 2, color: 0xbdb5a6 });
+    }
+    // the buildings further down the screen stand in front
+    const order = [...this.buildings].sort((a, b) => a.holder.y - b.holder.y);
+    for (const b of order) this.removeChild(b.holder);
+    const at = this.getChildIndex(this.eggs);
+    order.forEach((b, i) => this.addChildAt(b.holder, at + i));
+
+    // --- trees and bushes dotted about (kept clear of the buildings and road) ---
+    const tree = (fx: number, fy: number, s: number) => {
+      const x = w * fx, y = h * fy, r = u * s;
+      g.rect(x - r * 0.15, y - r * 0.3, r * 0.3, r * 0.6).fill(0x8d5524).stroke({ width: 2, color: INK });
+      g.circle(x, y - r * 1.1, r).fill(season === 'autumn' ? 0xe08a3c : treeG).stroke({ width: 3, color: INK });
+      g.circle(x - r * 0.3, y - r * 1.3, r * 0.35).fill({ color: 0xffffff, alpha: 0.18 });
+      if (winter) g.ellipse(x, y - r * 1.8, r * 0.6, r * 0.25).fill(0xffffff);
+    };
+    const cypress = (fx: number, fy: number, s: number) => {
+      const x = w * fx, y = h * fy, r = u * s;
+      g.ellipse(x, y - r * 1.4, r * 0.5, r * 1.5).fill(treeD).stroke({ width: 3, color: INK });
+      if (winter) g.ellipse(x, y - r * 2.6, r * 0.3, r * 0.2).fill(0xffffff);
+    };
+    for (const [fx, fy, s] of [[0.03, 0.6, 0.03], [0.27, 0.6, 0.028], [0.57, 0.6, 0.03], [0.6, 0.62, 0.025], [0.81, 0.555, 0.027], [0.985, 0.6, 0.03]]) tree(fx, fy, s);
+    for (const [fx, fy, s] of [[0.06, 0.62, 0.03], [0.25, 0.62, 0.028], [0.44, 0.63, 0.03], [0.79, 0.57, 0.026]]) cypress(fx, fy, s);
+    const trees: { x: number; y: number; r: number }[] = [];
+    for (const [fx, fy, s] of [[0.33, 0.93, 0.045], [0.43, 0.9, 0.04], [0.8, 0.9, 0.045], [0.92, 0.86, 0.04], [0.97, 0.97, 0.05]]) {
+      tree(fx, fy, s);
+      trees.push({ x: w * fx, y: h * fy - u * s * 1.1, r: u * s });
+    }
+    for (const [fx, fy] of [[0.04, 0.79], [0.27, 0.8], [0.73, 0.84]]) {
+      const x = w * fx, y = h * fy, r = u * 0.022;
+      g.circle(x - r, y, r).circle(x + r, y, r).circle(x, y - r * 0.7, r * 1.1).fill(treeG).stroke({ width: 2, color: INK });
+    }
+
     this.placeNumber();
     this.updateClock();
-    this.geom = { w, h, ground, roadTop, roadH: h * 0.22, slot, xs: this.buildings.map((b) => b.holder.x) };
+    this.geom = { w, h, road, roadW, buildings: placed, sun, clouds, tunnel, branch, pond, trees, ground: h * 0.72 };
   }
 
   /** Move the clock hands on buildings to the real time. */
@@ -192,4 +306,50 @@ export class StreetView extends Container {
       drawClockHands(b.hands, x, y, b.clock.r * 2 * k, now, false);
     }
   }
+}
+
+type Pt = { x: number; y: number };
+
+/** A smooth curve through some points (Catmull-Rom), as lots of little steps. */
+export function spline(pts: Pt[], steps = 12): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps, t2 = t * t, t3 = t2 * t;
+      const f = (a: number, b: number, c: number, d: number) =>
+        0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      out.push({ x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y) });
+    }
+  }
+  out.push({ ...pts[pts.length - 1] });
+  return out;
+}
+
+/** A road along a path: kerbs, pavement, grey road and a dashed white line. */
+function drawRoad(g: Graphics, pts: Pt[], width: number, winter: boolean) {
+  const path = () => {
+    g.moveTo(pts[0].x, pts[0].y);
+    for (const p of pts) g.lineTo(p.x, p.y);
+  };
+  path();
+  g.stroke({ width: width + 16, color: INK, cap: 'round', join: 'round' });
+  path();
+  g.stroke({ width: width + 11, color: winter ? 0xf8fafc : 0xe9ecef, cap: 'round', join: 'round' });
+  path();
+  g.stroke({ width: width, color: 0x8d99ae, cap: 'round', join: 'round' });
+  // dashes: 16 on, 18 off, all the way along
+  let along = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    for (let d = 0; d < len; d += 2) {
+      if ((along + d) % 34 < 16) {
+        const t0 = d / len, t1 = Math.min(1, (d + 2) / len);
+        g.moveTo(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0).lineTo(a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1);
+      }
+    }
+    along += len;
+  }
+  g.stroke({ width: 3, color: 0xffffff, cap: 'butt' });
 }

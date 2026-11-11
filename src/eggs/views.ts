@@ -8,6 +8,7 @@ import {
   drawBird,
   everyFrame,
   glow,
+  hotspot,
   INK,
   later,
   oneAtATime,
@@ -21,14 +22,21 @@ import {
 
 /** Surprises on the street and outside the house (the "parent" views). */
 
+type Pt = { x: number; y: number };
+
 export interface StreetGeom {
   w: number;
   h: number;
-  ground: number; // where buildings stand
-  roadTop: number;
-  roadH: number;
-  slot: number; // width given to each building
-  xs: number[]; // centre of each building, left to right (house first)
+  road: Pt[]; // the winding main road, left to right
+  roadW: number;
+  branch: Pt[]; // the road up to the tunnel (from the main road to the tunnel)
+  buildings: Partial<Record<string, { x: number; y: number; w: number; h: number }>>; // bottom-centre and size
+  sun: { x: number; y: number; r: number };
+  clouds: [number, number, number][];
+  tunnel: { x: number; y: number; r: number };
+  pond: { x: number; y: number; rx: number; ry: number };
+  trees: { x: number; y: number; r: number }[]; // the big trees at the front
+  ground: number; // roughly where the town is (for rain to land)
 }
 
 function car(colour: number) {
@@ -42,28 +50,56 @@ function car(colour: number) {
   return g;
 }
 
-export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
-  const { w, h, ground, roadTop, roadH, slot, xs } = geom;
-  const pal = PALETTE[kit.season];
+/** Walk along a path: where you are after going `d` pixels, and which way you're heading. */
+function along(path: Pt[]) {
+  const lens = [0];
+  for (let i = 1; i < path.length; i++) lens.push(lens[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y));
+  const total = lens[lens.length - 1];
+  return {
+    total,
+    at(d: number) {
+      d = Math.max(0, Math.min(total, d));
+      let i = 1;
+      while (i < lens.length - 1 && lens[i] < d) i++;
+      const a = path[i - 1], b = path[i];
+      const t = (d - lens[i - 1]) / Math.max(0.001, lens[i] - lens[i - 1]);
+      return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, angle: Math.atan2(b.y - a.y, b.x - a.x) };
+    },
+  };
+}
 
-  // --- cars driving along the road; tap one to honk ---
+export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
+  const { w, h, road, roadW, buildings } = geom;
+  const u = Math.min(w, h);
+  const pal = PALETTE[kit.season];
+  if (road.length < 2) return;
+
+  // --- cars driving along the winding road, one each way; tap one to honk ---
+  const route = along(road);
   const lanes = [
-    { y: roadTop + roadH * 0.32, dir: 1, colour: 0xe5383b, x: w * 0.1 },
-    { y: roadTop + roadH * 0.8, dir: -1, colour: 0x4ea8ff, x: w * 0.7 },
+    { dir: 1, colour: 0xe5383b, start: 0.15 },
+    { dir: -1, colour: 0x4ea8ff, start: 0.6 },
   ];
+  const carScale = (roadW * 0.85) / 50;
   for (const lane of lanes) {
     const c = car(lane.colour);
-    c.scale.set(Math.min(1.2, slot / 200));
-    c.scale.x *= lane.dir;
-    c.position.set(lane.x, lane.y);
     kit.over.addChild(c);
+    let d = route.total * lane.start;
     let boost = 1;
     let hop = 0;
     everyFrame((dt) => {
-      c.x += lane.dir * 0.07 * boost * dt;
-      if (c.x > w + 80) c.x = -80;
-      if (c.x < -80) c.x = w + 80;
-      c.y = lane.y - hop;
+      d += lane.dir * 0.06 * boost * dt;
+      if (d > route.total) d = 0;
+      if (d < 0) d = route.total;
+      const p = route.at(d);
+      // keep to your own side of the road
+      const off = roadW * 0.22 * lane.dir;
+      const nx = -Math.sin(p.angle), ny = Math.cos(p.angle);
+      c.position.set(p.x + nx * off, p.y + ny * off - hop);
+      const travel = lane.dir > 0 ? p.angle : p.angle + Math.PI;
+      const facingLeft = Math.cos(travel) < 0;
+      c.scale.set(facingLeft ? -carScale : carScale, carScale);
+      c.rotation = facingLeft ? travel - Math.PI : travel;
     }, cleanups);
     tappable(c, oneAtATime((done) => {
       sfx.honk();
@@ -79,61 +115,68 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
   }
 
   // --- a mailbox in front of the house: a letter pops out ---
-  const mx = xs[0] - slot * 0.36, my = ground + h * 0.05;
-  const box = new Container();
-  const post = new Graphics().rect(-4, -34, 8, 34).fill(0x5c3d2e).stroke({ width: 2, color: INK });
-  const body = new Graphics().roundRect(-16, -54, 32, 22, 8).fill(0x1f1f1f).stroke({ width: 2, color: INK });
-  const flag = new Graphics().rect(0, -10, 4, 14).rect(0, -10, 12, 7).fill(0xe5383b);
-  flag.position.set(14, -44);
-  flag.rotation = Math.PI / 2;
-  box.addChild(post, body, flag);
-  box.position.set(mx, my);
-  kit.under.addChild(box);
-  tappable(box, oneAtATime((done) => {
-    sfx.pop(1.3);
-    tween(250, (t) => (flag.rotation = (Math.PI / 2) * (1 - t)));
-    const letter = new Graphics();
-    letter.rect(-14, -9, 28, 18).fill(0xffffff).stroke({ width: 2, color: INK });
-    letter.moveTo(-14, -9).lineTo(0, 2).lineTo(14, -9).stroke({ width: 2, color: INK });
-    letter.circle(-2, 2, 3).circle(2, 2, 3).fill(0xe5383b);
-    letter.position.set(mx, my - 50);
-    kit.over.addChild(letter);
-    tween(1600, (t) => {
-      letter.y = my - 50 - t * h * 0.25;
-      letter.x = mx + Math.sin(t * Math.PI * 3) * 20;
-      letter.alpha = 1 - t * t;
-    }, () => {
-      letter.destroy();
-      tween(250, (t) => (flag.rotation = (Math.PI / 2) * t), done);
-    });
-  }), new Rectangle(-26, -64, 52, 70));
+  const house = buildings.house;
+  if (house) {
+    const mx = house.x - house.w * 0.5, my = house.y + 6;
+    const box = new Container();
+    const post = new Graphics().rect(-4, -34, 8, 34).fill(0x5c3d2e).stroke({ width: 2, color: INK });
+    const body = new Graphics().roundRect(-16, -54, 32, 22, 8).fill(0x1f1f1f).stroke({ width: 2, color: INK });
+    const flag = new Graphics().rect(0, -10, 4, 14).rect(0, -10, 12, 7).fill(0xe5383b);
+    flag.position.set(14, -44);
+    flag.rotation = Math.PI / 2;
+    box.addChild(post, body, flag);
+    box.position.set(mx, my);
+    box.scale.set(Math.max(0.6, Math.min(1, u / 900)));
+    kit.under.addChild(box);
+    tappable(box, oneAtATime((done) => {
+      sfx.pop(1.3);
+      tween(250, (t) => (flag.rotation = (Math.PI / 2) * (1 - t)));
+      const letter = new Graphics();
+      letter.rect(-14, -9, 28, 18).fill(0xffffff).stroke({ width: 2, color: INK });
+      letter.moveTo(-14, -9).lineTo(0, 2).lineTo(14, -9).stroke({ width: 2, color: INK });
+      letter.circle(-2, 2, 3).circle(2, 2, 3).fill(0xe5383b);
+      letter.position.set(mx, my - 50);
+      kit.over.addChild(letter);
+      tween(1600, (t) => {
+        letter.y = my - 50 - t * h * 0.25;
+        letter.x = mx + Math.sin(t * Math.PI * 3) * 20;
+        letter.alpha = 1 - t * t;
+      }, () => {
+        letter.destroy();
+        tween(250, (t) => (flag.rotation = (Math.PI / 2) * t), done);
+      });
+    }), new Rectangle(-26, -64, 52, 70));
+  }
 
-  // --- a cat on the pavement ---
-  const catX = (xs[2] + xs[3]) / 2, catY = ground + h * 0.045;
-  const cat = new Container();
-  const catTail = new Graphics().roundRect(0, -3, 22, 6, 3).fill(0xffa94d).stroke({ width: 2, color: INK });
-  catTail.position.set(10, -8);
-  const catBody = new Graphics();
-  catBody.ellipse(0, -10, 16, 11).fill(0xffa94d).stroke({ width: 2, color: INK });
-  catBody.circle(-12, -24, 10).fill(0xffa94d).stroke({ width: 2, color: INK });
-  catBody.poly([-20, -30, -18, -40, -12, -32]).poly([-4, -30, -6, -40, -12, -32]).fill(0xffa94d).stroke({ width: 2, color: INK });
-  catBody.circle(-15, -25, 1.8).circle(-9, -25, 1.8).fill(INK);
-  cat.addChild(catTail, catBody);
-  cat.position.set(catX, catY);
-  kit.under.addChild(cat);
-  tappable(cat, oneAtATime((done) => {
-    sfx.meow();
-    tween(1000, (t) => {
-      catTail.rotation = Math.sin(t * Math.PI * 6) * 0.7;
-      cat.y = catY - Math.sin(t * Math.PI) * 30;
-    }, () => {
-      cat.y = catY;
-      done();
-    });
-  }), new Rectangle(-30, -46, 60, 50));
+  // --- a cat sunning itself on the hill by the school ---
+  const school = buildings.school;
+  if (school) {
+    const catX = school.x - school.w * 0.62, catY = school.y + 4;
+    const cat = new Container();
+    const catTail = new Graphics().roundRect(0, -3, 22, 6, 3).fill(0xffa94d).stroke({ width: 2, color: INK });
+    catTail.position.set(10, -8);
+    const catBody = new Graphics();
+    catBody.ellipse(0, -10, 16, 11).fill(0xffa94d).stroke({ width: 2, color: INK });
+    catBody.circle(-12, -24, 10).fill(0xffa94d).stroke({ width: 2, color: INK });
+    catBody.poly([-20, -30, -18, -40, -12, -32]).poly([-4, -30, -6, -40, -12, -32]).fill(0xffa94d).stroke({ width: 2, color: INK });
+    catBody.circle(-15, -25, 1.8).circle(-9, -25, 1.8).fill(INK);
+    cat.addChild(catTail, catBody);
+    cat.position.set(catX, catY);
+    kit.under.addChild(cat);
+    tappable(cat, oneAtATime((done) => {
+      sfx.meow();
+      tween(1000, (t) => {
+        catTail.rotation = Math.sin(t * Math.PI * 6) * 0.7;
+        cat.y = catY - Math.sin(t * Math.PI) * 30;
+      }, () => {
+        cat.y = catY;
+        done();
+      });
+    }), new Rectangle(-30, -46, 60, 50));
+  }
 
   // --- the sun puts on sunglasses ---
-  const sunX = w * 0.9, sunY = h * 0.13, sunR = Math.min(w, h) * 0.07 * pal.sunSize;
+  const { x: sunX, y: sunY, r: sunR } = geom.sun;
   const shades = new Graphics();
   shades.roundRect(-sunR * 0.75, -sunR * 0.2, sunR * 0.65, sunR * 0.42, 8).roundRect(sunR * 0.1, -sunR * 0.2, sunR * 0.65, sunR * 0.42, 8).fill(0x1f1f1f);
   shades.rect(-sunR * 0.12, -sunR * 0.12, sunR * 0.24, 5).fill(0x1f1f1f);
@@ -151,15 +194,14 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
       shades.visible = false;
       done();
     }, cleanups);
-  }), new Rectangle(sunX - sunR * 1.3, sunY - sunR * 1.3, sunR * 2.6, sunR * 2.6));
+  }), new Rectangle(sunX - sunR * 1.6, sunY - sunR * 1.6, sunR * 3.2, sunR * 3.2));
 
   // --- clouds that rain (or snow in winter) ---
-  for (const [cx, cy, s] of [[0.12, 0.12, 1], [0.48, 0.08, 0.8]]) {
-    const x = w * cx, y = h * cy, r = Math.min(w, h) * 0.045 * s;
+  for (const [x, y, r] of geom.clouds) {
     const hit = new Container();
     kit.under.addChild(hit);
     tappable(hit, oneAtATime((done) => {
-      rainFrom(kit, x + r, y + r * 0.5, r * 3, ground - 4, 2200);
+      rainFrom(kit, x + r, y + r * 0.5, r * 3, y + h * 0.4, 2200);
       later(2400, done, cleanups);
     }), new Rectangle(x - r, y - r * 1.6, r * 4.2, r * 2.8));
   }
@@ -177,8 +219,8 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
   const flame = new Graphics().poly([-5, 38, 0, 24, 5, 38]).fill(0xff9f1c);
   flame.visible = false;
   balloon.addChild(flame, bg);
-  const balloonY = h * 0.06;
-  balloon.position.set(-60, balloonY + 20);
+  const balloonY = h * 0.16;
+  balloon.position.set(w * 0.2, balloonY);
   kit.over.addChild(balloon);
   let lift = 0;
   let bt = 0;
@@ -186,7 +228,7 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
     bt += dt;
     balloon.x += 0.012 * dt;
     if (balloon.x > w + 60) balloon.x = -60;
-    balloon.y = balloonY + 20 + Math.sin(bt * 0.001) * 6 - lift;
+    balloon.y = balloonY + Math.sin(bt * 0.001) * 6 - lift;
   }, cleanups);
   tappable(balloon, oneAtATime((done) => {
     sfx.burner();
@@ -197,6 +239,110 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
       done();
     });
   }), new Rectangle(-34, -34, 68, 92));
+
+  // --- the tunnel: a little train toots its way out, and back in ---
+  const { tunnel } = geom;
+  const track = along([...geom.branch].reverse());
+  hotspot(kit, new Rectangle(tunnel.x - tunnel.r - 14, tunnel.y - tunnel.r - 14, (tunnel.r + 14) * 2, tunnel.r + 30), oneAtATime((done) => {
+    // an engine and two carriages, each following the road out of the tunnel
+    const s = (roadW * 0.9) / 30;
+    const cars = [0xe5383b, 0x4ea8ff, 0xffd166].map((c, i) => {
+      const t = new Graphics();
+      if (i === 0) {
+        t.roundRect(-22, -26, 44, 26, 6).fill(c).stroke({ width: 2.5, color: INK });
+        t.rect(6, -40, 12, 16).fill(0x2b2d42).stroke({ width: 2, color: INK }); // chimney
+        t.roundRect(-20, -42, 20, 18, 4).fill(c).stroke({ width: 2.5, color: INK }); // cab
+      } else t.roundRect(-20, -24, 40, 24, 5).fill(c).stroke({ width: 2.5, color: INK });
+      t.circle(-12, 2, 6).circle(12, 2, 6).fill(0x2b2b2b);
+      t.scale.set(s);
+      t.visible = false;
+      kit.over.addChild(t);
+      return t;
+    });
+    sfx.honk();
+    const gap = 50 * s;
+    const out = Math.min(track.total, u * 0.2) + gap * 2;
+    tween(3600, (t) => {
+      const k = t < 0.5 ? ease.inOutSine(t * 2) : ease.inOutSine((1 - t) * 2);
+      const head = out * k;
+      cars.forEach((c, i) => {
+        const d = head - i * gap;
+        c.visible = d > 0; // still inside the tunnel
+        const p = track.at(d);
+        c.position.set(p.x, p.y);
+        c.rotation = Math.max(-0.35, Math.min(0.35, Math.cos(p.angle) >= 0 ? p.angle : p.angle - Math.PI)) * 0.6;
+      });
+      if (Math.abs(t - 0.5) < 0.01) sfx.honk();
+    }, () => {
+      for (const c of cars) c.destroy();
+      done();
+    });
+  }));
+
+  // --- the pond: a fish jumps (or, in winter, a penguin slides across the ice) ---
+  const { pond } = geom;
+  hotspot(kit, new Rectangle(pond.x - pond.rx, pond.y - pond.ry, pond.rx * 2, pond.ry * 2), oneAtATime((done) => {
+    if (kit.season === 'winter') {
+      const p = new Graphics();
+      p.ellipse(0, 0, 13, 18).fill(0x1f1f1f).stroke({ width: 2, color: INK });
+      p.ellipse(2, 3, 8, 12).fill(0xffffff);
+      p.circle(4, -8, 2).fill(INK);
+      p.poly([10, -6, 17, -4, 10, -2]).fill(0xffa94d);
+      kit.over.addChild(p);
+      sfx.slideWhistle(1.2);
+      tween(1600, (t) => {
+        p.position.set(pond.x - pond.rx * 0.8 + t * pond.rx * 1.6, pond.y - 10);
+        p.rotation = Math.PI / 2 * 0.9;
+      }, () => {
+        p.destroy();
+        done();
+      });
+      return;
+    }
+    sfx.blub();
+    const fish = new Graphics();
+    fish.ellipse(0, 0, 14, 8).fill(0xffa94d).stroke({ width: 2, color: INK });
+    fish.poly([-12, 0, -22, -8, -22, 8]).fill(0xffa94d).stroke({ width: 2, color: INK });
+    fish.circle(7, -2, 2).fill(INK);
+    kit.over.addChild(fish);
+    const x0 = pond.x + rand(-0.5, 0.2) * pond.rx;
+    tween(900, (t) => {
+      fish.position.set(x0 + t * 60, pond.y - Math.sin(t * Math.PI) * h * 0.1);
+      fish.rotation = -0.9 + t * 1.8;
+    }, () => {
+      fish.destroy();
+      sfx.blub();
+      const ring = new Graphics();
+      kit.under.addChild(ring);
+      tween(700, (t) => ring.clear().ellipse(x0 + 60, pond.y, 8 + t * 30, 3 + t * 10).stroke({ width: 2, color: 0xffffff, alpha: 1 - t }), () => {
+        ring.destroy();
+        done();
+      });
+    });
+  }));
+
+  // --- the big trees at the front: a bird flies out ---
+  for (const tr of geom.trees) {
+    hotspot(kit, new Rectangle(tr.x - tr.r, tr.y - tr.r, tr.r * 2, tr.r * 2), oneAtATime((done) => {
+      sfx.chirp();
+      const bird = drawBird(new Graphics(), [0x4ea8ff, 0xe5383b, 0xffd166][Math.floor(rand(0, 3))]);
+      bird.scale.set(0.8);
+      kit.over.addChild(bird);
+      const p0 = { x: tr.x, y: tr.y }, dir = tr.x > w / 2 ? -1 : 1;
+      tween(1800, (t) => {
+        const p = bezier(p0, { x: p0.x + dir * 60, y: p0.y - 80 }, { x: p0.x + dir * w * 0.2, y: h * 0.25 }, { x: p0.x + dir * w * 0.4, y: -40 }, t);
+        bird.position.set(p.x, p.y);
+        bird.scale.x = dir * 0.8;
+      }, () => {
+        bird.destroy();
+        done();
+      });
+    }));
+  }
+  void pal;
+  void burst;
+  void spray;
+  void glow;
 }
 
 // ---------------------------------------------------------------------------
