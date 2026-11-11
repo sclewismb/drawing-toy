@@ -19,6 +19,7 @@ import { BUILTIN, FLOOR, PLACES, placeById, RESIDENTS, STREET, type PlaceId } fr
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
 import { MOTIONS } from './library';
 import { MoveButton } from './moveButton';
+import { feetOf, furnitureSurface, Physics, SHELVES, type Surface, type World } from './physics';
 import { SOUND_FOR } from './reactions';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
@@ -296,7 +297,10 @@ gestures.onSelect = (ch) => {
 // --- Sliding along the wide rooms: drag empty space, let go to glide; carry
 // a character to the edge of the screen and the room slides along with it.
 gestures.canPan = () => screen === 'place' && camera.scrolls;
-gestures.onPanStart = () => camera.hold();
+gestures.onPanStart = () => {
+  camera.hold();
+  follow = null; // sliding the room yourself
+};
 gestures.onPan = (dx) => camera.drag(dx);
 gestures.onPanEnd = (vx) => {
   camera.fling(vx);
@@ -313,6 +317,28 @@ app.ticker.add((t) => {
   if (screen !== 'place') return;
   camera.update(t.deltaMS);
   roomSky.update(t.deltaMS);
+  if (current && !switching) {
+    physics.update(t.deltaMS, physicsWorld());
+    // things riding on a furniture toy that's being carried go with it
+    // keep a thrown thing (or the dog fetching it) in view
+    if (follow) {
+      const f = follow;
+      const done = f.ch.destroyed || (f.dog ? !f.dog.isFetching : !physics.active(f.ch));
+      if (done) follow = null;
+      else if (camera.scrolls) {
+        const W = app.screen.width, sx = f.ch.x - camera.x;
+        const off = sx < W * 0.2 ? sx - W * 0.2 : sx > W * 0.8 ? sx - W * 0.8 : 0;
+        if (off) camera.set(camera.x + off * Math.min(1, t.deltaMS * 0.006));
+      }
+    }
+    for (const [furniture, list] of riders) {
+      if (furniture.destroyed || !gestures.isHeld(furniture)) {
+        riders.delete(furniture);
+        continue;
+      }
+      for (const r of list) if (!r.ch.destroyed && !gestures.isHeld(r.ch)) r.ch.position.set(furniture.x + r.dx, furniture.y + r.dy);
+    }
+  }
   const p = gestures.dragPoint;
   if (!p || !camera.scrolls || gallery.isOver(p.x, p.y)) return;
   const W = app.screen.width;
@@ -322,6 +348,88 @@ app.ticker.add((t) => {
 
 /** A point on the screen, in room coordinates. */
 const toRoom = (x: number, y: number) => characters.toLocal({ x, y });
+
+// --- Throwing, falling and bouncing (see physics.ts) ---
+const physics = new Physics();
+/** What each thing is resting on (a furniture toy), so it rides along when that's moved. */
+const restingOn = new WeakMap<Character, Character>();
+/** While a furniture toy is carried: what's riding on it, and where. */
+const riders = new Map<Character, { ch: Character; dx: number; dy: number }[]>();
+/** Balls that were thrown (for the dog to fetch): where they were let go. */
+const thrownFrom = new WeakMap<Character, number>();
+/** In the wide rooms, the room slides along to keep a thrown thing in view (then the dog fetching it). */
+let follow: { ch: Character; dog?: Wanderer } | null = null;
+
+/** The floor, walls and everything you can put things on, here and now. */
+function physicsWorld(): World {
+  const id = current!;
+  const { x0, x1 } = roomEdges(id, panel);
+  const surfaces: Surface[] = (SHELVES[id] ?? []).map(([a, b, y]) => ({ x0: a * panel, x1: b * panel, y: y * roomH }));
+  for (const ch of characters.children as Character[]) {
+    if (ch.destroyed || gestures.isHeld(ch) || physics.active(ch)) continue;
+    const s = furnitureSurface(ch);
+    if (s) surfaces.push(s);
+  }
+  return { x0, x1, floor: roomH * FLOOR[id], bottom: roomH, surfaces };
+}
+
+/** Flying drawings don't fall. */
+const floats = (ch: Character) => wanderers.get(ch) instanceof Flyer;
+
+/** Let go: falls if it's up in the air, flies if it was flicked. */
+function letGo(ch: Character, vx = 0, vy = 0) {
+  if (!current || ch.destroyed || ch.eventMode === 'none' || floats(ch)) return false;
+  restingOn.delete(ch);
+  return physics.release(ch, vx, vy, physicsWorld());
+}
+
+physics.onLand = (ch, speed, bounced, on) => {
+  if (on?.bounce && on.bounce > 0.8) sfx.spring(voice(ch) * 1.2);
+  else if (bounced && speed > 0.6) sfx.boing(voice(ch) * 1.15);
+  else if (bounced) sfx.drop(voice(ch) * 1.2);
+  if (speed > 0.9) ch.react('squish');
+};
+physics.onSettle = (ch, on, spun) => {
+  sfx.drop(voice(ch));
+  if (on?.owner) {
+    restingOn.set(ch, on.owner);
+    // sitting on the furniture, so in front of it
+    if (characters.getChildIndex(ch) < characters.getChildIndex(on.owner)) characters.addChild(ch);
+  }
+  // stand back up after a spinning throw
+  if (spun) {
+    const from = ch.rotation;
+    const to = Math.round(from / (Math.PI * 2)) * Math.PI * 2;
+    tween(250, (t) => !ch.destroyed && (ch.rotation = from + (to - from) * t), () => !ch.destroyed && (ch.rotation = 0));
+  }
+  wanderers.get(ch)?.rest(900);
+  const from = thrownFrom.get(ch);
+  if (from !== undefined && !on) {
+    thrownFrom.delete(ch);
+    fetchBall(ch, from);
+  }
+  saveSoon();
+};
+
+/** A dog sees a ball land: off it goes to fetch it. */
+function fetchBall(ball: Character, homeX: number) {
+  let best: Wanderer | null = null;
+  for (const ch of characters.children as Character[]) {
+    const w = wanderers.get(ch);
+    if (!(w instanceof Wanderer) || ch.ref.kind !== 'sample' || ch.ref.name !== 'dog') continue;
+    if (w.isFetching || gestures.isHeld(ch) || physics.active(ch) || feetOf(ch) < roomH * FLOOR[current!]) continue;
+    if (!best || Math.abs(ch.x - ball.x) < Math.abs(best.ch.x - ball.x)) best = w;
+  }
+  if (!best) return;
+  const dog = best;
+  if (follow?.ch === ball) follow = { ch: ball, dog }; // keep watching the ball: the dog brings it back
+  dog.fetch(
+    ball,
+    { x: homeX, y: dog.ch.y },
+    () => !ball.destroyed && !gestures.isHeld(ball) && !physics.active(ball),
+    () => letGo(ball, dog.ch.facing * 0.25, -0.5),
+  );
+}
 
 // --- Animals, little people and the kids' drawings moving about by themselves (see critters.ts) ---
 type Brain = Wanderer | Flyer;
@@ -387,7 +495,7 @@ app.ticker.add((t) => {
     const w = wanderers.get(ch);
     if (!w || ch.destroyed || ch.eventMode === 'none') continue;
     const sx = ch.x - camera.x;
-    w.update(Math.min(t.deltaMS, 50), area, gestures.isHeld(ch), sx > 0 && sx < app.screen.width, now, everyone);
+    w.update(Math.min(t.deltaMS, 50), area, gestures.isHeld(ch) || physics.active(ch), sx > 0 && sx < app.screen.width, now, everyone);
     if (w instanceof Wanderer) list.push(w);
   }
   sayHellos(list, now);
@@ -546,6 +654,8 @@ function removeChalk() {
 }
 
 function clearCharacters() {
+  physics.clear();
+  riders.clear();
   for (const ch of [...characters.children] as Character[]) {
     gestures.release(ch);
     characters.removeChild(ch);
@@ -588,6 +698,14 @@ async function showPlace(id: PlaceId) {
     for (const s of RESIDENTS[id] ?? []) {
       const pic = await svgPicture(builtinUrl(s.name));
       addCharacter(pic, { kind: 'sample', name: s.name }, { x: s.x * W, y: s.y * H });
+    }
+  }
+  // what's sitting on which furniture (so it rides along when that's moved)
+  for (const ch of characters.children as Character[]) {
+    const feet = feetOf(ch);
+    for (const other of characters.children as Character[]) {
+      const s = other !== ch ? furnitureSurface(other) : null;
+      if (s && ch.x >= s.x0 && ch.x <= s.x1 && Math.abs(feet - s.y) < 4) restingOn.set(ch, other);
     }
   }
   restoring = false;
@@ -748,7 +866,8 @@ const gallery = setupGallery({
       const halfHeight = (startSize() * CRITTERS[pick.name].size * pic.height) / Math.max(pic.width, pic.height) / 2;
       at.y = feet - halfHeight;
     }
-    addCharacter(pic, pick, at, true);
+    const ch = addCharacter(pic, pick, at, true);
+    setTimeout(() => letGo(ch), 650); // pops in, then drops to the floor
   },
   onDelete(id: string) {
     // Gone for good: remove it from this place too, in a puff of stars.
@@ -811,11 +930,28 @@ gestures.onDragStart = (ch) => {
   gallery.hint(true);
 };
 gestures.onDragMove = (_ch, x, y) => gallery.highlight(gallery.isOver(x, y));
-gestures.onDrop = (ch, x, y) => {
+gestures.onGrab = (ch) => {
+  follow = null;
+  physics.stop(ch); // caught in mid-air
+  restingOn.delete(ch);
+  // picking up a furniture toy: whatever's on it comes too
+  const list = (characters.children as Character[])
+    .filter((o) => o !== ch && restingOn.get(o) === ch)
+    .map((o) => ({ ch: o, dx: o.x - ch.x, dy: o.y - ch.y }));
+  if (list.length) riders.set(ch, list);
+  for (const r of list) characters.addChild(r.ch); // still in front of it
+};
+let justDropped: Character | null = null;
+gestures.onDrop = (ch, x, y, vx, vy) => {
+  justDropped = ch;
   gallery.highlight(false);
   gallery.hint(false);
-  if (gallery.isOver(x, y)) putAway(ch);
-  else sfx.drop(voice(ch));
+  if (gallery.isOver(x, y)) return putAway(ch);
+  const speed = Math.hypot(vx, vy);
+  if (speed > 0.7) sfx.whoosh();
+  follow = speed > 0.7 ? { ch } : null;
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'ball' && speed > 0.5) thrownFrom.set(ch, toRoom(x, y).x);
+  if (!letGo(ch, vx, vy)) sfx.drop(voice(ch)); // already standing on something
 };
 gestures.onShake = (ch) => {
   ch.react('dizzy');
@@ -826,8 +962,12 @@ gestures.onTapEmpty = (x, y) => {
   burst(sparkles, x, y, 6, 50);
   sfx.pling();
 };
-gestures.onGestureEnd = () => {
+gestures.onGestureEnd = (ch) => {
   gallery.hint(false);
+  // let go up in the air (after a tap or a pinch too): down it comes
+  if (ch !== justDropped && !physics.active(ch) && !gestures.isHeld(ch)) letGo(ch);
+  justDropped = null;
+  riders.delete(ch);
   saveSoon();
 };
 
@@ -855,7 +995,8 @@ fileInput.addEventListener('change', async () => {
     // Always keep the drawing; show it here if we're still in a place.
     const entry = await library.add(result.canvas);
     if (current) {
-      addCharacter(result.canvas, { kind: 'photo', id: entry.id }, toRoom(app.screen.width / 2, app.screen.height * 0.5), true);
+      const ch = addCharacter(result.canvas, { kind: 'photo', id: entry.id }, toRoom(app.screen.width / 2, app.screen.height * 0.5), true);
+      setTimeout(() => letGo(ch), 650);
     }
   } catch (err) {
     console.warn(err);

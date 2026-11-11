@@ -91,6 +91,72 @@ export class Wanderer {
     return this.state === 'walk';
   }
 
+  /** Fetching a thrown ball: run to it, carry it back, drop it. */
+  private fetching: {
+    ball: Character;
+    home: { x: number; y: number };
+    carrying: boolean;
+    free: () => boolean;
+    drop: () => void;
+  } | null = null;
+
+  get isFetching() {
+    return !!this.fetching;
+  }
+
+  /** Go and get the ball, and bring it back to `home`. */
+  fetch(ball: Character, home: { x: number; y: number }, free: () => boolean, drop: () => void) {
+    if (this.fetching) return false;
+    this.fetching = { ball, home, carrying: false, free, drop };
+    this.state = 'walk';
+    this.kind.voice();
+    return true;
+  }
+
+  private doFetch(dt: number, s: number) {
+    const f = this.fetching!;
+    if (!f.free()) {
+      // someone grabbed the ball (or it's gone): never mind
+      this.fetching = null;
+      this.rest(900);
+      return;
+    }
+    const half = (Math.abs(this.ch.sprite.width) / 2) * this.ch.scale.x;
+    const mouth = () => ({ x: this.ch.x + this.ch.facing * half * 0.8, y: this.ch.y - this.ch.restY * this.ch.scale.y * 0.15 });
+    const ballFeet = f.ball.y + f.ball.restY * f.ball.scale.y;
+    const target = f.carrying
+      ? f.home
+      : { x: f.ball.x - this.ch.facing * half * 0.8, y: ballFeet - this.ch.restY * this.ch.scale.y };
+    const dx = target.x - this.ch.x, dy = target.y - this.ch.y;
+    const dist = Math.hypot(dx, dy);
+    if (Math.abs(dx) > 12) this.face(f.carrying ? f.home.x : f.ball.x);
+    const step = this.speed * 2.6 * s * dt;
+    if (dist > step) {
+      this.ch.x += (dx / dist) * step;
+      this.ch.y += (dy / dist) * step;
+      this.phase += dt * 0.02;
+      this.gait(s);
+    }
+    if (f.carrying) {
+      const m = mouth();
+      f.ball.position.set(m.x, m.y);
+      f.ball.rotation = 0;
+    }
+    if (dist <= step) {
+      if (!f.carrying) {
+        f.carrying = true; // got it!
+        f.ball.parent?.addChild(f.ball); // carry it in front
+      } else {
+        // back home: drop it, and ask for another go
+        f.drop();
+        this.fetching = null;
+        this.kind.voice();
+        this.doTrick('jump');
+        this.onMoved();
+      }
+    }
+  }
+
   /** Where its feet are. */
   private feet() {
     return this.ch.y + this.ch.restY * this.ch.scale.y;
@@ -130,12 +196,15 @@ export class Wanderer {
 
   update(dt: number, area: Area, held: boolean, onScreen: boolean, now: number) {
     if (held) {
+      if (this.fetching?.carrying) this.fetching.drop();
+      this.fetching = null;
       if (this.state !== 'rest') this.rest(700);
       this.timer = Math.max(this.timer, 500);
       return;
     }
     this.timer -= dt;
     const s = Math.max(0.5, Math.sqrt(this.ch.scale.x)); // bigger ones take bigger steps
+    if (this.fetching) return this.doFetch(dt, s);
 
     if (this.state === 'walk') {
       const dx = this.target.x - this.ch.x;

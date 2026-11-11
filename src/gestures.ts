@@ -25,6 +25,11 @@ interface Gesture {
   fastDir: Pt | null; // direction of the last fast movement
   reversals: number; // fast back-and-forth direction changes
   firstReversalT: number;
+  // How fast the finger was going when it let go (for throwing), pixels per ms:
+  vx: number;
+  vy: number;
+  velP: Pt;
+  velT: number;
   lastShakeT: number;
 }
 
@@ -83,7 +88,10 @@ export class GestureController {
   /** While dragging with one finger: where the finger is. */
   onDragMove: (ch: Character, x: number, y: number) => void = () => {};
   /** Let go after dragging: where the finger was. */
-  onDrop: (ch: Character, x: number, y: number) => void = () => {};
+  /** Let go after dragging: where the finger was, and how fast it was going (pixels per ms) for a throw. */
+  onDrop: (ch: Character, x: number, y: number, vx: number, vy: number) => void = () => {};
+  /** A finger has just taken hold of a character (to stop it falling or wandering). */
+  onGrab: (ch: Character) => void = () => {};
   onShake: (ch: Character) => void = () => {};
   /** All fingers lifted off a character (after a tap, drag or pinch). */
   onGestureEnd: (ch: Character) => void = () => {};
@@ -214,11 +222,16 @@ export class GestureController {
       reversals: 0,
       firstReversalT: 0,
       lastShakeT: 0,
+      vx: 0,
+      vy: 0,
+      velP: { ...p },
+      velT: now,
     };
     this.gestures.set(ch, g);
     this.owner.set(id, ch);
     this.layer.addChild(ch); // bring to front
     ch.setHeld(true);
+    this.onGrab(ch);
     this.select(ch);
     this.rebase(g);
   }
@@ -278,6 +291,15 @@ export class GestureController {
       }
       if (g.moved) this.onDragMove(ch, p.x, p.y);
       this.checkShake(g, p);
+      // how fast it's going (smoothed), in case it's about to be thrown
+      const now = performance.now();
+      const dt = now - g.velT;
+      if (dt >= 8) {
+        g.vx = g.vx * 0.4 + ((p.x - g.velP.x) / dt) * 0.6;
+        g.vy = g.vy * 0.4 + ((p.y - g.velP.y) / dt) * 0.6;
+        g.velP = { ...p };
+        g.velT = now;
+      }
     } else {
       g.moved = true;
     }
@@ -345,7 +367,10 @@ export class GestureController {
       ch.setHeld(false);
       const quick = performance.now() - g.startT < TAP_MAX_MS;
       if (!g.moved && !g.pinched && quick) this.onTap(ch);
-      else if (g.moved && !g.pinched) this.onDrop(ch, lastPos.x, lastPos.y);
+      else if (g.moved && !g.pinched) {
+        const fresh = performance.now() - g.velT < 90; // still moving when it let go?
+        this.onDrop(ch, lastPos.x, lastPos.y, fresh ? g.vx : 0, fresh ? g.vy : 0);
+      }
       this.onGestureEnd(ch);
     } else {
       this.rebase(g); // back to a one-finger drag
