@@ -1,13 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 260" width="240" height="260">
-  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
-    <rect x="160" y="40" width="28" height="50" fill="#9d4d3a"/>
-    <rect x="32" y="110" width="176" height="142" fill="#ffb4a2"/>
-    <path d="M14 116 L120 26 L226 116 Z" fill="#e5383b"/>
-    <rect x="100" y="172" width="42" height="80" rx="4" fill="#8d5524"/>
-    <rect x="48" y="138" width="40" height="38" fill="#bfe8ff"/>
-    <rect x="154" y="138" width="40" height="38" fill="#bfe8ff"/>
-    <path d="M68 138 V176 M48 157 H88 M174 138 V176 M154 157 H194" fill="none" stroke-width="4"/>
-    <circle cx="120" cy="80" r="14" fill="#ffd93d"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 250" width="330" height="250">
+  <g stroke="#3a3a3a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <!-- tall pine trees behind -->
+    <path d="M40 120 L80 6 L120 120 Z" fill="#2d6a4f"/>
+    <path d="M200 110 L250 0 L300 110 Z" fill="#40916c"/>
+    <path d="M118 100 L160 20 L202 100 Z" fill="#2d6a4f"/>
+    <!-- brick walls -->
+    <rect x="22" y="100" width="286" height="142" fill="#eadbc8"/>
   </g>
-  <circle cx="132" cy="214" r="4" fill="#ffd93d"/>
+  <!-- brick lines -->
+  <g stroke="#cbb79c" stroke-width="2">
+    <path d="M24 122 H306 M24 144 H306 M24 166 H306 M24 188 H306 M24 210 H306 M24 232 H306"/>
+    <path d="M50 100 V122 M90 100 V122 M130 100 V122 M170 100 V122 M210 100 V122 M250 100 V122 M290 100 V122
+             M70 122 V144 M110 122 V144 M150 122 V144 M190 122 V144 M230 122 V144 M270 122 V144
+             M50 144 V166 M90 144 V166 M130 144 V166 M170 144 V166 M210 144 V166 M250 144 V166 M290 144 V166
+             M70 166 V188 M110 166 V188 M150 166 V188 M190 166 V188 M230 166 V188 M270 166 V188
+             M50 188 V210 M90 188 V210 M130 188 V210 M170 188 V210 M210 188 V210 M250 188 V210 M290 188 V210
+             M70 210 V232 M110 210 V232 M150 210 V232 M190 210 V232 M230 210 V232 M270 210 V232"/>
+  </g>
+  <g stroke="#3a3a3a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="22" y="100" width="286" height="142" fill="none"/>
+    <!-- dark hip roof -->
+    <path d="M6 104 L76 46 H254 L324 104 Z" fill="#33333b"/>
+    <path d="M6 104 H324" fill="none" stroke-width="7"/>
+    <!-- left window with blinds -->
+    <rect x="40" y="122" width="66" height="54" fill="#f2f2f2" stroke-width="7" stroke="#1f1f1f"/>
+    <path d="M44 132 H102 M44 142 H102 M44 152 H102 M44 162 H102 M73 122 V176" fill="none" stroke="#9a9a9a" stroke-width="4"/>
+    <!-- white front door in a black frame -->
+    <rect x="122" y="128" width="34" height="114" fill="#ffffff" stroke-width="7" stroke="#1f1f1f"/>
+    <circle cx="149" cy="190" r="3" fill="#3a3a3a" stroke="none"/>
+    <!-- lantern -->
+    <rect x="166" y="132" width="10" height="16" rx="2" fill="#ffd93d" stroke-width="3"/>
+    <!-- big front window with blinds -->
+    <rect x="184" y="118" width="64" height="58" fill="#f2f2f2" stroke-width="7" stroke="#1f1f1f"/>
+    <path d="M188 128 H244 M188 138 H244 M188 148 H244 M188 158 H244 M188 168 H244 M205 118 V176 M227 118 V176" fill="none" stroke="#9a9a9a" stroke-width="4"/>
+    <!-- white garage door -->
+    <rect x="256" y="146" width="52" height="96" fill="#ffffff" stroke-width="5"/>
+    <path d="M256 170 H308 M256 194 H308 M256 218 H308" fill="none" stroke-width="3"/>
+    <!-- porch rocking chairs -->
+    <path d="M176 222 V196 H192 V222 M174 226 Q184 232 196 226" fill="none" stroke="#1f1f1f" stroke-width="5"/>
+    <path d="M232 222 V196 H248 V222 M230 226 Q240 232 252 226" fill="none" stroke="#1f1f1f" stroke-width="5"/>
+    <!-- bushes with white hydrangeas -->
+    <circle cx="60" cy="236" r="16" fill="#5cb85c"/>
+    <circle cx="200" cy="234" r="20" fill="#5cb85c"/>
+    <circle cx="226" cy="238" r="14" fill="#7bd36b"/>
+  </g>
+  <g fill="#f1f7e6" stroke="#3a3a3a" stroke-width="2">
+    <circle cx="192" cy="228" r="6"/><circle cx="206" cy="224" r="6"/><circle cx="200" cy="238" r="5"/>
+    <circle cx="56" cy="230" r="5"/><circle cx="226" cy="234" r="5"/>
+  </g>
 </svg>
