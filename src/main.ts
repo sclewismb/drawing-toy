@@ -1,6 +1,7 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
+import { createEggs } from './eggs';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { FlipButton } from './flipButton';
@@ -268,6 +269,26 @@ function updateClocks() {
 }
 setInterval(updateClocks, 1000);
 
+// --- Hidden surprises in the rooms (tap things to find them) ---
+const eggsUnder = new Container(); // on the walls and furniture, behind characters
+const eggsOver = new Container(); // darkness, glows, things flying, in front of characters
+world.addChildAt(eggsUnder, world.getChildIndex(characters));
+world.addChildAt(eggsOver, world.getChildIndex(characters) + 1);
+let eggsCleanup: (() => void) | null = null;
+
+function teardownEggs() {
+  eggsCleanup?.();
+  eggsCleanup = null;
+  for (const layer of [eggsUnder, eggsOver]) {
+    for (const c of layer.removeChildren()) c.destroy({ children: true });
+  }
+}
+
+function setupEggs(id: PlaceId) {
+  teardownEggs();
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles, w: app.screen.width, h: app.screen.height });
+}
+
 // --- Blackboards you can draw on (the school) ---
 let chalk: Chalkboard | null = null;
 let chalkPlace: PlaceId | null = null;
@@ -337,6 +358,7 @@ async function showPlace(id: PlaceId) {
   current = id;
   drawBackdrop();
   await setupChalk(id);
+  setupEggs(id);
   const saved = await storage.loadScene(id).catch(() => null);
   const { width: W, height: H } = app.screen;
   if (saved) {
@@ -450,6 +472,7 @@ async function goBack() {
       () => {
         clearCharacters();
         removeChalk();
+        teardownEggs();
         current = null;
         backdrop.clear();
       },
@@ -598,6 +621,7 @@ app.renderer.on('resize', () => {
   weather.resize(app.screen.width, app.screen.height);
   drawBackdrop();
   layoutChalk();
+  if (current) setupEggs(current);
   for (const ch of characters.children as Character[]) gestures.keepOnScreen(ch);
   saveSoon();
 });
@@ -649,6 +673,8 @@ if (import.meta.env.DEV) {
     app, gestures, characters, library, storage, street, houseView, saveNow, enterPlace, enterHouse, goBack,
     screen: () => screen,
     chalk: () => chalk,
+    eggsUnder,
+    eggsOver,
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
   });
 }

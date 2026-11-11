@@ -105,6 +105,40 @@ function star(g: Graphics, cx: number, cy: number, r: number, color: number) {
   g.poly(pts).fill(color).stroke({ width: 3, color: INK });
 }
 
+/** Outside a bedroom window: day or night, by the real clock. */
+export function isNight(now = new Date()) {
+  const h = now.getHours();
+  return h >= 19 || h < 7;
+}
+
+function windowView(g: Graphics, x: number, y: number, ww: number, wh: number) {
+  if (isNight()) {
+    g.rect(x, y, ww, wh).fill(0x1d2b53);
+    g.circle(x + ww * 0.7, y + wh * 0.3, Math.min(ww, wh) * 0.12).fill(0xfff3c4);
+    g.circle(x + ww * 0.74, y + wh * 0.27, Math.min(ww, wh) * 0.1).fill(0x1d2b53); // crescent
+    const rnd = seeded(3);
+    for (let i = 0; i < 12; i++) g.circle(x + rnd() * ww, y + rnd() * wh * 0.7, 1.5 + rnd() * 1.5).fill(0xffffff);
+  } else {
+    g.rect(x, y, ww, wh).fill(0xbfe8ff);
+    g.circle(x + ww * 0.75, y + wh * 0.25, Math.min(ww, wh) * 0.1).fill(0xffe066);
+    const r = Math.min(ww, wh) * 0.07;
+    g.circle(x + ww * 0.25, y + wh * 0.3, r).circle(x + ww * 0.25 + r, y + wh * 0.3 - r * 0.4, r * 1.2).circle(x + ww * 0.25 + r * 2, y + wh * 0.3, r).fill(0xffffff);
+  }
+  // hills, kept inside the window
+  const hill = (cx: number, rx: number, ry: number, color: number) => {
+    const pts: number[] = [];
+    for (let i = 0; i <= 24; i++) {
+      const px = x + (ww * i) / 24;
+      const k = (px - cx) / rx;
+      pts.push(px, y + wh - (Math.abs(k) < 1 ? ry * Math.sqrt(1 - k * k) : 0));
+    }
+    pts.push(x + ww, y + wh, x, y + wh);
+    g.poly(pts).fill(color);
+  };
+  hill(x + ww * 0.3, ww * 0.6, wh * 0.25, isNight() ? 0x1f4d3a : 0x7bd36b);
+  hill(x + ww * 0.85, ww * 0.4, wh * 0.18, isNight() ? 0x17402f : 0x5cb85c);
+}
+
 /** A small seeded random generator, so decorations land in the same place every time. */
 function seeded(seed: number) {
   let s = seed;
@@ -157,25 +191,27 @@ export const PLACES: PlaceDef[] = [
       // grey carpet
       g.rect(0, fy, w, h - fy).fill(0x5f5a57);
       g.rect(0, fy - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
-      // window with blackout blind and a spotty valance
+      // ceiling light
+      g.ellipse(w * 0.3, 0, w * 0.07, h * 0.04).fill(0xdee2e6).stroke({ width: 4, color: INK });
+      g.ellipse(w * 0.3, 0, w * 0.045, h * 0.022).fill(0xf8f9fa);
+      // window (the blackout blind is drawn over it, so it can roll up) and a spotty valance
       const wx = w * 0.15, wy = h * 0.16, ww = w * 0.24, wh = h * 0.34;
-      g.rect(wx, wy, ww, wh).fill(0x1f1f1f).stroke({ width: 6, color: INK });
+      windowView(g, wx, wy, ww, wh);
+      g.rect(wx, wy, ww, wh).stroke({ width: 6, color: INK });
+      g.rect(wx - 8, wy + wh, ww + 16, 10).fill(0xffffff).stroke({ width: 3, color: INK });
       g.rect(wx - 14, wy - 30, ww + 28, h * 0.11).fill(0xf6f7f2).stroke({ width: 4, color: INK });
       g.rect(wx - 14, wy - 30 + h * 0.11 - 14, ww + 28, 8).fill(0x9fd8e8);
       g.rect(wx - 14, wy - 30 + h * 0.11 - 6, ww + 28, 6).fill(0xd4e94a);
       const rnd = seeded(7);
       for (let i = 0; i < 40; i++) g.circle(wx - 10 + rnd() * (ww + 20), wy - 24 + rnd() * (h * 0.11 - 26), 2.5).fill(0x6c757d);
       g.moveTo(wx - 24, wy - 30).lineTo(wx + ww + 24, wy - 30).stroke({ width: 5, color: 0x6c757d });
-      // turquoise dresser with a lamp
+      // turquoise dresser (its drawers, lamp and star projector are surprises: see eggs.ts)
       const dx = w * 0.0, dy = h * 0.46, dw = w * 0.17, dh = fy - dy;
       g.rect(dx, dy, dw, dh).fill(0x8ecdd0).stroke({ width: 5, color: INK });
       g.rect(dx, dy, dw + 10, 16).fill(0xa8dadc).stroke({ width: 4, color: INK });
-      for (let i = 1; i < 3; i++) g.moveTo(dx, dy + (dh * i) / 3).lineTo(dx + dw, dy + (dh * i) / 3).stroke({ width: 3, color: INK });
-      g.rect(dx + dw * 0.45, dy - h * 0.12, 8, h * 0.12).fill(0xf6f7f2).stroke({ width: 2, color: INK });
-      g.poly([dx + dw * 0.18, dy - h * 0.12, dx + dw * 0.82, dy - h * 0.12, dx + dw * 0.72, dy - h * 0.22, dx + dw * 0.28, dy - h * 0.22])
-        .fill(0xfff1c1)
-        .stroke({ width: 4, color: INK });
-      g.poly([dx + dw * 0.38, dy - h * 0.14, dx + dw * 0.46, dy - h * 0.19, dx + dw * 0.5, dy - h * 0.14]).fill(0xf4a261); // a little fox
+      // floor vent and a plug socket
+      g.rect(w * 0.3, fy + 10, w * 0.06, 12).fill(0xdee2e6).stroke({ width: 2, color: INK });
+      g.roundRect(w * 0.42, h * 0.64, 18, 26, 4).fill(0xffffff).stroke({ width: 2, color: INK });
     },
   },
   {
@@ -194,12 +230,12 @@ export const PLACES: PlaceDef[] = [
       g.moveTo(w * 0.45, 0).lineTo(w * 0.45, fy).stroke({ width: 3, color: 0xc9cdd2 });
       g.rect(0, fy, w, h - fy).fill(0x6b625c);
       g.rect(0, fy - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
-      // window with sheer white curtains
+      // window (the sheer curtains are drawn over it, so they can open: see eggs.ts)
       const wx = w * 0.18, wy = h * 0.12, ww = w * 0.2, wh = h * 0.38;
-      g.rect(wx, wy, ww, wh).fill(0xdff3ff).stroke({ width: 6, color: 0xffffff });
+      windowView(g, wx, wy, ww, wh);
+      g.rect(wx, wy, ww, wh).stroke({ width: 6, color: 0xffffff });
+      g.rect(wx - 8, wy + wh, ww + 16, 10).fill(0xffffff).stroke({ width: 3, color: INK });
       g.moveTo(wx - 30, wy - 8).lineTo(wx + ww + 30, wy - 8).stroke({ width: 5, color: 0x1f1f1f });
-      g.rect(wx - 26, wy - 6, ww * 0.45, wh + h * 0.2).fill({ color: 0xffffff, alpha: 0.85 });
-      g.rect(wx + ww * 0.6, wy - 6, ww * 0.45, wh + h * 0.2).fill({ color: 0xffffff, alpha: 0.85 });
       // stripy framed art
       const art = (x: number, y: number, fw: number, fh: number) => {
         frame(g, x, y, fw, fh);
@@ -221,17 +257,17 @@ export const PLACES: PlaceDef[] = [
       // a few drawings pinned up
       g.rect(w * 0.52, h * 0.1, w * 0.04, h * 0.1).fill(0x9fd8e8).stroke({ width: 3, color: INK });
       g.rect(w * 0.86, h * 0.36, w * 0.08, h * 0.1).fill(0xffffff).stroke({ width: 3, color: INK });
-      g.rect(w * 0.7, h * 0.46, w * 0.06, h * 0.07).fill(0x7bd36b).stroke({ width: 3, color: INK });
-      // white desk with a purple sparkly lamp
+      g.moveTo(w * 0.875, h * 0.39).lineTo(w * 0.925, h * 0.39).moveTo(w * 0.875, h * 0.42).lineTo(w * 0.915, h * 0.42).stroke({ width: 2, color: 0x9aa5b1 });
+      // white desk (the sparkly purple lamp on it is a surprise: see eggs.ts)
       const dx = w * 0.82, dy = h * 0.52;
       g.rect(dx, dy, w * 0.18, 16).fill(0xffffff).stroke({ width: 4, color: INK });
       g.rect(dx + 10, dy + 16, 12, fy - dy - 16).fill(0xffffff).stroke({ width: 3, color: INK });
       g.rect(w - 22, dy + 16, 12, fy - dy - 16).fill(0xffffff).stroke({ width: 3, color: INK });
-      g.ellipse(dx + w * 0.13, dy - h * 0.07, w * 0.03, h * 0.06).fill(0xd0a8ff).stroke({ width: 3, color: INK });
-      for (let i = 0; i < 6; i++) g.circle(dx + w * 0.13 + (rnd() - 0.5) * w * 0.04, dy - h * 0.07 + (rnd() - 0.5) * h * 0.08, 2.5).fill(0xffffff);
-      // round black side table and the purple fluffy rug
+      // round black side table with a water bottle, and the purple fluffy rug
       g.ellipse(w * 0.7, h * 0.62, w * 0.04, h * 0.015).fill(0x1f1f1f);
       g.moveTo(w * 0.68, h * 0.62).lineTo(w * 0.67, fy).moveTo(w * 0.72, h * 0.62).lineTo(w * 0.73, fy).stroke({ width: 4, color: 0x1f1f1f });
+      g.roundRect(w * 0.705, h * 0.54, w * 0.016, h * 0.075, 5).fill(0xb07de8).stroke({ width: 2, color: INK });
+      g.rect(w * 0.707, h * 0.53, w * 0.012, h * 0.015).fill(0x7fdde0).stroke({ width: 2, color: INK });
       g.ellipse(w * 0.14, h * 0.9, w * 0.14, h * 0.08).fill(0xc8a2e8).stroke({ width: 4, color: 0xa77bd1 });
     },
   },

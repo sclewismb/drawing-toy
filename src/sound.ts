@@ -196,6 +196,32 @@ export const sfx = {
   poof() {
     hiss({ dur: 0.35, vol: 0.3, from: 2500, to: 300, q: 0.8 });
   },
+  // --- Surprises in the rooms ---
+  click() {
+    tone({ type: 'square', from: 1800, to: 1200, dur: 0.03, vol: 0.12, filter: { type: 'highpass', freq: 900 } });
+  },
+  zip() {
+    hiss({ dur: 0.45, vol: 0.16, from: 600, to: 2200, q: 3 });
+    tone({ type: 'triangle', from: 300, to: 700, dur: 0.4, vol: 0.06 });
+  },
+  drawer() {
+    hiss({ dur: 0.22, vol: 0.14, from: 300, to: 700, q: 1.5 });
+    tone({ type: 'triangle', from: 160, to: 120, dur: 0.1, vol: 0.12, delay: 0.2 });
+  },
+  rawr() {
+    tone({ type: 'sawtooth', from: 140, to: 90, dur: 0.6, vol: 0.18, wobbleRate: 18, wobbleDepth: 25, filter: { type: 'lowpass', freq: 700 } });
+    hiss({ dur: 0.5, vol: 0.1, from: 500, to: 300, q: 1 });
+  },
+  twinkle() {
+    [1568, 2093, 2637, 3136, 2637].forEach((f, i) => tone({ type: 'triangle', from: f, dur: 0.25, vol: 0.07, delay: i * 0.08 }));
+  },
+  whirr() {
+    tone({ type: 'sawtooth', from: 60, to: 140, dur: 1.2, vol: 0.06, wobbleRate: 12, wobbleDepth: 20, filter: { type: 'lowpass', freq: 500 } });
+    hiss({ dur: 1.5, vol: 0.06, from: 300, to: 900, q: 0.6 });
+  },
+  flutter() {
+    for (let i = 0; i < 6; i++) hiss({ dur: 0.05, vol: 0.06, from: 2500, to: 1800, q: 2, delay: i * 0.06 });
+  },
   /** Chalk on the blackboard (very short and soft; plays while drawing). */
   chalk() {
     hiss({ dur: 0.06, vol: 0.05, from: 3500, to: 5500, q: 2.5 });
