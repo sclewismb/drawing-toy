@@ -572,7 +572,7 @@ async function goBack() {
       const toHouse = placeById(from)?.parent === 'house';
       await zoomOut(
         toHouse ? 'house' : 'street',
-        () => (toHouse ? houseView.roomCentre(from as RoomId) : street.buildingCentre(from)),
+        () => (toHouse ? houseView.roomCentre(from) : street.buildingCentre(from)),
         () => {
           current = null;
           clearCharacters();

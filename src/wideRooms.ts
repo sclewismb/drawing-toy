@@ -1,5 +1,6 @@
 import type { Graphics } from 'pixi.js';
 import { frame, INK, seeded, type PlaceId } from './places';
+import { drawBackyard, YARD } from './backyard';
 import type { Season } from './seasons';
 
 /**
@@ -23,6 +24,7 @@ export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
   'bedroom-b': { left: 0.6, right: 0.85, draw: bedroomB },
   kitchen: { left: 0.85, right: 0.55, draw: kitchen },
   lounge: { left: 0.6, right: 0.6, draw: lounge },
+  backyard: { left: YARD.left, right: YARD.right, draw: drawBackyard }, // all of it is drawn in backyard.ts
 };
 
 /** Wall and carpet across a stretch of a bedroom. */

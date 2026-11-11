@@ -1,5 +1,6 @@
 import type { Container } from 'pixi.js';
 import type { PlaceId } from '../places';
+import { backyard } from './backyard';
 import { bedroomA, bedroomB } from './bedrooms';
 import type { Cleanups, EggKit } from './common';
 import { kitchen, lounge } from './house';
@@ -20,6 +21,7 @@ const PLACE_EGGS: Record<PlaceId, (kit: EggKit, cleanups: Cleanups) => void> = {
   police: policeStation,
   school,
   park,
+  backyard,
 };
 
 const run = (build: (cleanups: Cleanups) => void) => {

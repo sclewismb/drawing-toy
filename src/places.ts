@@ -38,9 +38,12 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   slide: { url: 'props/slide.svg', size: 1.3 },
   flower: { url: 'props/flower.svg', size: 0.6 },
   ball: { url: 'props/ball.svg', size: 0.45 },
+  // backyard
+  'ride-car': { url: 'props/ride-car.svg', size: 0.9 },
+  'sand-bucket': { url: 'props/sand-bucket.svg', size: 0.45 },
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -491,5 +494,22 @@ export const PLACES: PlaceDef[] = [
     },
   },
 ];
+
+PLACES.push({
+  // The family's back garden, through the gate beside the house. It's wide
+  // (like the rooms), and all of it is drawn in backyard.ts.
+  id: 'backyard',
+  parent: 'house',
+  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower'],
+  start: [
+    { name: 'ride-car', x: -0.2, y: 0.86 },
+    { name: 'sand-bucket', x: 0.28, y: 0.8 },
+    { name: 'ball', x: 0.5, y: 0.9 },
+  ],
+  outdoors: true,
+  drawBackdrop() {
+    /* see backyard.ts */
+  },
+});
 
 export const placeById = (id: string) => PLACES.find((p) => p.id === id);

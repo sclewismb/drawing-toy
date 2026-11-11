@@ -33,16 +33,23 @@ export class HouseView extends Container {
   private tiles: RoomTile[] = [];
   private busy = false;
   private names: Partial<Record<RoomId, string>> = {};
+  /** The garden gate beside the house: through it to the backyard. */
+  private gate = new Graphics();
+  private gateRect = new Rectangle();
   /** Surprises outside the house (see eggs/views.ts): behind it and in front. */
   readonly eggsBehind = new Container();
   readonly eggs = new Container();
   readonly eggsFront = new Container();
   geom: HouseGeom = { w: 0, h: 0, x0: 0, houseW: 0, ridgeY: 0, ground: 0, rooms: [], season: 'spring' };
-  onEnter: (id: RoomId, at: { x: number; y: number }) => void = () => {};
+  onEnter: (id: RoomId | 'backyard', at: { x: number; y: number }) => void = () => {};
 
   constructor(pictures: Map<string, HTMLCanvasElement>) {
     super();
-    this.addChild(this.bg, this.eggsBehind, this.shell);
+    this.addChild(this.bg, this.eggsBehind, this.shell, this.gate);
+    this.gate.eventMode = 'static';
+    this.gate.cursor = 'pointer';
+    this.gate.on('pointerdown', (e: FederatedPointerEvent) => e.stopPropagation());
+    this.gate.on('pointertap', () => this.tapGate());
     for (const id of ROOMS) {
       const holder = new Container();
       const art = new Graphics();
@@ -90,8 +97,31 @@ export class HouseView extends Container {
     );
   }
 
-  /** Where a room is on screen (for zooming in and out). */
-  roomCentre(id: RoomId) {
+  private tapGate() {
+    if (this.busy) return;
+    this.busy = true;
+    const r = this.gateRect;
+    const at = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    // the gate gives a little wiggle, then in we go
+    this.gate.pivot.set(r.x + r.width / 2, r.y + r.height);
+    this.gate.position.set(r.x + r.width / 2, r.y + r.height);
+    tween(
+      300,
+      (k) => (this.gate.skew.y = Math.sin(k * Math.PI * 2) * 0.05),
+      () => {
+        this.gate.skew.y = 0;
+        this.onEnter('backyard', at);
+        this.busy = false;
+      },
+    );
+  }
+
+  /** Where a room (or the garden gate) is on screen (for zooming in and out). */
+  roomCentre(id: string) {
+    if (id === 'backyard') {
+      const r = this.gateRect;
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    }
     const t = this.tiles.find((x) => x.id === id);
     return t ? { x: t.holder.x, y: t.holder.y } : { x: 0, y: 0 };
   }
@@ -116,10 +146,11 @@ export class HouseView extends Container {
     this.bg.rect(0, ground, w, h - ground).fill(pal.grass);
 
     // the house: dark roof, brick walls, four rooms inside
-    const houseW = Math.min(w * 0.84, h * 1.3);
+    // (a little left of the middle, to leave room for the garden gate)
+    const houseW = Math.min(w * 0.76, h * 1.2);
     const roofH = h * 0.14;
     const bodyH = ground - h * 0.08 - roofH;
-    const x0 = (w - houseW) / 2;
+    const x0 = (w - houseW) * 0.36;
     const top = h * 0.08 + roofH;
     const wall = 16;
     const g = this.shell.clear();
@@ -147,6 +178,7 @@ export class HouseView extends Container {
       this.drawRoom(t);
       this.drawLabel(t);
     });
+    this.drawGate(x0 + houseW, w, ground, h, season);
     this.geom = {
       w,
       h,
@@ -157,6 +189,44 @@ export class HouseView extends Container {
       rooms: this.tiles.map((t) => new Rectangle(t.holder.x - t.w / 2, t.holder.y - t.h / 2, t.w, t.h)),
       season,
     };
+  }
+
+  /** A wooden fence from the house to the edge of the screen, with an arched garden gate. */
+  private drawGate(from: number, to: number, ground: number, h: number, season: Season) {
+    const g = this.gate.clear();
+    this.gate.pivot.set(0, 0);
+    this.gate.position.set(0, 0);
+    this.gate.skew.set(0, 0);
+    const ink = 0x3a3a3a;
+    const fh = h * 0.1;
+    // fence
+    g.rect(from, ground - fh * 0.75, to - from, 8).rect(from, ground - fh * 0.3, to - from, 8).fill(0xc08b5c).stroke({ width: 2, color: ink });
+    for (let x = from + 6; x < to; x += 16) g.roundRect(x, ground - fh, 11, fh, 4).fill(0xd4a373).stroke({ width: 2, color: ink });
+    // the gate, in the middle of the gap
+    const gw = Math.min((to - from) * 0.6, h * 0.13);
+    const gh = h * 0.14;
+    const gx = from + (to - from - gw) / 2;
+    const gy = ground - gh;
+    g.rect(gx - 8, gy - 4, 8, gh + 4).rect(gx + gw, gy - 4, 8, gh + 4).fill(0x8d5a3b).stroke({ width: 2, color: ink });
+    g.roundRect(gx, gy, gw, gh, 4).fill(0xd4a373).stroke({ width: 3, color: ink });
+    for (let x = gx + gw / 5; x < gx + gw - 2; x += gw / 5) g.moveTo(x, gy + 4).lineTo(x, ground - 4);
+    g.stroke({ width: 2, color: 0xa47e4b });
+    g.moveTo(gx + 4, gy + gh * 0.25).lineTo(gx + gw - 4, gy + gh * 0.25).moveTo(gx + 4, gy + gh * 0.75).lineTo(gx + gw - 4, gy + gh * 0.75).stroke({ width: 5, color: 0x8d5a3b });
+    g.circle(gx + gw * 0.85, gy + gh * 0.5, 4).fill(ink);
+    // a leafy arch over the gate, with flowers (snowy in winter)
+    const leaf = season === 'winter' ? 0xe9f1f7 : season === 'autumn' ? 0xd08c3a : 0x52b788;
+    const ax = gx + gw / 2, ay = gy - 6, ar = gw / 2 + 14;
+    g.moveTo(ax - ar, gy + gh * 0.3).arc(ax, ay, ar, Math.PI, 0).lineTo(ax + ar, gy + gh * 0.3).stroke({ width: 9, color: 0x8d5a3b });
+    for (let i = 0; i <= 10; i++) {
+      const a = Math.PI + (i / 10) * Math.PI;
+      const lx = ax + Math.cos(a) * ar, ly = ay + Math.sin(a) * ar;
+      g.circle(lx, ly, 9).fill(leaf).stroke({ width: 1.5, color: ink });
+      if ((season === 'spring' || season === 'summer') && i % 2 === 0) g.circle(lx, ly - 3, 4).fill(i % 4 ? 0xff8fb1 : 0xffd166);
+    }
+    // stepping stones up to the gate
+    for (let i = 0; i < 3; i++) g.ellipse(ax - 6 + i * 6, ground + 10 + i * 14, 14 - i, 5).fill(0xbdb5a6).stroke({ width: 1.5, color: ink });
+    this.gateRect = new Rectangle(gx - 20, gy - ar - 10, gw + 40, gh + ar + 40);
+    this.gate.hitArea = this.gateRect;
   }
 
   private drawRoom(t: RoomTile) {
