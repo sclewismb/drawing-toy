@@ -8,7 +8,7 @@
 //
 // Nothing ever leaves the device: this only caches the app's own files.
 
-const CACHE = 'drawing-toy-v2';
+const CACHE = 'drawing-toy-v3'; // bump to refresh saved pictures and icons that keep the same name
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

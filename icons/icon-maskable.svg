@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- The app icon, with room round the edges (for "maskable" icons that get cropped to a circle): two kids holding hands on a sunny hill (made-up kids, nobody in particular). -->
+  <rect width="512" height="512" fill="#bfe8ff" />
+  <circle cx="436" cy="78" r="44" fill="#ffe066" />
+  <g fill="#fff">
+    <circle cx="70" cy="92" r="24" /><circle cx="96" cy="80" r="30" /><circle cx="126" cy="94" r="22" />
+  </g>
+  <ellipse cx="256" cy="560" rx="380" ry="150" fill="#7bd36b" />
+  <g fill="#ff8fb1"><circle cx="70" cy="452" r="8" /><circle cx="448" cy="470" r="8" /><circle cx="400" cy="440" r="6" /></g>
+  <g transform="translate(51.2 56) scale(0.8)">
+  <g id="kids" stroke="#3a3a3a" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+    <!-- a heart between them -->
+    <path d="M256 88 C236 62 202 78 214 104 C222 120 256 136 256 136 C256 136 290 120 298 104 C310 78 276 62 256 88 Z" fill="#ff6b8b" />
+    <!-- girl: legs and shoes -->
+    <path d="M160 390 L158 440 M200 390 L202 440" fill="none" stroke="#f1c27d" stroke-width="22" />
+    <path d="M136 452 Q138 434 162 436 L166 456 Z M196 436 Q222 434 226 452 L198 456 Z" fill="#e5383b" />
+    <!-- boy: legs and shoes -->
+    <path d="M312 384 L310 440 M352 384 L354 440" fill="none" stroke="#8d5524" stroke-width="22" />
+    <path d="M288 452 Q290 434 314 436 L318 456 Z M348 436 Q374 434 378 452 L350 456 Z" fill="#4ea8ff" />
+    <!-- arms: outer ones waving, inner ones holding hands in the middle -->
+    <path d="M150 292 Q110 288 94 258" fill="none" stroke="#f1c27d" stroke-width="20" />
+    <path d="M362 292 Q402 288 418 258" fill="none" stroke="#8d5524" stroke-width="20" />
+    <path d="M212 292 Q236 318 252 330" fill="none" stroke="#f1c27d" stroke-width="20" />
+    <path d="M300 292 Q276 318 260 330" fill="none" stroke="#8d5524" stroke-width="20" />
+    <circle cx="92" cy="252" r="15" fill="#f1c27d" />
+    <circle cx="420" cy="252" r="15" fill="#8d5524" />
+    <circle cx="250" cy="332" r="15" fill="#f1c27d" />
+    <circle cx="263" cy="332" r="15" fill="#8d5524" />
+    <!-- girl: dress -->
+    <path d="M152 272 L208 272 L234 396 L126 396 Z" fill="#b07de8" />
+    <path d="M132 372 L228 372" fill="none" stroke="#fff" stroke-width="7" />
+    <circle cx="166" cy="320" r="6" fill="#ffd166" stroke="none" />
+    <circle cx="196" cy="340" r="6" fill="#ffd166" stroke="none" />
+    <!-- boy: shirt and shorts -->
+    <path d="M300 340 L364 340 L366 392 L336 392 L332 372 L328 392 L298 392 Z" fill="#1d3557" />
+    <path d="M296 274 L368 274 L372 346 L292 346 Z" fill="#52b788" />
+    <path d="M316 306 L348 306 M332 294 L332 318" fill="none" stroke="#ffd166" stroke-width="7" />
+    <!-- girl: head, bunches, face -->
+    <circle cx="116" cy="200" r="26" fill="#6d4c41" />
+    <circle cx="244" cy="200" r="26" fill="#6d4c41" />
+    <circle cx="180" cy="212" r="62" fill="#f1c27d" />
+    <path d="M118 208 Q118 146 180 146 Q242 146 242 208 Q222 180 196 176 Q178 192 148 186 Q128 190 118 208 Z" fill="#6d4c41" />
+    <circle cx="160" cy="218" r="8" fill="#1f1f1f" stroke="none" />
+    <circle cx="200" cy="218" r="8" fill="#1f1f1f" stroke="none" />
+    <circle cx="163" cy="215" r="3" fill="#fff" stroke="none" />
+    <circle cx="203" cy="215" r="3" fill="#fff" stroke="none" />
+    <circle cx="146" cy="238" r="9" fill="#ffadad" stroke="none" />
+    <circle cx="214" cy="238" r="9" fill="#ffadad" stroke="none" />
+    <path d="M164 242 Q180 258 196 242" fill="none" stroke-width="6" />
+    <!-- boy: head, cap, face -->
+    <circle cx="332" cy="216" r="62" fill="#8d5524" />
+    <path d="M272 204 Q272 148 332 148 Q392 148 392 204 Z" fill="#e5383b" />
+    <path d="M362 198 Q410 190 424 206 Q396 216 360 212 Z" fill="#c1121f" />
+    <circle cx="332" cy="150" r="7" fill="#fff" />
+    <circle cx="314" cy="226" r="8" fill="#1f1f1f" stroke="none" />
+    <circle cx="352" cy="226" r="8" fill="#1f1f1f" stroke="none" />
+    <circle cx="317" cy="223" r="3" fill="#fff" stroke="none" />
+    <circle cx="355" cy="223" r="3" fill="#fff" stroke="none" />
+    <path d="M314 246 Q332 266 350 246" fill="#fff" stroke-width="6" />
+  </g>
+  </g>
+</svg>
