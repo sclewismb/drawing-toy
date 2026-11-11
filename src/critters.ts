@@ -41,6 +41,14 @@ export const CRITTERS: Record<string, CritterKind> = {
 
 export const isCritter = (name: string) => name in CRITTERS;
 
+/**
+ * The kids' own drawings can move too (chosen with the move button): walk
+ * and hop use the same brain as the animals; fly uses the Flyer below.
+ */
+export const DRAWN_WALK: CritterKind = { url: '', size: 1, gait: 'walk', speed: 0.07, trick: 'jump', voice: () => sfx.giggle(1.1) };
+export const DRAWN_HOP: CritterKind = { url: '', size: 1, gait: 'hop', speed: 0.09, trick: 'jump', voice: () => sfx.boing(1.2) };
+export const DRAWN_FLY: CritterKind = { url: '', size: 1, gait: 'walk', speed: 0.16, trick: 'look', voice: () => sfx.buzz() };
+
 /** Where critters may walk: the floor (for their feet), and left and right edges. */
 export interface Area {
   x0: number;
@@ -241,5 +249,105 @@ export function sayHellos(list: Wanderer[], now: number) {
       a.kind.voice();
       setTimeout(() => b.kind.voice(), 450);
     }
+  }
+}
+
+/**
+ * Things that fly about: a bee, a bird, a dragon... They drift from spot to
+ * spot through the air with a gentle bob, lean into the way they're going,
+ * hover for a moment, and sometimes go and visit someone else in the scene
+ * (a bee likes to visit a flower). Let go of one anywhere and it carries on
+ * flying from there.
+ */
+export class Flyer {
+  private state: 'hover' | 'fly' = 'hover';
+  private timer = rand(300, 1200);
+  private target = { x: 0, y: 0 };
+  private vx = 0;
+  private vy = 0;
+  private phase = Math.random() * 10;
+  onMoved: () => void = () => {};
+
+  constructor(
+    readonly ch: Character,
+    readonly kind: CritterKind,
+  ) {}
+
+  /** Hover where it is for a bit (tapped, picked up...). */
+  rest(ms = 1200) {
+    this.state = 'hover';
+    this.timer = ms;
+  }
+
+  update(dt: number, area: Area, held: boolean, onScreen: boolean, now: number, others: readonly Character[] = []) {
+    this.phase += dt;
+    if (held) {
+      this.rest(700);
+      this.vx = this.vy = 0;
+      this.ch.sprite.position.set(0, 0);
+      this.ch.sprite.rotation = 0;
+      return;
+    }
+    const s = Math.max(0.5, Math.sqrt(this.ch.scale.x));
+    const k = 1 / s;
+    this.timer -= dt;
+
+    if (this.state === 'hover') {
+      // a busy little hover: quick wobble, slowing to a stop
+      this.vx *= Math.pow(0.99, dt);
+      this.vy *= Math.pow(0.99, dt);
+      this.ch.x += this.vx * dt;
+      this.ch.y += this.vy * dt;
+      this.ch.sprite.y = Math.sin(this.phase * 0.012) * 5 * k;
+      this.ch.sprite.rotation = Math.sin(this.phase * 0.02) * 0.04;
+      if (this.timer <= 0) this.setOff(area, others, onScreen, now);
+      return;
+    }
+
+    // flying: steer smoothly towards the target
+    const dx = this.target.x - this.ch.x, dy = this.target.y - this.ch.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 16 || this.timer <= 0) {
+      this.rest(rand(500, 2200));
+      this.onMoved();
+      return;
+    }
+    const max = this.kind.speed * s;
+    const want = { x: (dx / dist) * max, y: (dy / dist) * max };
+    const steer = Math.min(1, dt * 0.004);
+    this.vx += (want.x - this.vx) * steer;
+    this.vy += (want.y - this.vy) * steer;
+    this.ch.x += this.vx * dt;
+    this.ch.y += this.vy * dt;
+    // face the way it's going, bob up and down, and lean forwards
+    if (Math.abs(this.vx) > 0.03) {
+      const want = this.vx < 0 ? -1 : 1;
+      if (this.ch.facing !== want) this.ch.flip();
+    }
+    this.ch.sprite.y = Math.sin(this.phase * 0.007) * 9 * k;
+    this.ch.sprite.rotation = Math.max(-0.3, Math.min(0.3, Math.abs(this.vx) * 1.4 + this.vy * 1.2)); // nose down going forwards or down, up when climbing
+  }
+
+  private setOff(area: Area, others: readonly Character[], onScreen: boolean, now: number) {
+    const margin = 60;
+    const top = area.bottom * 0.08, low = area.bottom * 0.86;
+    let tx: number, ty: number;
+    const friends = others.filter((o) => o !== this.ch && !o.destroyed && Math.abs(o.x - this.ch.x) < area.screenW * 0.8);
+    if (friends.length && Math.random() < 0.35) {
+      // go and say hello to someone: hover just above them
+      const f = friends[Math.floor(Math.random() * friends.length)];
+      tx = f.x + rand(-40, 40);
+      ty = f.y - f.restY * f.scale.y - this.ch.restY * this.ch.scale.y * 0.6;
+    } else {
+      tx = this.ch.x + rand(-1, 1) * area.screenW * 0.45;
+      ty = rand(top, low);
+    }
+    this.target = {
+      x: Math.min(area.x1 - margin, Math.max(area.x0 + margin, tx)),
+      y: Math.min(low, Math.max(top, ty)),
+    };
+    this.state = 'fly';
+    this.timer = 9000;
+    if (onScreen && Math.random() < 0.4) chatter(this.kind, now);
   }
 }

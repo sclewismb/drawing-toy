@@ -222,6 +222,11 @@ export const sfx = {
   flutter() {
     for (let i = 0; i < 6; i++) hiss({ dur: 0.05, vol: 0.06, from: 2500, to: 1800, q: 2, delay: i * 0.06 });
   },
+  /** A busy little buzz, for things that fly. */
+  buzz(p = 1) {
+    tone({ type: 'sawtooth', from: 190 * p, to: 230 * p, dur: 0.55, vol: 0.07, wobbleRate: 34, wobbleDepth: 18 * p, filter: { type: 'lowpass', freq: 1100 } });
+    tone({ type: 'sawtooth', from: 230 * p, to: 180 * p, dur: 0.35, vol: 0.05, delay: 0.5, wobbleRate: 30, wobbleDepth: 14 * p, filter: { type: 'lowpass', freq: 1000 } });
+  },
   honk() {
     for (const d of [0, 0.22]) {
       tone({ type: 'square', from: 420, dur: 0.16, vol: 0.1, delay: d, filter: { type: 'lowpass', freq: 1400 } });

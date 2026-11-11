@@ -8,6 +8,10 @@ export interface LibraryEntry {
   png: Blob;
 }
 
+/** How a drawing gets about by itself (chosen with the move button). */
+export type Motion = 'still' | 'walk' | 'hop' | 'fly';
+export const MOTIONS: Motion[] = ['still', 'walk', 'hop', 'fly'];
+
 const newId = () =>
   crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -16,24 +20,45 @@ const newId = () =>
  * and saved on the device.
  */
 export class Library {
-  private constructor(readonly entries: LibraryEntry[]) {}
+  private constructor(
+    readonly entries: LibraryEntry[],
+    private motions: Record<string, Motion>,
+  ) {}
   private pictures = new Map<string, Promise<HTMLCanvasElement>>();
   onChange: () => void = () => {};
 
   static async load(): Promise<Library> {
+    let motions: Record<string, Motion> = {};
+    try {
+      motions = (await storage.getSetting<Record<string, Motion>>('motions')) ?? {};
+    } catch {
+      /* fine: everything stays still */
+    }
     try {
       const stored = await storage.allCharacters();
       return new Library(
         stored.map((s) => ({ id: s.id, createdAt: s.createdAt, png: new Blob([s.png], { type: 'image/png' }) })),
+        motions,
       );
     } catch (err) {
       console.warn('Could not load saved characters', err);
-      return new Library([]);
+      return new Library([], motions);
     }
   }
 
   get(id: string) {
     return this.entries.find((e) => e.id === id);
+  }
+
+  /** How this drawing moves by itself (it stays still unless someone picks otherwise). */
+  motion(id: string): Motion {
+    return this.motions[id] ?? 'still';
+  }
+
+  setMotion(id: string, m: Motion) {
+    if (m === 'still') delete this.motions[id];
+    else this.motions[id] = m;
+    void storage.setSetting('motions', { ...this.motions }).catch(() => {});
   }
 
   /** Save a new cut-out drawing. */
@@ -55,6 +80,7 @@ export class Library {
     const i = this.entries.findIndex((e) => e.id === id);
     if (i >= 0) this.entries.splice(i, 1);
     this.pictures.delete(id);
+    if (this.motions[id]) this.setMotion(id, 'still');
     try {
       await storage.deleteCharacter(id);
     } catch (err) {

@@ -15,7 +15,9 @@ import { setupGrownUpShare } from './photoShare';
 import { setupHouseSettings, upgradeHouseSettings, type HouseSettings } from './houseSettings';
 import { HouseView, ROOM_FURNITURE } from './houseView';
 import { BUILTIN, FLOOR, PLACES, placeById, RESIDENTS, STREET, type PlaceId } from './places';
-import { CRITTERS, sayHellos, Wanderer } from './critters';
+import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
+import { MOTIONS } from './library';
+import { MoveButton } from './moveButton';
 import { SOUND_FOR } from './reactions';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
@@ -246,7 +248,29 @@ const flipButton = new FlipButton(() => {
 });
 ui.addChild(flipButton);
 
-gestures.onSelect = (ch) => (ch ? flipButton.show() : flipButton.hide());
+// The move button: only beside the kids' own drawings. Each tap picks the
+// next way of getting about (still, walk, hop, fly). The drawing remembers.
+const moveButton = new MoveButton(() => {
+  const ch = gestures.selected;
+  if (!ch || ch.ref.kind !== 'photo') return;
+  const id = ch.ref.id;
+  const next = MOTIONS[(MOTIONS.indexOf(library.motion(id)) + 1) % MOTIONS.length];
+  library.setMotion(id, next);
+  moveButton.draw(next);
+  ({ still: () => sfx.poof(), walk: () => sfx.pickup(1.2), hop: () => sfx.boing(1.3), fly: () => sfx.buzz() })[next]();
+  // every copy of this drawing here changes too
+  for (const other of characters.children as Character[]) {
+    if (other.ref.kind === 'photo' && other.ref.id === id) startMoving(other, true);
+  }
+});
+ui.addChild(moveButton);
+
+gestures.onSelect = (ch) => {
+  if (ch) flipButton.show();
+  else flipButton.hide();
+  if (ch?.ref.kind === 'photo') moveButton.show(library.motion(ch.ref.id));
+  else moveButton.hide();
+};
 
 // --- Sliding along the wide rooms: drag empty space, let go to glide; carry
 // a character to the edge of the screen and the room slides along with it.
@@ -277,8 +301,50 @@ app.ticker.add((t) => {
 /** A point on the screen, in room coordinates. */
 const toRoom = (x: number, y: number) => characters.toLocal({ x, y });
 
-// --- Animals and little people walking about by themselves (see critters.ts) ---
-const wanderers = new WeakMap<Character, Wanderer>();
+// --- Animals, little people and the kids' drawings moving about by themselves (see critters.ts) ---
+type Brain = Wanderer | Flyer;
+const wanderers = new WeakMap<Character, Brain>();
+
+/** Give a character the right "brain" for how it moves (or none if it stays still). */
+function startMoving(ch: Character, justChanged = false) {
+  ch.sprite.position.set(0, 0);
+  ch.sprite.rotation = 0;
+  wanderers.delete(ch);
+  let brain: Brain | null = null;
+  if (ch.ref.kind === 'sample' && CRITTERS[ch.ref.name]) brain = new Wanderer(ch, CRITTERS[ch.ref.name]);
+  else if (ch.ref.kind === 'photo') {
+    const m = library.motion(ch.ref.id);
+    if (m === 'walk') brain = new Wanderer(ch, DRAWN_WALK);
+    else if (m === 'hop') brain = new Wanderer(ch, DRAWN_HOP);
+    else if (m === 'fly') brain = new Flyer(ch, DRAWN_FLY);
+    // just told to walk or hop while up in the air: jump down to the floor first
+    if (justChanged && (m === 'walk' || m === 'hop') && current) dropToFloor(ch);
+    if (justChanged && m === 'fly') brain?.rest(150);
+  }
+  if (!brain) return null;
+  brain.onMoved = critterMoved;
+  wanderers.set(ch, brain);
+  return brain;
+}
+
+/** Hop down onto the floor (for a drawing that's just been told to walk). */
+function dropToFloor(ch: Character) {
+  if (!current) return;
+  const floor = roomH * FLOOR[current];
+  const feet = ch.y + ch.restY * ch.scale.y;
+  if (feet >= floor + 8) return;
+  const from = ch.y;
+  const to = floor + (roomH - floor) * 0.4 - ch.restY * ch.scale.y;
+  tween(450, (t) => {
+    if (!ch.destroyed) ch.y = from + (to - from) * t * t;
+  }, () => {
+    if (ch.destroyed) return;
+    ch.react('bounce');
+    sfx.drop(voice(ch));
+    saveSoon();
+  });
+}
+
 let critterSaveTimer = 0;
 /** They wander a lot, so save their spots now and then rather than every step. */
 function critterMoved() {
@@ -294,12 +360,13 @@ app.ticker.add((t) => {
   const { x0, x1 } = roomEdges(current, panel);
   const area = { x0, x1, floor: roomH * FLOOR[current], bottom: roomH, screenW: app.screen.width };
   const list: Wanderer[] = [];
-  for (const ch of characters.children as Character[]) {
+  const everyone = characters.children as Character[];
+  for (const ch of everyone) {
     const w = wanderers.get(ch);
     if (!w || ch.destroyed || ch.eventMode === 'none') continue;
     const sx = ch.x - camera.x;
-    w.update(Math.min(t.deltaMS, 50), area, gestures.isHeld(ch), sx > 0 && sx < app.screen.width, now);
-    list.push(w);
+    w.update(Math.min(t.deltaMS, 50), area, gestures.isHeld(ch), sx > 0 && sx < app.screen.width, now, everyone);
+    if (w instanceof Wanderer) list.push(w);
   }
   sayHellos(list, now);
 });
@@ -312,7 +379,9 @@ app.ticker.add(() => {
   const r = FlipButton.SIZE / 2;
   const { width, height } = app.screen;
   flipButton.x = Math.min(width - r - 8, Math.max(r + 8, b.maxX + r * 0.3));
-  flipButton.y = Math.min(height - r - 8, Math.max(r + 8, b.minY - r * 0.3));
+  flipButton.y = Math.min(height - r - 8 - MoveButton.SIZE - 12, Math.max(r + 8, b.minY - r * 0.3));
+  // the move button sits just under it
+  moveButton.position.set(flipButton.x, flipButton.y + FlipButton.SIZE + 12);
 });
 
 // --- Characters and toys ---
@@ -337,12 +406,8 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
   if (at.facing === -1) ch.setFacing(-1);
   characters.addChild(ch);
   gestures.keepOnScreen(ch);
-  if (ref.kind === 'sample' && CRITTERS[ref.name]) {
-    const w = new Wanderer(ch, CRITTERS[ref.name]);
-    w.onMoved = critterMoved;
-    wanderers.set(ch, w);
-    if (tada) w.rest(1500); // let it land before it wanders off
-  }
+  const brain = startMoving(ch);
+  if (brain && tada) brain.rest(1500); // let it land before it moves off
   if (tada) {
     ch.popIn();
     const g = ch.getGlobalPosition();
@@ -709,11 +774,11 @@ function putAway(ch: Character) {
 // --- Every touch does something ---
 gestures.onTap = (ch) => {
   const name = ch.react();
-  const critter = wanderers.get(ch);
-  if (critter) {
-    critter.kind.voice(); // animals and people answer in their own voice
-    critter.rest(1600);
-  } else sfx[SOUND_FOR[name]](voice(ch));
+  const brain = wanderers.get(ch);
+  brain?.rest(1600); // stop for a moment
+  // the animals and people answer in their own voice; drawings make their usual sounds
+  if (brain && ch.ref.kind === 'sample') brain.kind.voice();
+  else sfx[SOUND_FOR[name]](voice(ch));
   if (name === 'super') {
     const p = ch.getGlobalPosition();
     burst(sparkles, p.x, p.y, 20, 220);
