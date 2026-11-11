@@ -163,6 +163,153 @@
       #grownup .count:empty {
         display: none;
       }
+      /* Toy box button (bottom-right): opens the shelf of characters, and
+         characters dragged onto it are put away. */
+      #toybox {
+        position: fixed;
+        right: max(16px, env(safe-area-inset-right));
+        bottom: max(16px, env(safe-area-inset-bottom));
+        width: 92px;
+        height: 92px;
+        padding: 0;
+        border-radius: 50%;
+        background: #fff;
+        border: 4px solid #3a3a3a;
+        box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+        display: grid;
+        place-items: center;
+        z-index: 10;
+        cursor: pointer;
+        touch-action: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        transition: transform 0.15s, background 0.15s;
+      }
+      #toybox svg {
+        pointer-events: none;
+      }
+      #toybox:active {
+        transform: scale(0.9);
+      }
+      #toybox.open {
+        background: #fff3b0;
+      }
+      #toybox .lid {
+        transform-origin: 10px 26px;
+        transition: transform 0.2s;
+      }
+      #toybox.open .lid,
+      #toybox.hover .lid {
+        transform: rotate(-28deg);
+      }
+      #toybox.hover {
+        transform: scale(1.25);
+        background: #fff3b0;
+      }
+      #toybox.gulp {
+        animation: gulp 0.4s ease-out;
+      }
+      @keyframes gulp {
+        0% { transform: scale(1.25); }
+        40% { transform: scale(0.85); }
+        70% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+      }
+
+      /* The shelf of characters, floating above the bottom buttons. */
+      #shelf {
+        position: fixed;
+        left: max(16px, env(safe-area-inset-left));
+        right: max(16px, env(safe-area-inset-right));
+        bottom: calc(max(16px, env(safe-area-inset-bottom)) + 108px);
+        height: 136px;
+        box-sizing: border-box;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.93);
+        border: 4px solid #3a3a3a;
+        border-radius: 26px;
+        box-shadow: 0 6px 0 rgba(0, 0, 0, 0.15);
+        z-index: 9;
+        opacity: 0;
+        transform: translateY(24px) scale(0.97);
+        pointer-events: none;
+        transition: opacity 0.2s, transform 0.2s;
+      }
+      #shelf.open {
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+      }
+      #shelf .row {
+        display: flex;
+        gap: 12px;
+        height: 100%;
+        align-items: center;
+        overflow-x: auto;
+        overflow-y: hidden;
+        touch-action: pan-x; /* finger-scroll sideways */
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+      #shelf .row::-webkit-scrollbar {
+        display: none;
+      }
+      .tile {
+        position: relative;
+        flex: 0 0 auto;
+        width: 104px;
+        height: 104px;
+        padding: 6px;
+        box-sizing: border-box;
+        border-radius: 18px;
+        border: 4px solid #3a3a3a;
+        background: repeating-conic-gradient(#fff 0 25%, #eee 0 50%) 0 0 / 16px 16px;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+      .tile img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+        pointer-events: none; /* no "save image" menu on long press */
+      }
+      .tile.picked {
+        animation: gulp 0.35s ease-out;
+      }
+      .tile .delete {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e5383b;
+        border: 3px solid #fff;
+        display: none;
+        place-items: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+      .tile.armed {
+        animation: jiggle 0.25s ease-in-out infinite;
+      }
+      .tile.armed .delete {
+        display: grid;
+      }
+      .tile.gone {
+        transition: transform 0.3s, opacity 0.3s;
+        transform: scale(0.2);
+        opacity: 0;
+      }
+      @keyframes jiggle {
+        0%, 100% { transform: rotate(-3deg); }
+        50% { transform: rotate(3deg); }
+      }
+
       @keyframes pop {
         from { transform: scale(0.3); opacity: 0; }
         to { transform: scale(1); opacity: 1; }
@@ -189,6 +336,23 @@
       </svg>
       <input type="file" accept="image/*" />
     </label>
+    <button id="toybox" type="button" aria-label="Toy box">
+      <svg viewBox="0 0 64 64" width="60" height="60" aria-hidden="true">
+        <!-- stars peeking out -->
+        <path d="M24 14 l2.5 5 5.5 .8 -4 3.9 1 5.5 -5 -2.6 -5 2.6 1 -5.5 -4 -3.9 5.5 -.8z" fill="#ffd93d" stroke="#3a3a3a" stroke-width="2" stroke-linejoin="round" />
+        <circle cx="42" cy="20" r="6" fill="#4ea8ff" stroke="#3a3a3a" stroke-width="2.5" />
+        <!-- box -->
+        <rect x="8" y="30" width="48" height="26" rx="5" fill="#b07de8" stroke="#3a3a3a" stroke-width="4" />
+        <rect x="27" y="36" width="10" height="7" rx="2" fill="#ffd93d" stroke="#3a3a3a" stroke-width="2.5" />
+        <!-- lid -->
+        <g class="lid">
+          <rect x="6" y="22" width="52" height="10" rx="4" fill="#ff7a59" stroke="#3a3a3a" stroke-width="4" />
+        </g>
+      </svg>
+    </button>
+    <div id="shelf" aria-label="Characters">
+      <div class="row"></div>
+    </div>
     <div id="grownup">
       <button id="share-photo" type="button" aria-label="Share the last photo" hidden>
         <img alt="" />

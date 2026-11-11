@@ -3,7 +3,7 @@
  *
  *  - the last photo (iOS doesn't save photos taken from inside a web app to
  *    the Photos library), and
- *  - every character made from a photo, each as its own see-through PNG
+ *  - every saved drawing (whether on screen or in the toy box), each as its own see-through PNG
  *    picture. In the iPad Share menu, "Save to Files" puts them all in a
  *    folder you choose.
  *
@@ -11,13 +11,12 @@
  * stumble into this by accident. Nothing is uploaded anywhere: sharing only
  * happens through the iPad's own Share menu, when a grown-up chooses to.
  */
+import type { Library } from './library';
+
 const HOLD_MS = 700;
 const SHOW_FOR_MS = 10000;
 
-export function setupGrownUpShare(
-  cameraButton: HTMLElement,
-  getCharacterPictures: () => HTMLCanvasElement[],
-) {
+export function setupGrownUpShare(cameraButton: HTMLElement, library: Library) {
   const panel = document.getElementById('grownup')!;
   const photoButton = document.getElementById('share-photo') as HTMLButtonElement;
   const charsButton = document.getElementById('share-characters') as HTMLButtonElement;
@@ -27,7 +26,7 @@ export function setupGrownUpShare(
 
   let lastPhoto: File | null = null;
   let photoUrl = '';
-  let characterFiles: File[] = [];
+  let charsUrl = '';
   let holdTimer = 0;
   let hideTimer = 0;
   let heldOpen = false;
@@ -38,7 +37,7 @@ export function setupGrownUpShare(
     const two = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
   };
-  const hasSomething = () => !!lastPhoto || getCharacterPictures().length > 0;
+  const hasSomething = () => !!lastPhoto || library.entries.length > 0;
 
   const hide = () => {
     panel.classList.remove('show');
@@ -54,26 +53,14 @@ export function setupGrownUpShare(
       photoThumb.src = photoUrl;
     }
 
-    // Characters: get the pictures ready now, so the Share menu can open
-    // straight away when the button is tapped (iPad insists on that).
-    const pictures = getCharacterPictures();
-    charsButton.hidden = pictures.length === 0;
-    if (pictures.length) {
-      charsThumb.src = pictures[pictures.length - 1].toDataURL('image/png');
-      charsCount.textContent = pictures.length > 1 ? String(pictures.length) : '';
-      charsButton.disabled = true;
-      const when = stamp();
-      void Promise.all(
-        pictures.map(
-          (pic, i) =>
-            new Promise<File>((resolve) =>
-              pic.toBlob((b) => resolve(new File([b!], `character-${when}-${i + 1}.png`, { type: 'image/png' })), 'image/png'),
-            ),
-        ),
-      ).then((files) => {
-        characterFiles = files;
-        charsButton.disabled = false;
-      });
+    // Every saved drawing (they're already see-through PNGs).
+    const entries = library.entries;
+    charsButton.hidden = entries.length === 0;
+    if (entries.length) {
+      if (charsUrl) URL.revokeObjectURL(charsUrl);
+      charsUrl = URL.createObjectURL(entries[entries.length - 1].png);
+      charsThumb.src = charsUrl;
+      charsCount.textContent = entries.length > 1 ? String(entries.length) : '';
     }
 
     panel.classList.add('show');
@@ -137,7 +124,14 @@ export function setupGrownUpShare(
     if (!lastPhoto) return;
     share([new File([lastPhoto], `drawing-${stamp()}.jpg`, { type: lastPhoto.type || 'image/jpeg' })]);
   });
-  charsButton.addEventListener('click', () => share(characterFiles));
+  charsButton.addEventListener('click', () => {
+    const when = stamp();
+    share(
+      library.entries.map(
+        (e, i) => new File([e.png], `character-${when}-${i + 1}.png`, { type: 'image/png' }),
+      ),
+    );
+  });
 
   return {
     /** Keep the most recent photo given to the camera button. */

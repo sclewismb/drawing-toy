@@ -69,8 +69,8 @@ export class Character extends Container implements Reactable {
   readonly size: number;
   /** The cut-out drawing itself (transparent background). */
   readonly picture: HTMLCanvasElement;
-  /** Made from a photo (rather than one of the built-in samples). */
-  fromPhoto = false;
+  /** What this is, for saving: one of the photo characters, or a sample. */
+  ref: { kind: 'photo'; id: string } | { kind: 'sample'; name: string } = { kind: 'sample', name: '' };
   private lastReaction: ReactionName | null = null;
   private cancelReaction?: () => void;
   private touchMap: TouchMap;
@@ -141,6 +141,15 @@ export class Character extends Container implements Reactable {
       this.lift = from + (to - from) * ease.outBack(t);
       this.applyBody();
     });
+  }
+
+  /** Face a direction straight away (no animation), e.g. when restoring. */
+  setFacing(f: 1 | -1) {
+    this.cancelFlip?.();
+    this.facing = f;
+    this.flipX = f;
+    this.hop = 0;
+    this.applyBody();
   }
 
   /** Mirror the character with a squish-and-hop animation. */

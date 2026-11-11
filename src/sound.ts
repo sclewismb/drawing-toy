@@ -181,6 +181,21 @@ export const sfx = {
   pling() {
     tone({ from: rand(1200, 1900), dur: 0.15, vol: 0.07 });
   },
+  /** Sucked into the toy box. */
+  putAway(p = 1) {
+    tone({ from: 700 * p, to: 180 * p, dur: 0.28, vol: 0.25, wobbleRate: 20, wobbleDepth: 30 });
+    tone({ type: 'triangle', from: 220, to: 160, dur: 0.12, vol: 0.18, delay: 0.27 });
+  },
+  shelfOpen() {
+    tone({ type: 'triangle', from: 300, to: 600, dur: 0.15, vol: 0.12 });
+    tone({ type: 'triangle', from: 600, to: 900, dur: 0.1, vol: 0.08, delay: 0.12 });
+  },
+  shelfClose() {
+    tone({ type: 'triangle', from: 600, to: 280, dur: 0.18, vol: 0.12 });
+  },
+  poof() {
+    hiss({ dur: 0.35, vol: 0.3, from: 2500, to: 300, q: 0.8 });
+  },
 };
 
 export type SoundName = keyof typeof sfx;

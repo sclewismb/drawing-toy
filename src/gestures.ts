@@ -58,8 +58,13 @@ export class GestureController {
   onTap: (ch: Character) => void = () => {};
   onTapEmpty: (x: number, y: number) => void = () => {};
   onDragStart: (ch: Character) => void = () => {};
-  onDrop: (ch: Character) => void = () => {};
+  /** While dragging with one finger: where the finger is. */
+  onDragMove: (ch: Character, x: number, y: number) => void = () => {};
+  /** Let go after dragging: where the finger was. */
+  onDrop: (ch: Character, x: number, y: number) => void = () => {};
   onShake: (ch: Character) => void = () => {};
+  /** All fingers lifted off a character (after a tap, drag or pinch). */
+  onGestureEnd: (ch: Character) => void = () => {};
 
   constructor(
     private app: Application,
@@ -204,6 +209,7 @@ export class GestureController {
         g.moved = true;
         if (!g.pinched) this.onDragStart(ch);
       }
+      if (g.moved) this.onDragMove(ch, p.x, p.y);
       this.checkShake(g, p);
     } else {
       g.moved = true;
@@ -222,6 +228,7 @@ export class GestureController {
 
   private up(e: FederatedPointerEvent) {
     const id = e.pointerId;
+    const lastPos = this.pointers.get(id) ?? { x: e.global.x, y: e.global.y };
     this.pointers.delete(id);
     const ch = this.owner.get(id);
     this.owner.delete(id);
@@ -234,7 +241,8 @@ export class GestureController {
       ch.setHeld(false);
       const quick = performance.now() - g.startT < TAP_MAX_MS;
       if (!g.moved && !g.pinched && quick) this.onTap(ch);
-      else if (g.moved && !g.pinched) this.onDrop(ch);
+      else if (g.moved && !g.pinched) this.onDrop(ch, lastPos.x, lastPos.y);
+      this.onGestureEnd(ch);
     } else {
       this.rebase(g); // back to a one-finger drag
     }
@@ -276,6 +284,7 @@ export class GestureController {
       const s = clamp(ch.scale.x * Math.exp(-e.deltaY * 0.0015), Character.MIN_SCALE, Character.MAX_SCALE);
       ch.scale.set(s);
     }
+    this.onGestureEnd(ch);
   }
 
   select(ch: Character | null) {
@@ -293,6 +302,19 @@ export class GestureController {
   /** True while any finger is holding this character. */
   isHeld(ch: Character) {
     return this.gestures.has(ch);
+  }
+
+  /** True while any finger is holding any character. */
+  get busy() {
+    return this.gestures.size > 0;
+  }
+
+  /** Forget a character that has been taken out of the scene. */
+  release(ch: Character) {
+    const g = this.gestures.get(ch);
+    if (g) for (const id of g.ids) this.owner.delete(id);
+    this.gestures.delete(ch);
+    if (this.selected === ch) this.select(null);
   }
 }
 
