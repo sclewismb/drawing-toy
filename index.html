@@ -57,15 +57,22 @@
       #camera:active {
         transform: scale(0.9);
       }
-      /* The real file picker covers the whole button, invisibly, so a tap
-         always reaches it (the most reliable way on iPad Safari). */
+      /* The real file picker is tucked away inside the button. Tapping the
+         button (a <label>) opens it. It must not sit under the finger:
+         pressing and holding on an input makes iPad show its magnifier. */
+      #camera {
+        cursor: pointer;
+        touch-action: none;
+      }
       #camera input {
         position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
+        width: 1px;
+        height: 1px;
         opacity: 0;
-        cursor: pointer;
+        pointer-events: none;
+      }
+      #camera svg {
+        pointer-events: none;
       }
       #camera.busy {
         pointer-events: none;

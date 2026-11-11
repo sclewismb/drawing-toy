@@ -8,7 +8,7 @@
  * stumble into this by accident. Nothing is uploaded anywhere: sharing only
  * happens through the iPad's own Share menu, when a grown-up chooses to.
  */
-const HOLD_MS = 800;
+const HOLD_MS = 700;
 const SHOW_FOR_MS = 8000;
 
 export function setupPhotoShare(cameraButton: HTMLElement, shareButton: HTMLButtonElement) {
@@ -49,7 +49,11 @@ export function setupPhotoShare(cameraButton: HTMLElement, shareButton: HTMLButt
   cameraButton.addEventListener('pointercancel', cancelHold);
   cameraButton.addEventListener('pointerleave', cancelHold);
 
-  // After a hold, letting go shouldn't also open the camera.
+  // No long-press menus or magnifier on the button.
+  cameraButton.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // After a hold, letting go shouldn't also open the camera. (Cancelling the
+  // tap on the button stops it passing the tap on to the hidden file picker.)
   cameraButton.addEventListener(
     'click',
     (e) => {
