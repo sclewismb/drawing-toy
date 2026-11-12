@@ -21,24 +21,53 @@ interface Building {
 const HOLD_MS = 1200;
 
 /**
- * Where each building goes along the road (fractions of the map's width),
- * above or below the road, and how big (1 = normal).
+ * The town is laid out in city blocks along a winding main road, with cross
+ * streets between the blocks. Each block has a place on each side of the
+ * road; the road snakes up and down between them. Positions are fractions of
+ * B (a size that suits the screen) along the map.
+ *
+ *   house block | police / fire | school / park | vet / restaurant |
+ *   zoo / toy shop | ninja gym / fair | Niagara / town square |
+ *   bus stop / conservatory
  */
 const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number }> = {
-  house: { fx: 0.08, side: 'above' },
-  fire: { fx: 0.235, side: 'above' },
-  police: { fx: 0.37, side: 'above' },
-  school: { fx: 0.455, side: 'above', size: 1.05 },
-  park: { fx: 0.53, side: 'below' },
-  vet: { fx: 0.585, side: 'above' },
-  restaurant: { fx: 0.66, side: 'above' },
-  toyshop: { fx: 0.735, side: 'above' },
-  zoo: { fx: 0.825, side: 'above', size: 1.3 },
-  fair: { fx: 0.94, side: 'above', size: 1.45 },
-  ninja: { fx: 1.065, side: 'above' },
-  niagara: { fx: 1.17, side: 'above', size: 1.5 },
-  conservatory: { fx: 1.29, side: 'above', size: 1.3 },
+  house: { fx: 0.085, side: 'above' },
+  police: { fx: 0.235, side: 'below' },
+  fire: { fx: 0.335, side: 'above' },
+  school: { fx: 0.465, side: 'above', size: 1.05 },
+  park: { fx: 0.565, side: 'below' },
+  vet: { fx: 0.675, side: 'below' },
+  restaurant: { fx: 0.775, side: 'above' },
+  zoo: { fx: 0.918, side: 'above', size: 1.3 },
+  toyshop: { fx: 1.005, side: 'below' },
+  ninja: { fx: 1.115, side: 'below' },
+  fair: { fx: 1.2, side: 'above', size: 1.45 },
+  niagara: { fx: 1.362, side: 'above', size: 1.5 },
+  conservatory: { fx: 1.635, side: 'above', size: 1.3 },
 };
+/** The cross streets between the blocks (the first one goes up into the tunnel). */
+const CROSS = [0.18, 0.4, 0.62, 0.84, 1.06, 1.28, 1.5];
+/** How long the map is (in B). */
+const MAP_LENGTH = 1.74;
+/**
+ * The main road: low (further down) under the places above it and high
+ * under the places below it, so it winds between them.
+ */
+const ROAD: [number, number][] = [
+  [-0.03, 0.6], [0.085, 0.665], [0.18, 0.6],
+  [0.235, 0.535], [0.335, 0.665], [0.4, 0.6],
+  [0.465, 0.665], [0.565, 0.535], [0.62, 0.6],
+  [0.675, 0.535], [0.775, 0.665], [0.84, 0.6],
+  [0.918, 0.665], [1.005, 0.535], [1.06, 0.6],
+  [1.115, 0.535], [1.2, 0.665], [1.28, 0.6],
+  [1.362, 0.665], [1.45, 0.535], [1.5, 0.6],
+  [1.555, 0.535], [1.635, 0.665], [1.77, 0.6],
+];
+/** Big trees along the front (birds live in them: see eggs). */
+const FRONT_TREES: [number, number, number][] = [
+  [0.155, 0.93, 0.04], [0.34, 0.95, 0.045], [0.46, 0.95, 0.04], [0.78, 0.95, 0.045], [0.9, 0.95, 0.04],
+  [1.21, 0.95, 0.045], [1.34, 0.95, 0.04], [1.67, 0.95, 0.045],
+];
 
 /**
  * The neighbourhood: a long map you slide across (like the wide rooms), with
@@ -195,30 +224,31 @@ export class StreetView extends Container {
   }
 
   /**
-   * The neighbourhood seen from above: rolling hills, a long winding road
-   * with the buildings along it, the family's street with the neighbours'
-   * houses, trees, a pond, a tunnel into the hill and a city far away. The
-   * map is wider than the screen (slide to see it all). Colours follow the
-   * season.
+   * The town seen from above, like a city map: hills along the back with
+   * the tall buildings of the city centre on them, a back street, cross
+   * streets with zebra crossings and traffic lights, and the winding main
+   * road with a place on each side of every block. Street lamps, trees, a
+   * pond by the house, a town square with a fountain, a bus stop. The map
+   * is wider than the screen (slide to see it all). Colours follow the season.
    */
   layout(w: number, h: number, season: Season) {
     const pal = PALETTE[season];
     const winter = season === 'winter';
     const u = Math.min(w, h); // a size that suits both ways up
-    // Places are set out by fractions of B; the map carries on past it (to the
-    // gym and Niagara Falls at the far end), so it's M wide in all.
-    const B = Math.max(w * 2.6, h * 3.8);
-    const M = B * 1.37;
+    const B = u * 3.8; // positions along the map are fractions of this
+    const M = B * MAP_LENGTH;
     const P = (fx: number, fy: number) => ({ x: fx * B, y: fy * h });
     const g = this.bg.clear();
     const keep = this.camera.x / Math.max(1, this.geom.w || M);
     this.camera.setRoom(0, M, w, h);
+    const pave = winter ? 0xf1f5f9 : 0xe9e3d3;
+    const rnd = seeded(5);
 
-    // --- the sky (stays put while the map slides), and a city far away ---
+    // --- the sky (stays put while the map slides) ---
     const sun = { x: w * 0.86, y: h * 0.11, r: u * 0.065 * pal.sunSize };
     const clouds: [number, number, number][] = [];
-    for (const [cx, cy, s] of [[0.1, 0.1, 1], [0.4, 0.06, 0.8], [0.64, 0.15, 0.65], [-0.2, 0.2, 0.55]]) {
-      clouds.push([w * cx, h * cy, u * 0.045 * s]);
+    for (const [cx, cy, k] of [[0.1, 0.1, 1], [0.4, 0.06, 0.8], [0.64, 0.15, 0.65], [-0.2, 0.2, 0.55]]) {
+      clouds.push([w * cx, h * cy, u * 0.045 * k]);
     }
     this.sky.set({
       x0: 0,
@@ -230,90 +260,177 @@ export class StreetView extends Container {
       cloudColor: pal.cloud,
     });
     this.swaying.clear();
-    const city = winter ? 0xc5d3e0 : 0xa9c4dc;
-    const rnd = seeded(5);
-    for (let x = B * 0.42; x < B * 0.6; x += u * 0.035) {
-      const bh = h * (0.06 + rnd() * 0.1);
-      g.rect(x, h * 0.33 - bh, u * 0.03, bh).fill({ color: city, alpha: 0.8 });
-    }
 
-    // --- hills: far, middle, and the meadow at the front ---
+    // --- hills along the back, with the city centre's tall buildings on them ---
     const hill = (pts: { x: number; y: number }[], color: number) => {
-      const s = spline(pts, 12);
+      const sp = spline(pts, 12);
       g.moveTo(0, h);
-      for (const p of s) g.lineTo(p.x, p.y);
+      for (const p of sp) g.lineTo(p.x, p.y);
       g.lineTo(M, h).closePath().fill(color);
     };
-    hill([P(0, 0.44), P(0.06, 0.36), P(0.14, 0.3), P(0.24, 0.34), P(0.33, 0.37), P(0.42, 0.31), P(0.52, 0.35), P(0.62, 0.33), P(0.72, 0.3), P(0.82, 0.36), P(0.9, 0.32), P(1, 0.36), P(1.1, 0.3), P(1.18, 0.34), P(1.25, 0.32), P(1.32, 0.36), P(1.38, 0.33)], pal.hillBack);
-    // patchwork fields on the far hill
-    const fieldCols = winter ? [0xf4f7fa, 0xe9eff5] : season === 'autumn' ? [0xe9c46a, 0xd4a373] : [0xc7e59f, 0xe9d985];
-    for (const [i, [fx, fy]] of [[0.04, 0.43], [0.08, 0.4], [0.12, 0.375], [0.75, 0.37], [0.79, 0.385]].entries()) {
-      const x = B * fx, y = h * fy, fw = u * 0.12, fh = h * 0.035;
-      g.poly([x, y, x + fw, y - fh * 0.4, x + fw * 1.05, y + fh * 0.6, x + fw * 0.05, y + fh]).fill(fieldCols[i % 2]).stroke({ width: 2, color: 0xa47e4b });
+    const backHill: { x: number; y: number }[] = [];
+    for (let fx = 0, i = 0; fx <= MAP_LENGTH + 0.1; fx += 0.09, i++) backHill.push(P(fx, i % 2 ? 0.27 : 0.32));
+    hill(backHill, pal.hillBack);
+    const towers = winter ? 0xc5d3e0 : 0xa9c4dc;
+    for (let x = 0; x < M; x += u * 0.034) {
+      // in clusters, with gaps for the hills to show
+      if (Math.sin(x / (u * 0.5)) < -0.2 || rnd() < 0.25) continue;
+      const th = h * (0.04 + rnd() * 0.08), tw = u * 0.028, ty = h * 0.4 - th;
+      g.rect(x, ty, tw, th).fill({ color: towers, alpha: 0.75 });
+      for (let wy = ty + 8; wy < h * 0.37; wy += 12) g.rect(x + tw * 0.25, wy, tw * 0.5, 4).fill({ color: 0xffffff, alpha: 0.3 });
+      if (rnd() < 0.15) g.moveTo(x + tw / 2, ty).lineTo(x + tw / 2, ty - h * 0.03).stroke({ width: 2, color: towers }); // an aerial
     }
-    hill([P(0, 0.56), P(0.08, 0.5), P(0.18, 0.55), P(0.27, 0.5), P(0.36, 0.54), P(0.46, 0.49), P(0.56, 0.45), P(0.66, 0.5), P(0.76, 0.48), P(0.86, 0.5), P(0.95, 0.46), P(1.04, 0.5), P(1.12, 0.47), P(1.25, 0.5), P(1.31, 0.47), P(1.38, 0.5)], pal.hillFront);
-    hill([P(0, 0.8), P(0.12, 0.78), P(0.25, 0.84), P(0.38, 0.8), P(0.5, 0.83), P(0.63, 0.79), P(0.76, 0.84), P(0.88, 0.8), P(1, 0.82), P(1.12, 0.8), P(1.25, 0.83), P(1.38, 0.8)], pal.grass);
-    for (const [cx, seed] of [[0.15, 7], [0.4, 8], [0.62, 9], [0.88, 10], [1.13, 11], [1.32, 12]]) hillDots(g, B * cx, h * 0.97, B * 0.08, h * 0.14, pal.dots, seed);
+    const frontHill: { x: number; y: number }[] = [];
+    for (let fx = 0, i = 0; fx <= MAP_LENGTH + 0.1; fx += 0.07, i++) frontHill.push(P(fx, i % 2 ? 0.385 : 0.415));
+    hill(frontHill, pal.hillFront);
+    const treeG = winter ? 0x6a9a7f : 0x52b788, treeD = winter ? 0x557f69 : 0x2d6a4f;
+    for (let fx = 0.01; fx < MAP_LENGTH; fx += 0.025) {
+      if (rnd() < 0.35) continue;
+      const x = B * fx, y = h * (0.415 + rnd() * 0.015), r = u * 0.016;
+      g.circle(x, y, r).fill(treeG).stroke({ width: 2, color: INK });
+      if (winter) g.ellipse(x, y - r * 0.5, r * 0.6, r * 0.3).fill(0xffffff);
+    }
+    // the town's ground
+    const groundTop = h * 0.445;
+    g.rect(0, groundTop, M, h - groundTop).fill(pal.grass);
+    for (const [cx, seed] of [[0.1, 7], [0.5, 8], [0.95, 9], [1.4, 10]]) hillDots(g, B * cx, h * 0.985, B * 0.1, h * 0.04, pal.dots, seed);
+    // the tunnel into the hill, at the top of the first cross street
+    const tunnel = { x: B * CROSS[0], y: groundTop + 2, r: u * 0.05 };
+    g.moveTo(tunnel.x - tunnel.r - 10, tunnel.y).arc(tunnel.x, tunnel.y, tunnel.r + 10, Math.PI, 0).lineTo(tunnel.x - tunnel.r - 10, tunnel.y).fill(0xadb5bd).stroke({ width: 3, color: INK });
+    g.moveTo(tunnel.x - tunnel.r, tunnel.y).arc(tunnel.x, tunnel.y, tunnel.r, Math.PI, 0).lineTo(tunnel.x - tunnel.r, tunnel.y).fill(0x1f1f1f);
 
-    // --- the pond, with a little jetty ---
-    const pond = { x: B * 0.045, y: h * 0.89, rx: u * 0.13, ry: h * 0.065 };
+    // --- the streets ---
+    const roadW = u * 0.045, sideW = roadW * 0.82;
+    const road = spline(ROAD.map(([fx, fy]) => P(fx, fy)), 16);
+    const roadY = (x: number) => road.reduce((best, p) => (Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best), road[0]).y;
+    /** How high and how low the main road goes between x0 and x1. */
+    const span = (x0: number, x1: number) => {
+      let lo = Infinity, hi = -Infinity;
+      for (const p of road) if (p.x >= x0 && p.x <= x1) (lo = Math.min(lo, p.y)), (hi = Math.max(hi, p.y));
+      if (lo === Infinity) lo = hi = roadY((x0 + x1) / 2);
+      return { lo, hi };
+    };
+    const backY = h * 0.475;
+    const back = spline([P(-0.03, 0.475), P(0.5, 0.47), P(1.0, 0.48), P(1.5, 0.47), P(MAP_LENGTH + 0.03, 0.475)], 16);
+    const crossing = (x: number, y: number) => Math.abs(y - roadY(x)) < roadW * 1.1 || Math.abs(y - backY) < sideW;
+    const streets: { pts: Pt[]; width: number; skip?: (x: number, y: number) => boolean }[] = CROSS.map((fx, i) => ({
+      pts: [P(fx, i === 0 ? tunnel.y / h : backY / h), P(fx, 1.06)],
+      width: sideW,
+      skip: crossing,
+    }));
+    streets.push({ pts: back, width: sideW }, { pts: road, width: roadW });
+    drawRoads(g, streets, winter);
+    const branchStart = { x: tunnel.x, y: roadY(tunnel.x) };
+    const branch = spline([branchStart, { x: tunnel.x, y: (branchStart.y + tunnel.y) / 2 }, { x: tunnel.x, y: tunnel.y }], 14);
+
+    // zebra crossings either side of the main road, and traffic lights at some corners
+    for (const [i, fx] of CROSS.entries()) {
+      const x = B * fx, ry = roadY(x);
+      for (const y of [ry - roadW - 18, ry + roadW + 4]) {
+        for (let k = -2; k <= 2; k++) g.rect(x + k * sideW * 0.2 - 3, y, 6, 14).fill(0xffffff);
+      }
+      if (i % 2 === 1) {
+        const lx = x + sideW / 2 + 16, ly = ry + roadW / 2 + 40;
+        g.rect(lx - 3, ly - 50, 6, 50).fill(0x2b2d42);
+        g.roundRect(lx - 9, ly - 82, 18, 40, 5).fill(0x2b2d42).stroke({ width: 2, color: INK });
+        g.circle(lx, ly - 74, 4.5).fill(0xe5383b).circle(lx, ly - 62, 4.5).fill(0xffd166).circle(lx, ly - 50, 4.5).fill(0x7bd36b);
+      }
+    }
+    // street lamps along the front of the main road
+    for (let fx = 0.03; fx < MAP_LENGTH; fx += 0.06) {
+      if (CROSS.some((c) => Math.abs(c - fx) < 0.035)) continue;
+      const x = B * fx, y = roadY(x) + roadW / 2 + 9;
+      g.rect(x - 2.5, y - 46, 5, 46).fill(0x495057);
+      g.moveTo(x, y - 46).quadraticCurveTo(x, y - 54, x + 9, y - 52).stroke({ width: 3, color: 0x495057 });
+      g.circle(x + 10, y - 49, 5).fill(0xfff3b0).stroke({ width: 2, color: INK });
+    }
+
+    // --- the family's street: the neighbours' houses either side of the house ---
+    const houseCols = [0xffd6a5, 0xcaffbf, 0xa0c4ff];
+    for (const [i, fx] of [0.015, 0.152].entries()) {
+      const x = B * fx, hw = u * 0.075, hh = u * 0.08;
+      const base = span(x - hw, x + hw).lo - roadW / 2 - 14 - h * 0.02;
+      g.rect(x - hw / 2, base - hh, hw, hh).fill(houseCols[i % houseCols.length]).stroke({ width: 3, color: INK });
+      g.poly([x - hw / 2 - 8, base - hh, x, base - hh - u * 0.06, x + hw / 2 + 8, base - hh]).fill([0xe76f51, 0x6d6875][i % 2]).stroke({ width: 3, color: INK });
+      g.rect(x - hw * 0.12, base - hh * 0.5, hw * 0.24, hh * 0.5).fill(0xffffff).stroke({ width: 2, color: INK });
+      g.rect(x - hw * 0.4, base - hh * 0.8, hw * 0.22, hh * 0.24).rect(x + hw * 0.18, base - hh * 0.8, hw * 0.22, hh * 0.24).fill(0xbfe8ff).stroke({ width: 2, color: INK });
+      g.moveTo(x, base).lineTo(x, roadY(x)).stroke({ width: 10, color: pave });
+    }
+    // the pond, with a little jetty, across the road from the house
+    const pond = { x: B * 0.085, y: h * 0.86, rx: u * 0.13, ry: h * 0.065 };
     g.ellipse(pond.x, pond.y, pond.rx + 6, pond.ry + 6).fill(winter ? 0xe3edf5 : 0xc9b48a);
     g.ellipse(pond.x, pond.y, pond.rx, pond.ry).fill(winter ? 0xd6eef8 : 0x6ec6ff).stroke({ width: 3, color: winter ? 0xb7d3e6 : 0x4a9fd8 });
     g.rect(pond.x + pond.rx * 0.45, pond.y - pond.ry * 0.9, pond.rx * 0.45, 10).fill(0xa47e4b).stroke({ width: 2, color: INK });
 
-    // --- trees far away along the hill, and the tunnel ---
-    const treeG = winter ? 0x6a9a7f : 0x52b788, treeD = winter ? 0x557f69 : 0x2d6a4f;
-    for (let fx = 0.02; fx < 1.37; fx += 0.035) {
-      if ((fx > 0.4 && fx < 0.62) || rnd() < 0.3) continue; // (the city is there)
-      const x = B * fx, y = h * (0.36 + rnd() * 0.06), r = u * 0.018;
-      g.circle(x, y, r).fill(treeG).stroke({ width: 2, color: INK });
-      if (winter) g.ellipse(x, y - r * 0.5, r * 0.6, r * 0.3).fill(0xffffff);
+    // --- the town square with its fountain, and the bus stop ---
+    const gap = roadW / 2 + 14 + h * 0.02;
+    {
+      const x = B * 1.43, half = B * 0.055, top = span(x - half, x + half).hi + gap, bottom = Math.min(h * 0.97, top + h * 0.32);
+      g.roundRect(x - half, top, half * 2, bottom - top, 18).fill(pave).stroke({ width: 3, color: 0xbdb5a6 });
+      for (let k = 1; k < 6; k++) g.moveTo(x - half + (half * 2 * k) / 6, top + 6).lineTo(x - half + (half * 2 * k) / 6, bottom - 6);
+      g.stroke({ width: 1.5, color: 0xd6cdb8 });
+      const fy = (top + bottom) / 2, fr = Math.min(B * 0.04, (bottom - top) * 0.35);
+      g.ellipse(x, fy, fr + 8, fr * 0.45 + 6).fill(0xbdb5a6).stroke({ width: 3, color: INK });
+      g.ellipse(x, fy, fr, fr * 0.45).fill(winter ? 0xd6eef8 : 0x6ec6ff);
+      g.rect(x - 5, fy - fr * 0.7, 10, fr * 0.7).fill(0xdee2e6).stroke({ width: 2, color: INK });
+      if (!winter) g.moveTo(x, fy - fr * 0.7).quadraticCurveTo(x - fr * 0.5, fy - fr * 1.2, x - fr * 0.7, fy).moveTo(x, fy - fr * 0.7).quadraticCurveTo(x + fr * 0.5, fy - fr * 1.2, x + fr * 0.7, fy).stroke({ width: 4, color: 0xbfe8ff });
+      for (const side of [-1, 1]) {
+        const bx = x + side * half * 0.72;
+        g.rect(bx - 22, bottom - 34, 44, 8).fill(0xc68b59).stroke({ width: 2, color: INK });
+        g.rect(bx - 18, bottom - 26, 5, 12).rect(bx + 13, bottom - 26, 5, 12).fill(0x2b2d42);
+      }
     }
-    const tunnel = { x: B * 0.303, y: h * 0.5, r: u * 0.05 };
-    g.moveTo(tunnel.x - tunnel.r - 10, tunnel.y).arc(tunnel.x, tunnel.y, tunnel.r + 10, Math.PI, 0).lineTo(tunnel.x - tunnel.r - 10, tunnel.y).fill(0xadb5bd).stroke({ width: 3, color: INK });
-    g.moveTo(tunnel.x - tunnel.r, tunnel.y).arc(tunnel.x, tunnel.y, tunnel.r, Math.PI, 0).lineTo(tunnel.x - tunnel.r, tunnel.y).fill(0x1f1f1f);
-
-    // --- the roads: a long one winding along, and one up to the tunnel ---
-    const roadW = u * 0.045;
-    const road = spline([P(-0.02, 0.73), P(0.05, 0.71), P(0.14, 0.71), P(0.23, 0.74), P(0.32, 0.76), P(0.4, 0.77), P(0.48, 0.71), P(0.57, 0.66), P(0.66, 0.7), P(0.74, 0.73), P(0.82, 0.73), P(0.9, 0.7), P(0.97, 0.69), P(1.04, 0.72), P(1.11, 0.74), P(1.18, 0.71), P(1.26, 0.72), P(1.33, 0.74), P(1.39, 0.72)], 16);
-    const roadY = (x: number) => road.reduce((best, p) => (Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best), road[0]).y;
-    const branchStart = road.reduce((best, p) => (Math.abs(p.x - tunnel.x) < Math.abs(best.x - tunnel.x) ? p : best), road[0]);
-    const branch = spline([branchStart, { x: tunnel.x + u * 0.02, y: (branchStart.y + tunnel.y) / 2 + h * 0.04 }, { x: tunnel.x, y: tunnel.y }], 14);
-    drawRoad(g, branch, roadW * 0.85, winter);
-    drawRoad(g, road, roadW, winter);
-
-    // --- the neighbours' houses along the family's street ---
-    const houseCols = [0xffd6a5, 0xcaffbf, 0xa0c4ff, 0xffadad, 0xfdffb6];
-    for (const [i, fx] of [0.02, 0.135, 0.165].entries()) {
-      const x = B * fx, base = roadY(x) - h * 0.055, hw = u * 0.075, hh = u * 0.08;
-      g.rect(x - hw / 2, base - hh, hw, hh).fill(houseCols[i % houseCols.length]).stroke({ width: 3, color: INK });
-      g.poly([x - hw / 2 - 8, base - hh, x, base - hh - u * 0.06, x + hw / 2 + 8, base - hh]).fill([0xe76f51, 0x6d6875, 0x2b2d42][i % 3]).stroke({ width: 3, color: INK });
-      g.rect(x - hw * 0.12, base - hh * 0.5, hw * 0.24, hh * 0.5).fill(0xffffff).stroke({ width: 2, color: INK });
-      g.rect(x - hw * 0.4, base - hh * 0.8, hw * 0.22, hh * 0.24).rect(x + hw * 0.18, base - hh * 0.8, hw * 0.22, hh * 0.24).fill(0xbfe8ff).stroke({ width: 2, color: INK });
-      g.moveTo(x, base).lineTo(x, roadY(x)).stroke({ width: 10, color: winter ? 0xf1f5f9 : 0xe9e3d3 });
+    {
+      const x = B * 1.555, top = span(x - B * 0.05, x + B * 0.05).hi + gap;
+      // the shelter: roof, glass back and a bench
+      g.rect(x - 48, top + 8, 96, 10).fill(0x4ea8ff).stroke({ width: 3, color: INK });
+      g.rect(x - 44, top + 18, 88, 52).fill({ color: 0xbfe8ff, alpha: 0.7 }).stroke({ width: 3, color: INK });
+      g.rect(x - 34, top + 52, 68, 8).fill(0xc68b59).stroke({ width: 2, color: INK });
+      // the bus stop sign (a little bus on it)
+      g.rect(x + 62, top + 2, 5, 72).fill(0x6c757d);
+      g.circle(x + 64.5, top + 2, 15).fill(0xffffff).stroke({ width: 3, color: INK });
+      g.roundRect(x + 55, top - 5, 19, 12, 3).fill(0xe5383b);
+      g.circle(x + 59, top + 8, 2.5).circle(x + 70, top + 8, 2.5).fill(INK);
+      // flower beds
+      for (const [dx, col] of [[0.045, 0xff8fb1], [0.085, 0xffd166]] as const) {
+        const fx2 = x + B * dx, fy2 = top + h * (dx > 0.05 ? 0.26 : 0.18);
+        g.ellipse(fx2, fy2, 40, 14).fill(0x8d5524).stroke({ width: 2, color: INK });
+        for (let k = -2; k <= 2; k++) g.circle(fx2 + k * 14, fy2 - 6 - (k % 2 ? 4 : 0), 6).fill(col).stroke({ width: 1.5, color: INK });
+      }
     }
 
-    // --- the buildings, each on its own patch beside the road ---
+    // --- the buildings, one each side of the road in every block ---
     const placed: StreetGeom['buildings'] = {};
     for (const b of this.buildings) {
       const spot = SPOTS[b.id] ?? { fx: 0.5, side: 'above' };
       const size = spot.size ?? 1;
-      const maxW = u * 0.3 * size, maxH = u * 0.26 * size;
       const tex = b.sprite.texture;
-      const k = Math.min(maxW / tex.width, maxH / tex.height);
-      b.sprite.scale.set(k);
+      let k = Math.min((u * 0.3 * size) / tex.width, (u * 0.26 * size) / tex.height);
       const x = B * spot.fx;
-      const ry = roadY(x);
-      const y = spot.side === 'above' ? ry - h * 0.06 : Math.min(h * 0.985, ry + h * 0.25);
-      b.holder.position.set(x, y);
-      const bw = tex.width * k, bh = tex.height * k;
-      placed[b.id] = { x, y, w: bw, h: bh };
-      // a driveway to the road, and a patch to stand on
+      let bw = tex.width * k, bh = tex.height * k;
+      const s = span(x - bw * 0.6, x + bw * 0.6);
+      let y: number;
       if (spot.side === 'above') {
-        g.moveTo(x, y - 4).lineTo(x, ry).stroke({ width: roadW * 0.5, color: INK, cap: 'round' });
-        g.moveTo(x, y - 4).lineTo(x, ry).stroke({ width: roadW * 0.5 - 6, color: winter ? 0xf1f5f9 : 0xe9e3d3, cap: 'round' });
+        // standing back from the road, with a driveway down to it
+        y = s.lo - gap;
+        g.moveTo(x, y - 4).lineTo(x, roadY(x)).stroke({ width: roadW * 0.5, color: INK, cap: 'round' });
+        g.moveTo(x, y - 4).lineTo(x, roadY(x)).stroke({ width: roadW * 0.5 - 6, color: pave, cap: 'round' });
+      } else {
+        // just below the road (a little smaller if there isn't room)
+        const top = s.hi + gap;
+        const room = h * 0.985 - top;
+        if (bh > room) {
+          k *= room / bh;
+          bw = tex.width * k;
+          bh = tex.height * k;
+        }
+        y = top + bh;
       }
-      g.ellipse(x, y, bw * 0.58, Math.max(10, bh * 0.08)).fill(winter ? 0xf1f5f9 : 0xe9e3d3).stroke({ width: 2, color: 0xbdb5a6 });
+      b.sprite.scale.set(k);
+      b.holder.position.set(x, y);
+      placed[b.id] = { x, y, w: bw, h: bh };
+      // a paved patch to stand on
+      g.roundRect(x - bw * 0.58, y - Math.max(8, bh * 0.06), bw * 1.16, Math.max(16, bh * 0.12), 10).fill(pave).stroke({ width: 2, color: 0xbdb5a6 });
     }
     // the buildings further down the screen stand in front
     const view = this.camera.view;
@@ -322,7 +439,7 @@ export class StreetView extends Container {
     const at = view.getChildIndex(this.eggs);
     order.forEach((b, i) => view.addChildAt(b.holder, at + i));
 
-    // --- trees (swaying in the breeze) and bushes, kept clear of the buildings and road ---
+    // --- trees (swaying in the breeze): along the back street, and big ones at the front ---
     const tree = (fx: number, fy: number, s: number) => {
       const r = u * s;
       this.swaying.add(B * fx, h * fy, (t) => {
@@ -339,21 +456,15 @@ export class StreetView extends Container {
         if (winter) t.ellipse(0, -r * 2.6, r * 0.3, r * 0.2).fill(0xffffff);
       });
     };
-    // behind the buildings, just above the road
-    for (const fx of [0.005, 0.045, 0.11, 0.195, 0.27, 0.335, 0.41, 0.5, 0.62, 0.7, 0.775, 0.885, 0.995, 1.11, 1.235, 1.35]) {
-      const y = (roadY(B * fx) - h * 0.075) / h;
-      if (Math.round(fx * 1000) % 2) cypress(fx, y, 0.028);
-      else tree(fx, y, 0.03);
+    for (let fx = 0.05, i = 0; fx < MAP_LENGTH; fx += 0.05, i++) {
+      if (CROSS.some((c) => Math.abs(c - fx) < 0.03)) continue;
+      if (i % 2) cypress(fx, 0.462, 0.024);
+      else tree(fx, 0.462, 0.026);
     }
-    // big trees at the front
     const trees: { x: number; y: number; r: number }[] = [];
-    for (const [fx, fy, s] of [[0.12, 0.93, 0.045], [0.2, 0.9, 0.04], [0.29, 0.94, 0.045], [0.4, 0.9, 0.04], [0.62, 0.93, 0.045], [0.7, 0.9, 0.04], [0.79, 0.94, 0.045], [0.88, 0.9, 0.04], [0.985, 0.92, 0.05], [1.08, 0.94, 0.045], [1.22, 0.9, 0.04], [1.34, 0.93, 0.045]]) {
+    for (const [fx, fy, s] of FRONT_TREES) {
       tree(fx, fy, s);
       trees.push({ x: B * fx, y: h * fy - u * s * 1.1, r: u * s });
-    }
-    for (const fx of [0.1, 0.25, 0.45, 0.66, 0.84, 0.93, 1.14, 1.25]) {
-      const x = B * fx, y = h * 0.8, r = u * 0.022;
-      g.circle(x - r, y, r).circle(x + r, y, r).circle(x, y - r * 0.7, r * 1.1).fill(treeG).stroke({ width: 2, color: INK });
     }
 
     this.placeNumber();
@@ -394,30 +505,43 @@ export function spline(pts: Pt[], steps = 12): Pt[] {
   return out;
 }
 
-/** A road along a path: kerbs, pavement, grey road and a dashed white line. */
-function drawRoad(g: Graphics, pts: Pt[], width: number, winter: boolean) {
-  const path = () => {
+/**
+ * Streets along paths: outline, pavement, grey road and a dashed white line.
+ * All the streets are drawn a layer at a time, so where they cross they
+ * join up instead of one's outline cutting across the other.
+ */
+function drawRoads(g: Graphics, roads: { pts: Pt[]; width: number; skip?: (x: number, y: number) => boolean }[], winter: boolean) {
+  const path = (pts: Pt[]) => {
     g.moveTo(pts[0].x, pts[0].y);
     for (const p of pts) g.lineTo(p.x, p.y);
   };
-  path();
-  g.stroke({ width: width + 16, color: INK, cap: 'round', join: 'round' });
-  path();
-  g.stroke({ width: width + 11, color: winter ? 0xf8fafc : 0xe9ecef, cap: 'round', join: 'round' });
-  path();
-  g.stroke({ width: width, color: 0x8d99ae, cap: 'round', join: 'round' });
+  for (const r of roads) {
+    path(r.pts);
+    g.stroke({ width: r.width + 26, color: INK, cap: 'round', join: 'round' });
+  }
+  for (const r of roads) {
+    path(r.pts);
+    g.stroke({ width: r.width + 21, color: winter ? 0xf8fafc : 0xe9ecef, cap: 'round', join: 'round' });
+  }
+  for (const r of roads) {
+    path(r.pts);
+    g.stroke({ width: r.width, color: 0x8d99ae, cap: 'round', join: 'round' });
+  }
   // dashes: 16 on, 18 off, all the way along
-  let along = 0;
-  for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1], b = pts[i];
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    for (let d = 0; d < len; d += 2) {
-      if ((along + d) % 34 < 16) {
-        const t0 = d / len, t1 = Math.min(1, (d + 2) / len);
-        g.moveTo(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0).lineTo(a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1);
+  for (const { pts, skip } of roads) {
+    let along = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      for (let d = 0; d < len; d += 2) {
+        if ((along + d) % 34 < 16) {
+          const t0 = d / len, t1 = Math.min(1, (d + 2) / len);
+          if (skip?.(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0)) continue; // no lines across a crossing
+          g.moveTo(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0).lineTo(a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1);
+        }
       }
+      along += len;
     }
-    along += len;
   }
   g.stroke({ width: 3, color: 0xffffff, cap: 'butt' });
 }
