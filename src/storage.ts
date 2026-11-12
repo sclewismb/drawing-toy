@@ -70,6 +70,7 @@ async function run<T>(
 ): Promise<T> {
   const d = await db();
   return new Promise((resolve, reject) => {
+    if (frozen && mode === 'readwrite') return reject(new Error('Not saving: a backup was just put back'));
     const t = d.transaction(store, mode);
     const req = op(t.objectStore(store));
     t.oncomplete = () => resolve(req.result);
@@ -87,7 +88,50 @@ async function run<T>(
 let profile: string | null = null;
 const mine = (key: string) => (profile ? `p:${profile}:${key}` : key);
 
+/** After a backup is put back, nothing else may save until the app reloads. */
+let frozen = false;
+
+/** Everything saved, for a backup: every drawing, and every scene and setting (with its key). */
+export interface Everything {
+  characters: StoredCharacter[];
+  entries: [IDBValidKey, unknown][];
+}
+
 export const storage = {
+  /** Everything saved on this iPad (for a backup file). */
+  async dumpAll(): Promise<Everything> {
+    const d = await db();
+    return new Promise((resolve, reject) => {
+      const t = d.transaction(['characters', 'scene'], 'readonly');
+      const chars = t.objectStore('characters').getAll() as IDBRequest<StoredCharacter[]>;
+      const keys = t.objectStore('scene').getAllKeys();
+      const values = t.objectStore('scene').getAll();
+      t.oncomplete = () => resolve({ characters: chars.result, entries: keys.result.map((k, i) => [k, values.result[i]]) });
+      t.onerror = () => reject(t.error);
+      t.onabort = () => reject(t.error);
+    });
+  },
+
+  /**
+   * Put a backup back: every drawing, scene and setting in it is written
+   * (replacing anything with the same name; nothing else is removed). Then
+   * saving stops until the app reloads, so the old state can't overwrite it.
+   */
+  async restoreAll(all: Everything) {
+    const d = await db();
+    await new Promise<void>((resolve, reject) => {
+      const t = d.transaction(['characters', 'scene'], 'readwrite');
+      const cs = t.objectStore('characters');
+      const ss = t.objectStore('scene');
+      for (const c of all.characters) cs.put(c);
+      for (const [k, v] of all.entries) ss.put(v, k);
+      t.oncomplete = () => resolve();
+      t.onerror = () => reject(t.error);
+      t.onabort = () => reject(t.error);
+    });
+    frozen = true;
+  },
+
   setProfile(p: string | null) {
     profile = p;
   },

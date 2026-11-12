@@ -542,6 +542,30 @@
         color: #fff;
         font-weight: 700;
       }
+      #house-settings .backup {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      #house-settings .backup .button {
+        display: inline-block;
+        margin: 0;
+        font-size: 17px;
+        font-weight: 400;
+        padding: 10px 18px;
+        border-radius: 12px;
+        border: 2px solid #3a3a3a;
+        background: #fff;
+        cursor: pointer;
+      }
+      #house-settings button:disabled {
+        opacity: 0.5;
+      }
+      #house-settings [data-backup-note] {
+        margin-top: 10px;
+        color: #2d6a4f;
+        font-weight: 600;
+      }
 
       /* The shelf of characters, floating above the bottom buttons. */
       #shelf {
@@ -759,6 +783,14 @@
         <label for="pl-master">Grown-up master code</label>
         <p>Opens either world. Once it's set, this box asks for it too, so only grown-ups can change the codes.</p>
         <input id="pl-master" data-master-code type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="4 numbers" />
+        <h3>Backup</h3>
+        <p>Saves every drawing, both worlds and these settings into one file (choose "Save to Files"). Each Home Screen icon keeps its own saved things, so before adding the app to the Home Screen again, save a backup here, then put it back in the new one.</p>
+        <div class="backup">
+          <button type="button" data-backup disabled>Getting it ready...</button>
+          <label class="button" for="restore-file">Put a backup back</label>
+          <input id="restore-file" data-restore type="file" hidden />
+        </div>
+        <p data-backup-note hidden></p>
         <div class="buttons">
           <button type="button" data-cancel>Cancel</button>
           <button type="submit">Save</button>

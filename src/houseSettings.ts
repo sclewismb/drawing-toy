@@ -1,5 +1,7 @@
+import { makeBackup, readBackup, sendBackup } from './backup';
 import type { RoomId } from './places';
 import { isCode, PLAYER_IDS, type PlayerId, type Players } from './players';
+import { storage } from './storage';
 
 export interface HouseSettings {
   /** The house number painted on the house. */
@@ -8,8 +10,9 @@ export interface HouseSettings {
 }
 
 /**
- * Grown-up box for the house number, the room names, and the two players'
- * names and codes. Opened by pressing and holding the house on the street.
+ * Grown-up box for the house number, the room names, the two players'
+ * names and codes, and the backup file. Opened by pressing and holding the
+ * house on the street.
  * What's typed is saved on this iPad only (never in the app's code, which is
  * public).
  */
@@ -28,7 +31,55 @@ export function setupHouseSettings(opts: {
   const codeOf = (p: PlayerId) => form.querySelector<HTMLInputElement>(`input[data-player-code="${p}"]`)!;
   const master = form.querySelector<HTMLInputElement>('input[data-master-code]')!;
 
+  // --- Backup: everything into one file, and putting a file back ---
+  const backupButton = form.querySelector<HTMLButtonElement>('[data-backup]')!;
+  const restoreInput = form.querySelector<HTMLInputElement>('[data-restore]')!;
+  const note = form.querySelector<HTMLElement>('[data-backup-note]')!;
+  let backup: File | null = null;
+  const say = (text: string) => {
+    note.textContent = text;
+    note.hidden = !text;
+  };
+  // Made ready when the box opens, so the tap on the button can share it straight away (iPads insist).
+  const prepareBackup = () => {
+    backup = null;
+    backupButton.disabled = true;
+    backupButton.textContent = 'Getting it ready...';
+    makeBackup()
+      .then((b) => {
+        backup = b.file;
+        backupButton.disabled = false;
+        backupButton.textContent = `Save a backup (${b.drawings} drawing${b.drawings === 1 ? '' : 's'})`;
+      })
+      .catch((err) => {
+        console.warn(err);
+        backupButton.textContent = 'Backup not available';
+      });
+  };
+  backupButton.addEventListener('click', () => {
+    if (backup) sendBackup(backup);
+  });
+  restoreInput.addEventListener('change', async () => {
+    const file = restoreInput.files?.[0];
+    restoreInput.value = '';
+    if (!file) return;
+    try {
+      const b = await readBackup(file);
+      const when = b.made.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+      if (!confirm(`Put back the backup from ${when} (${b.drawings} drawing${b.drawings === 1 ? '' : 's'})? Drawings, worlds and settings in it replace the ones here with the same name.`)) return;
+      await storage.restoreAll(b.all);
+      say('Backup put back. Opening it now...');
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      console.warn(err);
+      say('');
+      alert('Sorry, that file could not be put back. Choose a file saved with "Save a backup".');
+    }
+  });
+
   opts.open(() => {
+    say('');
+    prepareBackup();
     const s = opts.get();
     number.value = s.number ?? '';
     for (const r of rooms) r.value = s.rooms[r.dataset.room as RoomId] ?? '';
