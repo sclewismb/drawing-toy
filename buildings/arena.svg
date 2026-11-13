@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 280" width="360" height="280">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+
+    <!-- The hockey arena on the map: a big curved roof, glass doors, a crossed-sticks sign (no team name). -->
+    <path d="M14 272 L14 120 Q180 20 346 120 L346 272 Z" fill="#dee2e6" />
+    <path d="M14 120 Q180 20 346 120 L346 150 Q180 54 14 150 Z" fill="#4dabf7" />
+    <path d="M40 272 L40 180 L320 180 L320 272" fill="none" />
+    <rect x="40" y="186" width="280" height="22" fill="#e5383b" />
+    <rect x="130" y="214" width="100" height="58" fill="#bfe8ff" />
+    <path d="M180 214 L180 272" fill="none" stroke-width="4" />
+    <rect x="52" y="220" width="60" height="36" rx="6" fill="#bfe8ff" stroke-width="4" />
+    <rect x="248" y="220" width="60" height="36" rx="6" fill="#bfe8ff" stroke-width="4" />
+    <!-- the sign: two crossed sticks and a puck -->
+    <circle cx="180" cy="104" r="40" fill="#ffffff" />
+    <path d="M156 80 L196 134 L212 134 M204 80 L164 134 L148 134" fill="none" stroke-width="9" />
+    <path d="M156 80 L196 134 L212 134 M204 80 L164 134 L148 134" fill="none" stroke="#ff4fa3" stroke-width="4" />
+    <ellipse cx="180" cy="122" rx="14" ry="6" fill="#1f1f1f" stroke-width="3" />
+    <path d="M30 120 L30 96 M330 120 L330 96" fill="none" stroke-width="4" />
+    <path d="M30 98 L52 104 L30 110 Z M330 98 L352 104 L330 110 Z" fill="#ffd43b" stroke-width="3" />
+  </g>
+</svg>
