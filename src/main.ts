@@ -828,16 +828,16 @@ function wave(wand: Character) {
 
 /** Something was let go: is it on a secret spot, a hungry animal, or is it the wand? */
 function checkTargets(ch: Character): 'used' | 'kept' | null {
-  if (!current || ch.destroyed || ch.ref.kind !== 'sample') return null;
-  const name = ch.ref.name;
+  if (!current || ch.destroyed) return null;
+  const name = ch.ref.kind === 'sample' ? ch.ref.name : '';
   const box = roomBox(ch);
   for (const l of [...locks].reverse()) {
-    if (!l.accepts.includes(name)) continue;
+    if (!l.accepts.includes(name) && !l.accepts.includes('*')) continue;
     const a = l.area();
     if (!over(box, a)) continue;
     let keep: boolean | void = false;
     try {
-      keep = l.open(name);
+      keep = l.open(name, ch);
     } catch (err) {
       console.warn('Secret failed', err);
     }
@@ -845,6 +845,7 @@ function checkTargets(ch: Character): 'used' | 'kept' | null {
     gobble(ch, { x: a.x + a.w / 2, y: a.y + a.h / 2 });
     return 'used';
   }
+  if (ch.ref.kind !== 'sample') return null;
   if (feed(ch)) return 'used';
   if (wave(ch)) return 'kept';
   return null;

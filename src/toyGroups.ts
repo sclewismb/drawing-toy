@@ -24,7 +24,7 @@ put('treasure', ['golden-key', 'crown', 'magic-wand', 'medal', 'gem', 'gold-coin
 export const groupOf = (name: string): GroupId => GROUP[name] ?? 'toys';
 
 /** Animals only come into the toy box by being adopted at the vet (people, the monster and the robot stay). */
-const ADOPT_ONLY = new Set(['dog', 'kitten', 'bunny', 'duck', 'chicken', 'hedgehog', 'turtle', 'cat']);
+const ADOPT_ONLY = new Set(['dog', 'kitten', 'bunny', 'duck', 'chicken', 'hedgehog', 'turtle', 'cat', 'pig', 'piglet']);
 
 /** Each tab's picture. */
 const ICON: Record<Exclude<GroupId, 'here'>, string> = {

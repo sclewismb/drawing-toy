@@ -47,6 +47,7 @@ const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number
   // tiny, and tucked away down a side street near the bottom: a surprise to find
   workshop: { fx: 0.445, side: 'below', size: 0.42, base: 0.975 },
   arena: { fx: 1.8, side: 'above', size: 1.45 },
+  pigs: { fx: 1.885, side: 'below' },
 };
 /** The cross streets between the blocks (the first one goes up into the tunnel). */
 const CROSS = [0.18, 0.4, 0.62, 0.84, 1.06, 1.28, 1.5, 1.72];

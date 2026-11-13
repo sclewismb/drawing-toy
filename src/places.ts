@@ -4,6 +4,7 @@ import { backyardSky } from './backyard';
 import { fairSky } from './fair';
 import { zooSky } from './zoo';
 import { conservatorySky } from './conservatory';
+import { pigsSky } from './pigs';
 import { niagaraSky } from './destinations';
 import { CRITTERS } from './critters';
 import { TREASURES } from './secrets';
@@ -124,6 +125,7 @@ export const FLOOR: Record<PlaceId, number> = {
   conservatory: 0.74,
   workshop: 0.74,
   arena: 0.62,
+  pigs: 0.7,
 };
 
 /**
@@ -164,6 +166,11 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
     { name: 'grownup', x: -0.1, y: 0.84 },
   ],
   workshop: [{ name: 'grownup', x: 1.3, y: 0.86 }],
+  pigs: [
+    { name: 'pig', x: 0.3, y: 0.86 },
+    { name: 'piglet', x: 0.7, y: 0.9 },
+    { name: 'piglet', x: 1.0, y: 0.88 },
+  ],
   arena: [
     { name: 'kid-boy', x: 0.3, y: 0.86 },
     { name: 'kid-girl', x: 1.1, y: 0.86 },
@@ -190,7 +197,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
   ],
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | 'workshop' | 'arena' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | 'workshop' | 'arena' | 'pigs' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -217,6 +224,7 @@ export const STREET: {
   { id: 'conservatory', building: 'buildings/conservatory.svg' },
   { id: 'workshop', building: 'buildings/workshop.svg' },
   { id: 'arena', building: 'buildings/arena.svg' },
+  { id: 'pigs', building: 'buildings/pigs.svg' },
 ];
 
 export interface PlaceDef {
@@ -744,6 +752,15 @@ PLACES.push(
   },
   // the little teddy and squishy workshop, hidden down a side street (drawn in workshop.ts)
   { id: 'workshop', toys: ['teddy', 'balloon', 'birthday-cake', 'table', 'stool'], start: [], drawBackdrop: allDrawnElsewhere },
+  // a pig family's cottage, seen from its garden (drawn in pigs.ts)
+  {
+    id: 'pigs',
+    toys: ['watering-can', 'wheelbarrow', 'ball', 'flower', 'apple', 'carrot'],
+    start: [{ name: 'wheelbarrow', x: 0.2, y: 0.82 }],
+    outdoors: true,
+    sky: (w, h, season) => pigsSky(w, h, season),
+    drawBackdrop: allDrawnElsewhere,
+  },
   // the hockey arena (drawn in arena.ts): the ice is slippery
   {
     id: 'arena',

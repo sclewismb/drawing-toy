@@ -123,6 +123,10 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 /** Every sound takes a pitch multiplier: bigger characters sound lower. */
 export const sfx = {
+  /** Oink oink. */
+  oink(p = 1) {
+    for (let i = 0; i < 2; i++) tone({ type: 'sawtooth', from: 320 * p, to: 230 * p, dur: 0.12, vol: 0.14, delay: i * 0.17, filter: { type: 'lowpass', freq: 1300 } });
+  },
   /** A snake's hiss. */
   hiss() {
     hiss({ dur: 0.7, vol: 0.16, from: 4000, to: 5500, q: 1.5 });

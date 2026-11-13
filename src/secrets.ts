@@ -41,10 +41,11 @@ export const FOOD_FOR: Record<string, string[]> = {
 
 /** A spot that something can be dropped onto (in room coordinates). */
 export interface Lock {
+  /** The toys it takes ('*' = anyone at all, drawings and made toys too). */
   accepts: string[];
   area: () => { x: number; y: number; w: number; h: number };
-  /** It's been dropped on. Return true to keep the thing (otherwise it's used up). */
-  open: (name: string) => boolean | void;
+  /** It's been dropped on (`ch` is the character). Return true to keep the thing (otherwise it's used up). */
+  open: (name: string, ch?: unknown) => boolean | void;
 }
 
 export interface SecretsApi {
