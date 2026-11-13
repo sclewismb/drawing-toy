@@ -24,6 +24,10 @@ import {
   AGES,
   bodyOf,
   BOTTOMS,
+  BOTTOM_COLOURS,
+  BUILDS,
+  NECKS,
+  WRISTS,
   drawPerson,
   EYE_COLOURS,
   FACE_BITS,
@@ -260,15 +264,15 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   const drawToy = (c: Ctx, p = 1) => (mode === 'bear' ? drawBear(c, bear, p) : mode === 'squishy' ? drawSquishy(c, squishy) : drawPerson(c, person));
   const personWith = (patch: Partial<PersonRecipe>) => ({ ...person, ...patch });
   const headArea = (): Area => {
-    const b = bodyOf(person.age);
+    const b = bodyOf(person.age, person.build);
     return { x: 150 - b.headR * 1.7, y: b.headY - b.headR * 1.7, w: b.headR * 3.4, h: b.headR * 3.4 };
   };
   const bodyArea = (): Area => {
-    const b = bodyOf(person.age);
+    const b = bodyOf(person.age, person.build);
     return { x: 30, y: b.shoulder - 40, w: 240, h: b.hip - b.shoulder + 90 };
   };
   const legsArea = (): Area => {
-    const b = bodyOf(person.age);
+    const b = bodyOf(person.age, person.build);
     return { x: 30, y: b.hip - 30, w: 240, h: 640 - b.hip + 30 };
   };
   const personChoice = <K extends keyof PersonRecipe>(key: K, values: readonly PersonRecipe[K][], area: () => Area): Choice[] =>
@@ -280,7 +284,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
         changed();
       },
     }));
-  const personSwatches = (key: 'skin' | 'hairColour' | 'eyes' | 'topColour' | 'shoes', cols: string[]): Choice[] =>
+  const personSwatches = (key: 'skin' | 'hairColour' | 'eyes' | 'topColour' | 'shoes' | 'bottomColour', cols: string[]): Choice[] =>
     cols.map((col, i) => ({ swatch: col, on: person[key] === i, pick: () => ((person = personWith({ [key]: i })), changed()) }));
   const bearWith = (patch: Partial<BearRecipe>) => ({ ...bear, ...patch });
   const squishyWith = (patch: Partial<SquishyRecipe>) => ({ ...squishy, ...patch });
@@ -330,6 +334,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     ],
     person: [
       { id: 'age', icon: (c, s) => fit(c, s, AREA.person, (cc) => drawPerson(cc, person)), choices: () => personChoice('age', AGES, () => AREA.person) },
+      { id: 'build', icon: (c, s) => fit(c, s, AREA.person, (cc) => drawPerson(cc, personWith({ build: 'big' }))), choices: () => personChoice('build', BUILDS, () => AREA.person) },
       { id: 'skin', icon: (c, s) => palette(c, s, [SKINS[0], SKINS[2], SKINS[4]]), choices: () => personSwatches('skin', SKINS) },
       { id: 'hair', icon: (c, s) => fit(c, s, headArea(), (cc) => drawPerson(cc, person)), choices: () => personChoice('hair', HAIRS, headArea) },
       { id: 'hairColour', icon: (c, s) => palette(c, s, [HAIR_COLOURS[1], HAIR_COLOURS[4], HAIR_COLOURS[6]]), choices: () => personSwatches('hairColour', HAIR_COLOURS) },
@@ -339,7 +344,10 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       { id: 'top', icon: (c, s) => fit(c, s, bodyArea(), (cc) => drawPerson(cc, person)), choices: () => personChoice('top', TOPS, bodyArea) },
       { id: 'topColour', icon: (c, s) => palette(c, s, [TOP_COLOURS[0], TOP_COLOURS[6], TOP_COLOURS[9]]), choices: () => personSwatches('topColour', TOP_COLOURS) },
       { id: 'bottoms', icon: (c, s) => fit(c, s, legsArea(), (cc) => drawPerson(cc, person)), choices: () => personChoice('bottoms', BOTTOMS, legsArea) },
+      { id: 'bottomColour', icon: (c, s) => palette(c, s, [BOTTOM_COLOURS[0], BOTTOM_COLOURS[4], BOTTOM_COLOURS[5]]), choices: () => personSwatches('bottomColour', BOTTOM_COLOURS) },
       { id: 'shoes', icon: (c, s) => palette(c, s, [SHOES[0], SHOES[2], SHOES[4]]), choices: () => personSwatches('shoes', SHOES) },
+      { id: 'neck', icon: (c, s) => fit(c, s, bodyArea(), (cc) => drawPerson(cc, personWith({ neck: 'pearls', top: 'dress' }))), choices: () => personChoice('neck', NECKS, bodyArea) },
+      { id: 'wrist', icon: (c, s) => fit(c, s, bodyArea(), (cc) => drawPerson(cc, personWith({ wrist: 'watch' }))), choices: () => personChoice('wrist', WRISTS, bodyArea) },
       { id: 'extra', icon: (c, s) => fit(c, s, AREA.person, (cc) => drawPerson(cc, personWith({ extra: 'balloon' }))), choices: () => personChoice('extra', PERSON_EXTRAS, () => AREA.person) },
       { id: 'name', icon: pencil, choices: () => [] },
     ],

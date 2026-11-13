@@ -130,6 +130,7 @@ const PEOPLE: Record<PersonRecipe['age'], CritterKind> = {
   grown: { url: '', size: 0.95, gait: 'walk', speed: 0.06, trick: 'wave', voice: () => sfx.yippee(0.85) },
   big: { url: '', size: 0.85, gait: 'walk', speed: 0.08, trick: 'jump', voice: () => sfx.giggle(1.2) },
   little: { url: '', size: 0.75, gait: 'walk', speed: 0.08, trick: 'jump', voice: () => sfx.giggle(1.4) },
+  older: { url: '', size: 0.95, gait: 'walk', speed: 0.045, trick: 'wave', voice: () => sfx.yippee(0.75) },
 };
 
 /** An adopted pet's kind (and name), if this character is one. */
