@@ -342,7 +342,8 @@ export class StreetView extends Container {
     for (let fx = 0.03; fx < MAP_LENGTH; fx += 0.06) {
       if (CROSS.some((c) => Math.abs(c - fx) < 0.035)) continue;
       const x = B * fx, y = roadY(x) + roadW / 2 + 9;
-      g.rect(x - 2.5, y - 46, 5, 46).fill(0x495057);
+      g.rect(x - 2.5, y - 46, 5, 46).fill(winter ? 0xffffff : 0x495057);
+      if (winter) for (let sy = y - 44; sy < y; sy += 10) g.poly([x - 2.5, sy + 4, x + 2.5, sy, x + 2.5, sy + 4, x - 2.5, sy + 8]).fill(0xe5383b); // candy canes
       g.moveTo(x, y - 46).quadraticCurveTo(x, y - 54, x + 9, y - 52).stroke({ width: 3, color: 0x495057 });
       g.circle(x + 10, y - 49, 5).fill(0xfff3b0).stroke({ width: 2, color: INK });
     }
@@ -386,9 +387,11 @@ export class StreetView extends Container {
     g.rect(pond.x + pond.rx * 0.45, pond.y - pond.ry * 0.9, pond.rx * 0.45, 10).fill(0xa47e4b).stroke({ width: 2, color: INK });
 
     // --- the town square with its fountain, and the bus stop ---
+    let square = { x0: 0, y0: 0, x1: 0, y1: 0 };
     const gap = roadW / 2 + 14 + h * 0.02;
     {
       const x = B * 1.43, half = B * 0.055, top = span(x - half, x + half).hi + gap, bottom = Math.min(h * 0.97, top + h * 0.32);
+      square = { x0: x - half, y0: top, x1: x + half, y1: bottom };
       g.roundRect(x - half, top, half * 2, bottom - top, 18).fill(pave).stroke({ width: 3, color: 0xbdb5a6 });
       for (let k = 1; k < 6; k++) g.moveTo(x - half + (half * 2 * k) / 6, top + 6).lineTo(x - half + (half * 2 * k) / 6, bottom - 6);
       g.stroke({ width: 1.5, color: 0xd6cdb8 });
@@ -494,7 +497,7 @@ export class StreetView extends Container {
 
     this.placeNumber();
     this.updateClock();
-    this.geom = { w: M, h, road, roadW, buildings: placed, sun, clouds, tunnel, branch, pond, trees, ground: h * 0.72 };
+    this.geom = { w: M, h, road, roadW, buildings: placed, sun, clouds, tunnel, branch, pond, trees, ground: h * 0.72, square };
     this.camera.set(keep * M);
   }
 

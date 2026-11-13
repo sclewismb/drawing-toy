@@ -331,8 +331,27 @@ export const sfx = {
     } else if (s === 'autumn') {
       hiss({ dur: 0.7, vol: 0.2, from: 400, to: 1200, q: 0.7 });
     } else {
-      for (let i = 0; i < 6; i++) tone({ type: 'triangle', from: rand(2200, 2800), dur: 0.12, vol: 0.06, delay: i * 0.07 });
+      // Christmas: a little bit of Jingle Bells, with sleigh bells
+      sfx.jingle();
+      sfx.sleighBells();
     }
+  },
+  /** The start of Jingle Bells (an old song, free for anyone to play). */
+  jingle() {
+    const E = 659, G = 784, C = 523, D = 587;
+    const notes: [number, number][] = [[E, 1], [E, 1], [E, 2], [E, 1], [E, 1], [E, 2], [E, 1], [G, 1], [C, 1.5], [D, 0.5], [E, 3]];
+    let t = 0;
+    for (const [f, len] of notes) {
+      tone({ type: 'triangle', from: f, dur: 0.16 * len, vol: 0.14, delay: t });
+      t += 0.17 * len;
+    }
+  },
+  sleighBells() {
+    for (let i = 0; i < 10; i++) tone({ type: 'triangle', from: rand(2300, 3000), dur: 0.1, vol: 0.05, delay: i * 0.09 });
+  },
+  /** Ho ho ho! */
+  hoHo() {
+    for (let i = 0; i < 3; i++) tone({ type: 'triangle', from: 180, to: 140, dur: 0.22, vol: 0.25, delay: i * 0.28, filter: { type: 'lowpass', freq: 900 } });
   },
   /** Back out to the street. */
   zoomOut() {

@@ -1,5 +1,6 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import { burst } from '../fx';
+import { christmasStreet } from './christmas';
 import { PALETTE, type Season } from '../seasons';
 import { swayAt } from '../sky';
 import { sfx } from '../sound';
@@ -39,6 +40,7 @@ export interface StreetGeom {
   tunnel: { x: number; y: number; r: number };
   pond: { x: number; y: number; rx: number; ry: number };
   trees: { x: number; y: number; r: number }[]; // the big trees at the front
+  square?: { x0: number; y0: number; x1: number; y1: number }; // the town square
   ground: number; // roughly where the town is (for rain to land)
 }
 
@@ -231,6 +233,9 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
       tween(600, (t) => (bush.skew.x = Math.sin(t * Math.PI * 6) * 0.12 * (1 - t)), done);
     }), new Rectangle(-r * 1.6, -r * 2, r * 3.2, r * 2.1));
   }
+
+  // --- Christmas (the winter season): lights, a big tree, Santa, snowmen ---
+  if (kit.season === 'winter') christmasStreet(kit, geom, cleanups);
 
   // --- a cat sunning itself on the hill by the school ---
   const school = buildings.school;

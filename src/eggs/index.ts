@@ -5,6 +5,7 @@ import { bedroomA, bedroomB } from './bedrooms';
 import { conservatory } from './conservatory';
 import { workshop } from './workshop';
 import { adoption } from './adoption';
+import { christmasIndoors } from './christmas';
 import { fair } from './fair';
 import { restaurant, toyshop, vet } from './shops';
 import { zoo } from './zoo';
@@ -41,6 +42,9 @@ const PLACE_EGGS: Record<PlaceId, (kit: EggKit, cleanups: Cleanups) => void> = {
   workshop,
 };
 
+/** Places with a ceiling (they get a garland of lights at Christmas). */
+const INDOORS = new Set(['bedroom-a', 'bedroom-b', 'lounge', 'kitchen', 'fire', 'police', 'school', 'vet', 'restaurant', 'toyshop', 'ninja', 'workshop']);
+
 const run = (build: (cleanups: Cleanups) => void) => {
   const cleanups: Cleanups = [];
   build(cleanups);
@@ -54,6 +58,7 @@ export function createEggs(id: PlaceId, kit: EggKit): () => void {
     WIDE_EGGS[id]?.(kit, c); // the new parts either side of the wide rooms
     SECRET_EGGS[id]?.(kit, c); // deeper secrets, on top of everything else
     if (id === 'vet') adoption(kit, c); // the pets waiting to be adopted
+    if (kit.season === 'winter' && INDOORS.has(id)) christmasIndoors(kit, c, id); // Christmas decorations
   });
 }
 
