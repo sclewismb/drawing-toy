@@ -428,15 +428,51 @@ physics.onLand = (ch, speed, bounced, on) => {
 };
 /** On the ice rink, things thrown along the ice keep gliding. */
 const iceGlide = new WeakMap<Character, number>();
+const glides = new WeakMap<Character, () => void>();
 function glide(ch: Character, vx: number) {
+  glides.get(ch)?.(); // hit again while still gliding: off it goes the new way
   const { x0, x1 } = roomEdges(current!, panel);
   const from = ch.x, to = Math.max(x0 + 40, Math.min(x1 - 40, from + vx * 800));
   sfx.whoosh();
-  tween(1300, (t) => {
+  const stop = tween(1300, (t) => {
     if (!ch.destroyed) ch.x = from + (to - from) * ease.outCubic(t);
   }, () => {
+    glides.delete(ch);
     if (!ch.destroyed && checkTargets(ch) !== 'used') saveSoon(); // into a net? goal!
   });
+  glides.set(ch, stop);
+}
+
+// --- Hockey: swing the stick into the puck (or a ball) and it shoots off ---
+const stickMoves = new WeakMap<Character, { x: number; y: number; t: number; vx: number; vy: number }>();
+const lastHit = new WeakMap<Character, number>();
+function swingStick(stick: Character, sx: number, sy: number) {
+  const now = performance.now();
+  const p = toRoom(sx, sy);
+  const prev = stickMoves.get(stick);
+  let vx = 0, vy = 0;
+  if (prev && now - prev.t > 4) {
+    vx = prev.vx * 0.4 + ((p.x - prev.x) / (now - prev.t)) * 0.6;
+    vy = prev.vy * 0.4 + ((p.y - prev.y) / (now - prev.t)) * 0.6;
+  }
+  stickMoves.set(stick, { x: p.x, y: p.y, t: now, vx, vy });
+  if (Math.hypot(vx, vy) < 0.2) return; // only a real swing hits
+  const b = roomBox(stick);
+  const blade = { x: b.x, y: b.y + b.h * 0.65, w: b.w, h: b.h * 0.35 }; // the bottom of the stick
+  for (const o of characters.children as Character[]) {
+    if (o === stick || o.destroyed || o.ref.kind !== 'sample' || (o.ref.name !== 'puck' && o.ref.name !== 'ball')) continue;
+    if (now - (lastHit.get(o) ?? 0) < 350 || gestures.isHeld(o)) continue;
+    if (!over(roomBox(o), blade, 0.7)) continue;
+    lastHit.set(o, now);
+    sfx.clack();
+    o.react('squish');
+    const hx = Math.sign(vx || 1) * Math.max(0.7, Math.min(2.2, Math.abs(vx) * 1.5));
+    if (current === 'arena') glide(o, hx); // along the ice (into a net, with luck)
+    else {
+      thrownFrom.set(o, o.x); // a ball the dog might fetch
+      letGo(o, hx, Math.min(-0.4, vy * 1.2)); // up it pops
+    }
+  }
 }
 
 physics.onSettle = (ch, on, spun) => {
@@ -1238,7 +1274,10 @@ gestures.onDragStart = (ch) => {
   sfx.pickup(voice(ch));
   gallery.hint(true);
 };
-gestures.onDragMove = (_ch, x, y) => gallery.highlight(gallery.isOver(x, y));
+gestures.onDragMove = (ch, x, y) => {
+  gallery.highlight(gallery.isOver(x, y));
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'hockey-stick') swingStick(ch, x, y);
+};
 gestures.onGrab = (ch) => {
   follow = null;
   physics.stop(ch); // caught in mid-air
