@@ -1,9 +1,30 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
-import { falls, NINJA } from '../destinations';
+import { frontLeaves } from '../depth';
+import { falls, NIAGARA, NINJA } from '../destinations';
 import { burst } from '../fx';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
-import { cloudRain, drawBird, everyFrame, hotspot, INK, later, oneAtATime, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
+import { cloudRain, drawBird, everyFrame, frontPiece, hotspot, INK, later, oneAtATime, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
+
+/** Leafy bushes at the very front, at both ends of the path (they rustle when tapped). */
+function frontBushes(kit: EggKit, cleanups: Cleanups, xs: [number, number, number][]) {
+  const colors: [number, number] = kit.season === 'winter' ? [0x6a9a7f, 0x84a98c] : kit.season === 'autumn' ? [0xbc6c25, 0xdda15e] : [0x2d6a4f, 0x40916c];
+  for (const [x, size, lean] of xs) {
+    const s = kit.h * size;
+    frontPiece(kit, cleanups, x, kit.h + 8, (g) => frontLeaves(g, 0, 0, s, colors, lean), new Rectangle(-s * 0.45, -s * 0.85, s * 0.9, s * 0.85));
+  }
+}
+
+/** Big soft foam blocks at the front of the gym (boing!). */
+function foamBlocks(kit: EggKit, cleanups: Cleanups, x: number, flip: number) {
+  const S = kit.h / 768;
+  frontPiece(kit, cleanups, x, kit.h + 6, (g) => {
+    g.scale.set(S * flip, S);
+    g.roundRect(-70, -90, 120, 90, 14).fill(0xe5383b).stroke({ width: 4, color: INK });
+    g.roundRect(-40, -170, 100, 80, 14).fill(0xffb703).stroke({ width: 4, color: INK });
+    g.roundRect(-60, -230, 70, 60, 12).fill(0x7bd36b).stroke({ width: 4, color: INK });
+  }, new Rectangle(-80 * S, -235 * S, 160 * S, 235 * S), () => sfx.boing(0.9));
+}
 
 const COLOURS = [0xe5383b, 0xffd166, 0x4ea8ff, 0x7bd36b, 0xb07de8, 0xff8fb1];
 /** Remainder that's never negative (for things that go round and round). */
@@ -14,6 +35,7 @@ const wrap = (v: number, n: number) => ((v % n) + n) % n;
 // ---------------------------------------------------------------------------
 export function niagara(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
+  frontBushes(kit, cleanups, [[-NIAGARA.left * w + 0.01 * w, 0.32, 0.6], [-NIAGARA.left * w + 0.07 * w, 0.18, 0.85], [(1 + NIAGARA.right) * w - 0.01 * w, 0.32, -0.6], [0.5 * w, 0.12, 0]]);
   const winter = kit.season === 'winter';
   const f = falls(w, h);
   let time = 0;
@@ -210,6 +232,8 @@ function drawNinjaKid(g: Graphics, suit = 0x1f1f1f) {
 export function ninjaGym(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const fy = h * NINJA.floor;
+  foamBlocks(kit, cleanups, -NINJA.left * w + 0.06 * w, 1);
+  foamBlocks(kit, cleanups, (1 + NINJA.right) * w - 0.06 * w, -1);
 
   // --- monkey bars: a little ninja swings across ---
   const mb0 = 0.08 * w, mb1 = 0.52 * w, top = h * 0.22;

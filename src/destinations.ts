@@ -1,4 +1,5 @@
 import type { Graphics } from 'pixi.js';
+import { ceilingLight, doorway, haze, ridge, roomShade, softShadow, treeLine } from './depth';
 import { stall } from './fair';
 import { INK } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
@@ -30,6 +31,23 @@ export function niagaraSky(w: number, h: number, season: Season): SkyDef {
   };
 }
 
+/** Far away beyond the falls: hazy hills, woods and a far-off lookout tower (it slides slower). */
+export function drawNiagaraFar(g: Graphics, w: number, h: number, season: Season) {
+  const pal = PALETTE[season];
+  const x0 = -NIAGARA.left * w, x1 = (1 + NIAGARA.right) * w;
+  const winter = season === 'winter';
+  ridge(g, x0, x1, h * 0.04, h * 0.12, h * 0.3, haze(pal.hillBack, pal.sky, 0.6), 21, 0.45 * w);
+  // a far-off tower with a round top
+  for (const tx of [-0.2 * w, 1.25 * w]) {
+    const c = haze(0x8d99ae, pal.sky, 0.55);
+    g.rect(tx - 5, h * 0.02, 10, h * 0.12).fill(c);
+    g.ellipse(tx, h * 0.03, 22, 9).fill(c);
+    g.moveTo(tx, h * 0.02).lineTo(tx, -h * 0.01).stroke({ width: 2, color: c });
+  }
+  ridge(g, x0, x1, h * 0.1, h * 0.15, h * 0.3, haze(pal.hillBack, pal.sky, 0.35), 22, 0.35 * w);
+  treeLine(g, x0, x1, h * 0.185, h * 0.025, haze(winter ? 0x6a9a7f : 0x40916c, pal.sky, 0.4), 23);
+}
+
 export function drawNiagara(g: Graphics, w: number, h: number, season: Season) {
   const pal = PALETTE[season];
   const winter = season === 'winter';
@@ -57,6 +75,12 @@ export function drawNiagara(g: Graphics, w: number, h: number, season: Season) {
   for (let x = x0 + 20; x < x1; x += 60) g.moveTo(x, h * 0.68).quadraticCurveTo(x + 15, h * 0.665, x + 30, h * 0.68);
   for (let x = x0 + 50; x < x1; x += 60) g.moveTo(x, h * 0.72).quadraticCurveTo(x + 15, h * 0.705, x + 30, h * 0.72);
   g.stroke({ width: 3, color: 0xffffff, alpha: 0.7 });
+  // spray and mist where the falls crash into the river
+  for (let i = 0; i < 9; i++) {
+    const mx = f.x0 + ((f.x1 - f.x0) * (i + 0.5)) / 9;
+    g.ellipse(mx, f.bottom + 4, 0.06 * w, h * 0.04).fill({ color: 0xffffff, alpha: 0.28 });
+  }
+  g.ellipse(-0.51 * w, h * 0.6, 0.13 * w, h * 0.035).fill({ color: 0xffffff, alpha: 0.28 });
   // the riverside path and its railing
   g.rect(x0, h * 0.77, x1 - x0, h * 0.23).fill(winter ? 0xf1f5f9 : 0xd6ccc2);
   for (let x = x0; x < x1; x += 90) g.moveTo(x, h * 0.77).lineTo(x - 30, h);
@@ -87,7 +111,10 @@ export function drawNiagara(g: Graphics, w: number, h: number, season: Season) {
     g.circle(lx * w, deck - 54, 8).fill(0xfff3b0).stroke({ width: 2, color: INK });
   }
   // a little stall selling rain ponchos (the falls are splashy!)
+  softShadow(g, 1.57 * w, h * 0.925, 0.1 * w, h * 0.025);
   stall(g, 1.5 * w, h * 0.92, 0.14 * w, h * 0.26, 0x4ea8ff);
+  // the path a little darker right at the front
+  for (let i = 1; i <= 4; i++) g.rect(x0, h - i * h * 0.025, x1 - x0, i * h * 0.025).fill({ color: 0x000000, alpha: 0.014 });
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +132,11 @@ export function drawNinja(g: Graphics, w: number, h: number) {
   g.moveTo(x0, fy + (h - fy) * 0.5).lineTo(x1, fy + (h - fy) * 0.5);
   g.stroke({ width: 3, color: 0x2f80c8 });
   g.rect(x0, fy - 6, x1 - x0, 12).fill(0xffb703).stroke({ width: 3, color: INK });
+  roomShade(g, x0, x1, h, fy);
+  for (const lx of [0.3, 0.95, 1.5]) ceilingLight(g, lx * w, h, INK, 0xffffff);
+  // through a doorway: the next hall
+  doorway(g, -0.235 * w, h * 0.3, 0.19 * w, fy, 0x1d3557, 0x4ea8ff);
+  for (const [cx, rx] of [[0.08, 0.025], [0.52, 0.025], [0.79, 0.14], [1.47, 0.12], [1.655, 0.045]]) softShadow(g, cx * w, fy + 8, rx * w, h * 0.03);
   // a big star on the wall, like a ninja throwing star (but friendly)
   g.star(0.33 * w, h * 0.42, 4, 46, 16).fill(0xffb703).stroke({ width: 4, color: INK });
   g.circle(0.33 * w, h * 0.42, 9).fill(0x1d3557);

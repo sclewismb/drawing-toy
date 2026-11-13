@@ -10,7 +10,7 @@ import { drawWorkshop, WORKSHOP } from './workshop';
 import { drawAdoption } from './adoption';
 import { ARENA, drawArena } from './arena';
 import { drawPigCottage, PIGS } from './pigs';
-import { drawNiagara, drawNinja, NIAGARA, NINJA } from './destinations';
+import { drawNiagara, drawNiagaraFar, drawNinja, NIAGARA, NINJA } from './destinations';
 import type { Season } from './seasons';
 
 /**
@@ -56,7 +56,7 @@ export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
   toyshop: { ...SHOP_WIDE.toyshop, draw: drawToyshop },
   zoo: { left: ZOO.left, right: ZOO.right, draw: drawZoo, far: drawZooFar, farSpeed: 0.55, skySpeed: 0.3 },
   ninja: { left: NINJA.left, right: NINJA.right, draw: drawNinja },
-  niagara: { left: NIAGARA.left, right: NIAGARA.right, draw: drawNiagara },
+  niagara: { left: NIAGARA.left, right: NIAGARA.right, draw: drawNiagara, far: drawNiagaraFar, farSpeed: 0.5, skySpeed: 0.25 },
   conservatory: { left: CONSERVATORY.left, right: CONSERVATORY.right, draw: drawConservatory },
   workshop: { left: WORKSHOP.left, right: WORKSHOP.right, draw: drawWorkshop },
   arena: { left: ARENA.left, right: ARENA.right, draw: drawArena },
