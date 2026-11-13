@@ -405,6 +405,11 @@ export const sfx = {
   clipClop(n = 6) {
     for (let i = 0; i < n; i++) tone({ type: 'triangle', from: i % 2 ? 700 : 560, to: 300, dur: 0.06, vol: 0.14, delay: i * 0.15 });
   },
+  /** Ice breaking: a little tinkle. */
+  tinkle() {
+    for (let i = 0; i < 5; i++) tone({ type: 'triangle', from: rand(2600, 4200), to: rand(2000, 3000), dur: 0.12, vol: 0.06, delay: i * 0.05 });
+    hiss({ dur: 0.1, vol: 0.08, from: 6000, to: 4000, q: 2 });
+  },
   /** Back out to the street. */
   zoomOut() {
     hiss({ dur: 0.3, vol: 0.18, from: 2200, to: 500, q: 1.2 });

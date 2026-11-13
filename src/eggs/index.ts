@@ -7,8 +7,9 @@ import { workshop } from './workshop';
 import { adoption } from './adoption';
 import { arena } from './arena';
 import { pigs } from './pigs';
-import { christmasIndoors } from './christmas';
+import { christmasFair, christmasIndoors, christmasNiagara } from './christmas';
 import { fair } from './fair';
+import { FAIR } from '../fair';
 import { restaurant, toyshop, vet } from './shops';
 import { zoo } from './zoo';
 import { niagara, ninjaGym } from './destinations';
@@ -63,6 +64,9 @@ export function createEggs(id: PlaceId, kit: EggKit): () => void {
     SECRET_EGGS[id]?.(kit, c); // deeper secrets, on top of everything else
     if (id === 'vet') adoption(kit, c); // the pets waiting to be adopted
     if (kit.season === 'winter' && INDOORS.has(id)) christmasIndoors(kit, c, id); // Christmas decorations
+    if (kit.season === 'winter' && id === 'niagara') christmasNiagara(kit, c); // icicles
+    if (kit.season === 'winter' && id === 'fair') christmasFair(kit, c, FAIR.ground); // a Christmas market's lights
+    // (the zoo animals' Santa hats are put on in zoo.ts)
   });
 }
 

@@ -14,7 +14,7 @@ import type { StreetGeom } from './views';
  */
 const BULBS = [0xe5383b, 0x2fb36b, 0xffd43b, 0x4dabf7, 0xff8fab];
 
-/** A string of twinkling fairy lights through these points. */
+/** A string of twinkling fairy lights through these points. `dance(ms)` makes them chase quickly for a while. */
 function fairyLights(kit: EggKit, points: { x: number; y: number }[][], cleanups: Cleanups) {
   const wire = new Graphics();
   wire.eventMode = 'none';
@@ -27,23 +27,26 @@ function fairyLights(kit: EggKit, points: { x: number; y: number }[][], cleanups
   }
   wire.stroke({ width: 2, color: 0x2b2d42 });
   const all = points.flat();
-  let t = 0, phase = 0;
+  let t = 0, phase = 0, dancing = 0;
   const draw = () => {
     bulbs.clear();
     all.forEach((p, i) => {
       const on = (i + phase) % 3 !== 0;
-      bulbs.circle(p.x, p.y + 4, 4).fill({ color: BULBS[i % BULBS.length], alpha: on ? 1 : 0.35 });
+      const color = dancing > 0 ? BULBS[(i + phase) % BULBS.length] : BULBS[i % BULBS.length];
+      bulbs.circle(p.x, p.y + 4, dancing > 0 && on ? 5.5 : 4).fill({ color, alpha: on ? 1 : 0.35 });
     });
   };
   draw();
   everyFrame((dt) => {
     t += dt;
-    if (t > 380) {
+    dancing = Math.max(0, dancing - dt);
+    if (t > (dancing > 0 ? 90 : 380)) {
       t = 0;
       phase = (phase + 1) % 3;
       draw();
     }
   }, cleanups);
+  return { dance: (ms: number) => (dancing = ms) };
 }
 
 /** A Christmas tree drawn into g, standing at (x, y), `ht` tall. Returns where its star is. */
@@ -288,4 +291,140 @@ export function christmasIndoors(kit: EggKit, cleanups: Cleanups, id: string) {
       }, cleanups);
     }, new Rectangle(-s - 8, -s * 1.4 - 26, s * 2 + 16, s * 1.4 + 30));
   });
+}
+
+// ---------------------------------------------------------------------------
+// The zoo, Niagara and the fair at Christmas
+// ---------------------------------------------------------------------------
+
+/** A little Santa hat sitting on (0, 0), `w` wide (the zoo animals wear them). */
+export function santaHat(x: number, y: number, w: number, tilt = 0.25) {
+  const g = new Graphics();
+  g.moveTo(-w / 2, 0).quadraticCurveTo(-w * 0.15, -w * 0.95, w * 0.6, -w * 0.72).quadraticCurveTo(w * 0.12, -w * 0.45, w / 2, 0).closePath().fill(0xe5383b).stroke({ width: 2.5, color: INK });
+  g.roundRect(-w * 0.6, -w * 0.13, w * 1.2, w * 0.28, w * 0.13).fill(0xffffff).stroke({ width: 2.5, color: INK });
+  g.circle(w * 0.62, -w * 0.72, w * 0.15).fill(0xffffff).stroke({ width: 2.5, color: INK });
+  g.position.set(x, y);
+  g.rotation = tilt;
+  return g;
+}
+
+/**
+ * Icicles hanging along an edge (y), in little clusters. Tap a cluster: one
+ * breaks off and falls (it shatters on the ground, or plops into the water),
+ * then slowly grows back.
+ */
+function icicles(kit: EggKit, cleanups: Cleanups, x0: number, x1: number, y: number, size: number, landAt: number, water: boolean) {
+  const step = size * 7;
+  for (let cx = x0 + step / 2; cx < x1 - size * 2; cx += step) {
+    const c = new Container();
+    c.position.set(cx, y);
+    const sticks: Graphics[] = [];
+    let longest = 0;
+    for (let i = 0; i < 5; i++) {
+      const len = size * rand(1.4, 3.6);
+      longest = Math.max(longest, len);
+      const g = new Graphics();
+      g.poly([-size * 0.45, 0, size * 0.45, 0, 0, len]).fill({ color: 0xe3f4ff, alpha: 0.95 }).stroke({ width: 1.5, color: 0x8ecae6 });
+      g.moveTo(-size * 0.15, 2).lineTo(-size * 0.02, len * 0.7).stroke({ width: 1.5, color: 0xffffff });
+      g.position.set((i - 2) * size * 1.2, 0);
+      c.addChild(g);
+      sticks.push(g);
+    }
+    kit.under.addChild(c);
+    tappable(c, () => {
+      const stick = sticks.find((s) => s.visible && s.scale.y > 0.95);
+      if (!stick) return void sfx.pling();
+      const from = c.toGlobal(stick.position);
+      const p = kit.over.toLocal(from);
+      stick.visible = false;
+      const bit = new Graphics();
+      bit.poly([-size * 0.45, 0, size * 0.45, 0, 0, size * 3]).fill(0xe3f4ff).stroke({ width: 1.5, color: 0x8ecae6 });
+      bit.position.set(p.x, p.y);
+      kit.over.addChild(bit);
+      const fall = landAt - p.y;
+      const spin = rand(-1.5, 1.5);
+      tween(Math.max(250, Math.sqrt(Math.max(1, fall)) * 28), (t) => {
+        bit.y = p.y + fall * t * t;
+        bit.rotation = spin * t;
+      }, () => {
+        bit.destroy();
+        if (water) {
+          sfx.blub();
+          const ring = new Graphics();
+          kit.over.addChild(ring);
+          tween(600, (t) => ring.clear().ellipse(p.x, landAt, 6 + t * 30, 2 + t * 8).stroke({ width: 2, color: 0xffffff, alpha: 1 - t }), () => ring.destroy());
+        } else {
+          sfx.tinkle();
+          for (let i = 0; i < 6; i++) tumble(kit, new Graphics().poly([0, -4, 3, 0, 0, 4, -3, 0]).fill(0xe3f4ff), p.x, landAt - 4, landAt, { vx: rand(-0.2, 0.2), vy: rand(-0.35, -0.15) });
+        }
+      });
+      // it grows back
+      later(2500, () => {
+        if (stick.destroyed) return;
+        stick.visible = true;
+        stick.scale.y = 0.05;
+        tween(1500, (t) => (stick.scale.y = 0.05 + 0.95 * t));
+      }, cleanups);
+    }, new Rectangle(-size * 3.5, -6, size * 7, longest + 10));
+  }
+}
+
+/** Niagara in winter: icicles along the railing, the cliff tops and the bridge (positions as in destinations.ts). */
+export function christmasNiagara(kit: EggKit, cleanups: Cleanups) {
+  const { w, h } = kit;
+  const { x: x0, w: span } = roomSpan(kit);
+  const x1 = x0 + span;
+  const s = h / 120;
+  // the cliff tops either side of the falls (not over the falls themselves, nor the little falls)
+  icicles(kit, cleanups, x0, -0.64 * w, h * 0.235, s, h * 0.62, true);
+  icicles(kit, cleanups, -0.38 * w, 0.14 * w, h * 0.235, s, h * 0.62, true);
+  icicles(kit, cleanups, 0.86 * w, x1, h * 0.235, s, h * 0.62, true);
+  // the bridge deck, over the river
+  icicles(kit, cleanups, 1.04 * w, 1.76 * w, h * 0.36 + 6, s * 0.9, h * 0.62, true);
+  // the railing along the path
+  icicles(kit, cleanups, x0, x1, h * 0.72 + 8, s * 0.7, h * 0.8, false);
+}
+
+/** The fair in winter: a Christmas market, with strings of lights everywhere. Tap a string and they all dance. */
+export function christmasFair(kit: EggKit, cleanups: Cleanups, ground: number) {
+  const { w, h } = kit;
+  const { x: x0, w: span } = roomSpan(kit);
+  const x1 = x0 + span;
+  const gy = h * ground;
+  const lines: { x: number; y: number }[][] = [];
+  const along = (ax: number, ay: number, bx: number, by: number, sag: number) => {
+    const n = Math.max(6, Math.round(Math.hypot(bx - ax, by - ay) / 22));
+    const line: { x: number; y: number }[] = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      line.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t + Math.sin(t * Math.PI) * sag });
+    }
+    lines.push(line);
+  };
+  // between the bunting poles (as in fair.ts), below the flags
+  const poles: number[] = [];
+  for (let x = x0 + w * 0.05; x < x1; x += w * 0.42) poles.push(x);
+  for (let i = 0; i < poles.length - 1; i++) along(poles[i], h * 0.24, poles[i + 1], h * 0.24, h * 0.09);
+  // along the stalls' awnings, the ticket booth's roof, the carousel's roof and the big top
+  along(-0.33 * w - 10, gy - h * 0.32, -0.18 * w + 10, gy - h * 0.32, 0);
+  along(1.47 * w - 10, gy - h * 0.34, 1.64 * w + 10, gy - h * 0.34, 0);
+  along(-0.47 * w - 64, gy - h * 0.26, -0.47 * w, gy - h * 0.36, 0);
+  along(-0.47 * w, gy - h * 0.36, -0.47 * w + 64, gy - h * 0.26, 0);
+  const cx = 1.22 * w, cw = 0.32 * w;
+  along(cx - cw / 2 - 14, h * 0.32 + h * 0.035, cx + cw / 2 + 14, h * 0.32 + h * 0.035, 0);
+  const tx = 1.74 * w, tw = 0.2 * w;
+  along(tx, gy - h * 0.36, tx - tw * 0.4, gy - h * 0.2, 0);
+  along(tx, gy - h * 0.36, tx + tw * 0.4, gy - h * 0.2, 0);
+  const lights = fairyLights(kit, lines, cleanups);
+  for (let i = 0; i < poles.length - 1; i++) {
+    const a = poles[i], b = poles[i + 1];
+    const spot = new Container();
+    kit.under.addChild(spot);
+    tappable(spot, oneAtATime((done) => {
+      sfx.jingle();
+      sfx.sleighBells();
+      lights.dance(2400);
+      later(2400, done, cleanups);
+    }), new Rectangle(a + 20, h * 0.2, b - a - 40, h * 0.15));
+  }
 }

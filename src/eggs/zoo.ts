@@ -5,12 +5,14 @@ import { PALETTE } from '../seasons';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
 import { drawZooFences, face, tunnelHill, ZOO, zooLayout, type Face } from '../zoo';
+import { santaHat } from './christmas';
 import { cloudRain, everyFrame, INK, later, oneAtATime, rand, spray, tappable, tumble, type Cleanups, type EggKit } from './common';
 
 /**
  * The zoo's animals: they move about a little, and do something when tapped
  * (a different thing each time). Also the little train far away, the snack
- * kiosk, the picture signposts and the leafy plants at the front.
+ * kiosk, the picture signposts and the leafy plants at the front. At
+ * Christmas (winter) every animal wears a little Santa hat.
  * Layout: zooLayout() in zoo.ts. Feeding them: eggs/secrets.ts.
  */
 export function zoo(kit: EggKit, cleanups: Cleanups) {
@@ -296,6 +298,7 @@ function zebras({ kit, cleanups, S, L, clock }: Ctx) {
     hg.circle(26, -44, 3).fill(INK);
     hg.poly([14, -48, 16, -62, 22, -50]).poly([20, -50, 26, -62, 28, -48]).fill(0xffffff).stroke({ width: 2, color: INK });
     head.addChild(hg);
+    if (kit.season === 'winter') head.addChild(santaHat(22, -56, 26, 0.5));
     pose.addChild(tail, legs, body, head);
     kit.under.addChild(zebra);
 
@@ -384,6 +387,7 @@ function meerkats({ kit, cleanups, S, L }: Ctx) {
     head.circle(-8, -5, 3.5).fill(0x6b4226);
     head.position.set(2, -64);
     inner.addChild(g, head);
+    if (kit.season === 'winter') inner.addChild(santaHat(2, -74, 20, 0.2));
     c.addChild(inner);
     kit.under.addChild(c);
     waterline(kit, c, hx - 40, hx + 40, M.y + 1); // (only above the hole shows)
@@ -500,6 +504,7 @@ function classics({ kit, cleanups, w, h, L, clock }: Ctx) {
   ng.circle(14, -160, 3).fill(INK);
   ng.moveTo(-4, -168).lineTo(-6, -184).moveTo(6, -168).lineTo(8, -184).stroke({ width: 3, color: INK });
   neck.addChild(ng);
+  if (kit.season === 'winter') neck.addChild(santaHat(8, -168, 30, 0.3));
   neck.rotation = -0.25;
   giraffe.addChild(gb, neck);
   kit.under.addChild(giraffe);
@@ -530,6 +535,7 @@ function classics({ kit, cleanups, w, h, L, clock }: Ctx) {
   mg.circle(-28, 28, 6).circle(4, 28, 6).fill(0xffd6a5).stroke({ width: 2, color: INK });
   mg.moveTo(0, 74).quadraticCurveTo(30, 90, 22, 60).stroke({ width: 5, color: 0x8d5524 });
   monkey.addChild(mg);
+  if (kit.season === 'winter') monkey.addChild(santaHat(-12, 16, 26, -0.2));
   kit.under.addChild(monkey);
   let wild = 0;
   everyFrame(() => (monkey.rotation = Math.sin(time() * 0.002) * (0.25 + wild * 0.5)), cleanups);
@@ -565,6 +571,7 @@ function classics({ kit, cleanups, w, h, L, clock }: Ctx) {
   tg.moveTo(0, 0).bezierCurveTo(14, 30, 4, 60, 10, 80).stroke({ width: 12, color: 0xadb5bd, cap: 'round' });
   trunk.addChild(tg);
   el.addChild(eb, ear, headG, trunk);
+  if (kit.season === 'winter') el.addChild(santaHat(100, -132, 46, 0.3));
   kit.under.addChild(el);
   let lift = 0;
   everyFrame(() => {
@@ -595,6 +602,7 @@ function classics({ kit, cleanups, w, h, L, clock }: Ctx) {
     pg.poly([10, -40, 20, -37, 10, -34]).fill(0xffa94d);
     pg.ellipse(-6, 0, 7, 3).ellipse(8, 0, 7, 3).fill(0xffa94d);
     p.addChild(pg);
+    if (kit.season === 'winter') p.addChild(santaHat(1, -50, 22, 0.25));
     p.position.set(ppx * w, gy + (i === 2 ? h * 0.02 : 0));
     kit.under.addChild(p);
     pens.push(p);
@@ -652,6 +660,7 @@ function classics({ kit, cleanups, w, h, L, clock }: Ctx) {
   mg2.circle(-7, -2, 3).circle(7, -2, 3).fill(INK);
   mg2.poly([-5, 6, 5, 6, 0, 11]).fill(0x6b4226);
   mane.addChild(mg2);
+  if (kit.season === 'winter') mane.addChild(santaHat(0, -28, 34, 0.2));
   lion.addChild(tail, lb, mane);
   kit.under.addChild(lion);
   everyFrame(() => (tail.rotation = Math.sin(time() * 0.003) * 0.3), cleanups);
@@ -695,6 +704,7 @@ function flamingos({ kit, cleanups, S, L, clock }: Ctx) {
     ng.poly([28, -60, 24, -48, 21, -53]).fill(INK);
     ng.circle(7, -64, 2).fill(INK);
     neck.addChild(ng);
+    if (kit.season === 'winter') neck.addChild(santaHat(6, -70, 18, 0.3));
     const ring = new Graphics().ellipse(0, 0, 14, 4).stroke({ width: 2, color: 0xffffff, alpha: 0.7 });
     c.addChild(ring, legDown, legUp, body, wing, neck);
     kit.under.addChild(c);
@@ -796,6 +806,7 @@ function hippo({ kit, cleanups, w, S, L, clock }: Ctx) {
     return e;
   });
   upper.addChild(...ears, head);
+  if (kit.season === 'winter') upper.addChild(santaHat(-34, -38, 40, -0.15));
   inner.addChild(body, mouth, upper);
   const ring = new Graphics().ellipse(-40 * S, 0, 70 * S, 7 * S).stroke({ width: 3, color: 0xffffff, alpha: 0.6 });
   c.addChild(ring);
@@ -922,6 +933,7 @@ function crocodile({ kit, cleanups, w, S, L, clock }: Ctx) {
   const sparkle = new Graphics().star(-96, 18, 4, 9, 3).fill(0xffffff).stroke({ width: 1.5, color: 0xffd166 });
   sparkle.visible = false;
   upper.addChild(top, lid);
+  if (kit.season === 'winter') upper.addChild(santaHat(-60, -26, 26, 0.3));
   inner.addChild(tail, body, inside, lower, upper, sparkle);
   const ring = new Graphics().ellipse(-50 * S, 0, 100 * S, 7 * S).stroke({ width: 3, color: 0xffffff, alpha: 0.5 });
   c.addChild(ring);
@@ -1038,6 +1050,7 @@ function parrots({ kit, cleanups, h, S, L, clock }: Ctx) {
     head.poly([9, -5, 20, 0, 15, 11, 10, 5]).fill(0xfff3c4).stroke({ width: 2, color: INK });
     head.position.set(4, -46);
     inner.addChild(g, wing, head);
+    if (kit.season === 'winter') inner.addChild(santaHat(4, -55, 20, 0.25));
     c.addChild(inner);
     kit.under.addChild(c);
     return { c, inner, wing, head, home: { x: p.x, y: p.y }, facing: i % 2 ? -1 : 1, flap: 0 };
@@ -1143,6 +1156,7 @@ function tortoise({ kit, cleanups, w, S, L }: Ctx) {
   hg.circle(21, -13, 2.6).fill(INK);
   hg.moveTo(22, -4).quadraticCurveTo(26, -1, 30, -6).stroke({ width: 2, color: INK });
   head.addChild(hg);
+  if (kit.season === 'winter') head.addChild(santaHat(16, -20, 22, 0.25));
   const shell = new Graphics();
   shell.moveTo(-36, -8).quadraticCurveTo(-34, -52, 0, -52).quadraticCurveTo(34, -52, 36, -8).closePath().fill(0x8a9a5b).stroke({ width: 3, color: INK });
   for (const [px, py] of [[-16, -28], [0, -38], [16, -28], [0, -20]]) shell.poly([px - 8, py, px - 4, py - 8, px + 4, py - 8, px + 8, py, px + 4, py + 8, px - 4, py + 8]).fill(0x6b7d47).stroke({ width: 1.5, color: 0x4a5a2e });
