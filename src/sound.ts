@@ -123,6 +123,15 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 /** Every sound takes a pitch multiplier: bigger characters sound lower. */
 export const sfx = {
+  /** Brrrm brrrm: off we drive. */
+  vroom(p = 1) {
+    tone({ type: 'sawtooth', from: 90 * p, to: 160 * p, dur: 0.6, vol: 0.14, filter: { type: 'lowpass', freq: 700 } });
+    tone({ type: 'sawtooth', from: 160 * p, to: 120 * p, dur: 0.9, vol: 0.1, delay: 0.55, filter: { type: 'lowpass', freq: 600 } });
+  },
+  /** Boom boom on a drum. */
+  drum() {
+    for (let i = 0; i < 4; i++) tone({ from: 140, to: 60, dur: 0.18, vol: 0.3, delay: i * 0.22 });
+  },
   /** A stick hitting a puck: clack! */
   clack() {
     hiss({ dur: 0.07, vol: 0.3, from: 3500, to: 1800, q: 2 });

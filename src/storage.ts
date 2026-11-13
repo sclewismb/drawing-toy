@@ -33,6 +33,8 @@ export type SceneItem = ({ kind: 'photo'; id: string } | { kind: 'sample'; name:
   scale: number;
   rotation: number;
   facing: 1 | -1;
+  /** A hat they're wearing (dropped onto their head). */
+  wearing?: string;
 };
 
 export interface SavedScene {

@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
+import { Application, Container, Graphics, Sprite, Text, Texture, Ticker } from 'pixi.js';
 import { Camera } from './camera';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
@@ -283,6 +283,7 @@ async function saveNow() {
       scale: ch.scale.x,
       rotation: ch.rotation,
       facing: ch.facing < 0 ? -1 : 1,
+      ...(wearing.get(ch) ? { wearing: wearing.get(ch)!.name } : {}),
     });
   }
   try {
@@ -442,7 +443,7 @@ const FEEL: Record<string, { bounce?: number; gravity?: number }> = {
   frisbee: { bounce: 0.2, gravity: 0.3 },
   balloon: { gravity: 0.25 },
 };
-physics.feel = (ch) => (ch.ref.kind === 'sample' ? (FEEL[ch.ref.name] ?? {}) : {});
+physics.feel = (ch) => (floaty.has(ch) ? { gravity: 0.12 } : ch.ref.kind === 'sample' ? (FEEL[ch.ref.name] ?? {}) : {});
 
 const isDog = (ch: Character) => (ch.ref.kind === 'sample' && ch.ref.name === 'dog') || !!(petOf(ch) && PETS[petOf(ch)!.kind]?.fetches);
 const named = (name: string) => (characters.children as Character[]).filter((c) => !c.destroyed && c.ref.kind === 'sample' && c.ref.name === name);
@@ -523,6 +524,248 @@ app.ticker.add(() => {
   }
 });
 
+// --- Things that happen between items (drop one onto another) ---
+const VEHICLES: Record<string, 'vroom' | 'siren' | 'bell' | 'roll' | 'sea' | 'rocket'> = {
+  'ride-car': 'vroom', 'race-car': 'vroom', 'dump-truck': 'vroom', digger: 'vroom', 'fire-engine': 'siren', 'police-car': 'siren',
+  bicycle: 'bell', scooter: 'roll', skateboard: 'roll', wheelbarrow: 'roll', 'pirate-ship': 'sea', rocket: 'rocket',
+};
+const HATS = new Set(['crown', 'helmet', 'police-hat']);
+const BEDS = new Set(['bed', 'bed-tiedye', 'daybed', 'tent']);
+const PLANTS = new Set(['flower', 'potted-plant']);
+const INSTRUMENTS = new Set(['piano', 'drum', 'guitar']);
+const SOFT_TOYS = new Set(['teddy', 'koala', 'red-panda', 'robot', 'monster', 'cat', 'dinosaur']);
+const nameOf = (c: Character) => (c.ref.kind === 'sample' ? c.ref.name : '');
+/** Someone who can ride, wear a hat, have a nap...: people, animals, drawings, made toys and soft toys. */
+const isSomeone = (c: Character) => c.ref.kind === 'photo' || !!CRITTERS[nameOf(c)] || SOFT_TOYS.has(nameOf(c));
+/** Is `ch` over someone or something that passes `test`? (the topmost one) */
+function underneath(ch: Character, test: (o: Character) => boolean, slack = 0.45) {
+  const box = roomBox(ch);
+  return (characters.children as Character[]).filter((o) => o !== ch && !o.destroyed && o.eventMode !== 'none' && test(o)).reverse().find((o) => over(box, roomBox(o), slack));
+}
+
+/** Hats people are wearing. */
+const wearing = new WeakMap<Character, { name: string; sprite: Sprite }>();
+function putOnHat(who: Character, name: string) {
+  wearing.get(who)?.sprite.destroy();
+  wearing.delete(who);
+  void svgPicture(builtinUrl(name)).then((pic) => {
+    if (who.destroyed) return;
+    const hat = new Sprite(Texture.from(pic));
+    hat.anchor.set(0.5, 0.8);
+    const w = Math.abs(who.sprite.width) * (CRITTERS[nameOf(who)] || who.ref.kind === 'photo' ? 0.42 : 0.5);
+    hat.scale.set(w / pic.width);
+    hat.position.set(0, -Math.abs(who.sprite.height) / 2 + Math.abs(who.sprite.height) * 0.06);
+    who.fx.addChild(hat);
+    wearing.set(who, { name, sprite: hat });
+    saveSoon();
+  });
+}
+/** Shaken hard: the hat falls off (and it's a toy again). */
+function hatOff(who: Character) {
+  const w = wearing.get(who);
+  if (!w) return;
+  wearing.delete(who);
+  const p = w.sprite.getGlobalPosition();
+  w.sprite.destroy();
+  void svgPicture(builtinUrl(w.name)).then((pic) => {
+    const hat = addCharacter(pic, { kind: 'sample', name: w.name }, toRoom(p.x, p.y));
+    letGo(hat, (Math.random() - 0.5) * 0.6, -0.5);
+  });
+}
+
+/** Ride off on a vehicle (the rocket blasts off; the pirate ship rocks on the waves). */
+function rideOff(rider: Character, v: Character) {
+  const kind = VEHICLES[nameOf(v)];
+  const vb = roomBox(v);
+  rider.position.set(v.x, vb.y + vb.h * 0.3 - (rider.size * rider.scale.y) / 2);
+  characters.addChild(rider);
+  wanderers.get(rider)?.rest(4500);
+  wanderers.get(v)?.rest(4500);
+  const { x0, x1 } = roomEdges(current!, panel);
+  const dir = v.facing < 0 ? -1 : 1;
+  const toX = Math.max(x0 + vb.w / 2, Math.min(x1 - vb.w / 2, v.x + dir * panel * 0.5));
+  const dx = toX - v.x;
+  const fv = { x: v.x, y: v.y }, fr = { x: rider.x, y: rider.y };
+  if (kind === 'siren') sfx.siren();
+  else if (kind === 'bell') (sfx.ding(), setTimeout(() => sfx.ding(), 250));
+  else if (kind === 'sea') sfx.water(2.4);
+  else if (kind === 'rocket') (sfx.burner(), sfx.whoosh());
+  else if (kind === 'roll') sfx.whirr();
+  else sfx.vroom();
+  tween(kind === 'rocket' ? 3200 : 2600, (t) => {
+    if (v.destroyed || rider.destroyed) return;
+    const e = ease.inOutSine(t);
+    const lift = kind === 'rocket' ? Math.sin(t * Math.PI) * roomH * 0.5 : kind === 'sea' ? Math.sin(t * Math.PI * 6) * 6 : Math.abs(Math.sin(t * Math.PI * 10)) * 3;
+    v.position.set(fv.x + dx * e, fv.y - lift);
+    rider.position.set(fr.x + dx * e, fr.y - lift);
+    v.rotation = kind === 'sea' ? Math.sin(t * Math.PI * 6) * 0.08 : kind === 'rocket' ? Math.sin(t * Math.PI) * 0.4 * dir : 0;
+    rider.rotation = v.rotation;
+  }, () => {
+    if (v.destroyed || rider.destroyed) return;
+    v.rotation = rider.rotation = 0;
+    restingOn.set(rider, v);
+    rider.react('giggle');
+    saveSoon();
+  });
+}
+
+/** A balloon: up they float, then drift slowly back down. */
+const floaty = new WeakSet<Character>();
+function floatUp(who: Character) {
+  const string = new Graphics();
+  const top = -Math.abs(who.sprite.height) / 2;
+  string.moveTo(0, top).quadraticCurveTo(14, top - 50, 0, top - 90).stroke({ width: 2, color: 0x3a3a3a });
+  string.ellipse(0, top - 120, 26, 32).fill(0xff4d6d).stroke({ width: 3, color: 0x3a3a3a });
+  who.body.addChild(string);
+  wanderers.get(who)?.rest(6000);
+  sfx.slideWhistle(1.3);
+  const y0 = who.y;
+  tween(1600, (t) => !who.destroyed && (who.y = y0 - roomH * 0.35 * ease.inOutSine(t), (who.rotation = Math.sin(t * Math.PI * 3) * 0.08)), () => {
+    setTimeout(() => {
+      if (who.destroyed) return;
+      floaty.add(who);
+      who.rotation = 0;
+      letGo(who, 0, 0);
+      setTimeout(() => string.destroy(), 2500);
+    }, 1400);
+  });
+}
+
+/** The watering can: water drops, and the plant grows (and blooms). */
+function water(can: Character, plant: Character) {
+  sfx.water(1.2);
+  const from = can.rotation;
+  tween(600, (t) => !can.destroyed && (can.rotation = from + Math.sin(t * Math.PI) * 0.7 * (can.facing < 0 ? -1 : 1)));
+  const pb = roomBox(plant);
+  for (let i = 0; i < 12; i++) {
+    const d = new Graphics().circle(0, 0, 4).fill(0x4dabf7);
+    const sx = pb.x + pb.w * (0.2 + Math.random() * 0.6), sy = pb.y - 30;
+    d.position.set(sx, sy);
+    roomSparkles.addChild(d);
+    tween(500 + i * 40, (t) => (d.y = sy + t * pb.h * 0.5, (d.alpha = 1 - t)), () => d.destroy());
+  }
+  setTimeout(() => {
+    if (plant.destroyed) return;
+    const s0 = plant.scale.x, s1 = Math.min(2.6, s0 * 1.25);
+    tween(500, (t) => plant.scale.set(s0 + (s1 - s0) * ease.outBack(t)), () => saveSoon());
+    sfx.twinkle();
+    const g = plant.getGlobalPosition();
+    burst(sparkles, g.x, g.y - 20, 10, 70);
+  }, 600);
+}
+
+/** Happy Birthday (the old tune) for someone, with confetti. */
+function birthday(who: Character) {
+  const G = 392, A = 440, B = 494, C = 523, D = 587;
+  const notes: [number, number][] = [[G, 0.75], [G, 0.25], [A, 1], [G, 1], [C, 1], [B, 2], [G, 0.75], [G, 0.25], [A, 1], [G, 1], [D, 1], [C, 2]];
+  let t = 0;
+  for (const [f, len] of notes) {
+    setTimeout(() => sfx.tune([f], 0.3 * len), t * 1000);
+    t += 0.32 * len;
+  }
+  setTimeout(() => {
+    if (who.destroyed) return;
+    const g = who.getGlobalPosition();
+    burst(sparkles, g.x, g.y - 40, 26, 220);
+    hearts(roomSparkles, who.x, who.y - (who.size * who.scale.y) / 2, 8);
+    who.react('super');
+    sfx.yippee(voice(who));
+  }, t * 1000);
+}
+
+/** The magnifier finds a ladybird on the plant. */
+function ladybird(plant: Character) {
+  sfx.twinkle();
+  const pb = roomBox(plant);
+  const bug = new Graphics();
+  bug.circle(0, 0, 9).fill(0xe5383b).stroke({ width: 2, color: 0x3a3a3a });
+  bug.circle(-3, -2, 2).circle(4, 2, 2).fill(0x1f1f1f);
+  bug.circle(0, -9, 4).fill(0x1f1f1f);
+  const x0 = pb.x + pb.w * 0.3, y0 = pb.y + pb.h * 0.3;
+  bug.position.set(x0, y0);
+  roomSparkles.addChild(bug);
+  tween(4500, (t) => {
+    if (t < 0.7) bug.position.set(x0 + Math.sin(t * 9) * pb.w * 0.25, y0 + t * pb.h * 0.3);
+    else bug.position.set(bug.x + 4, bug.y - 5); // and off it flies
+    bug.alpha = t > 0.85 ? (1 - t) / 0.15 : 1;
+  }, () => bug.destroy());
+}
+
+/** Drop one thing onto another: does something happen? */
+function interact(ch: Character): 'used' | 'kept' | null {
+  const name = nameOf(ch);
+  if (HATS.has(name)) {
+    const who = underneath(ch, (o) => isSomeone(o) || nameOf(o) === 'snowman', 0.5);
+    if (who) {
+      sfx.pop(1.3);
+      putOnHat(who, name);
+      gobble(ch, { x: who.x, y: who.y - (who.size * who.scale.y) / 2 }, 250);
+      return 'used';
+    }
+  }
+  if (name === 'balloon') {
+    const who = underneath(ch, isSomeone);
+    if (who) {
+      gobble(ch, { x: who.x, y: who.y - (who.size * who.scale.y) / 2 }, 250);
+      floatUp(who);
+      return 'used';
+    }
+  }
+  if (name === 'watering-can') {
+    const plant = underneath(ch, (o) => PLANTS.has(nameOf(o)), 0.6);
+    if (plant) return (water(ch, plant), 'kept');
+  }
+  if (name === 'magnifier') {
+    const plant = underneath(ch, (o) => PLANTS.has(nameOf(o)), 0.6);
+    if (plant) return (ladybird(plant), 'kept');
+  }
+  if (name === 'birthday-cake') {
+    const who = underneath(ch, isSomeone);
+    if (who) return (birthday(who), 'kept');
+  }
+  if (name === 'fish') {
+    const bowl = underneath(ch, (o) => nameOf(o) === 'fishbowl', 0.6);
+    if (bowl) {
+      gobble(ch, { x: bowl.x, y: bowl.y }, 400);
+      sfx.blub();
+      setTimeout(() => (sfx.blub(), burst(sparkles, bowl.getGlobalPosition().x, bowl.getGlobalPosition().y, 10, 50)), 450);
+      return 'used';
+    }
+  }
+  if (name === 'carrot') {
+    const snowman = underneath(ch, (o) => nameOf(o) === 'snowman', 0.6);
+    if (snowman) {
+      gobble(ch, { x: snowman.x + 10, y: snowman.y - (snowman.size * snowman.scale.y) * 0.3 }, 300);
+      sfx.tada();
+      setTimeout(() => (hearts(roomSparkles, snowman.x, snowman.y - snowman.size * snowman.scale.y * 0.4, 6), snowman.react('giggle')), 400);
+      return 'used';
+    }
+  }
+  if (!isSomeone(ch)) return null;
+  const vehicle = underneath(ch, (o) => !!VEHICLES[nameOf(o)], 0.55);
+  if (vehicle) return (rideOff(ch, vehicle), 'used');
+  const bed = underneath(ch, (o) => BEDS.has(nameOf(o)), 0.5);
+  if (bed) {
+    setTimeout(() => snooze(ch), 600);
+    return null; // (and it lands on the bed as usual)
+  }
+  const instrument = underneath(ch, (o) => INSTRUMENTS.has(nameOf(o)), 0.5);
+  if (instrument) {
+    const n = nameOf(instrument);
+    if (n === 'drum') sfx.drum();
+    else if (n === 'piano') sfx.tune([523, 659, 784, 1047, 784, 880, 698, 523], 0.16);
+    else sfx.tune([392, 494, 587, 784, 587, 494, 392], 0.13);
+    instrument.react('jiggle');
+    // everyone nearby dances
+    for (const o of characters.children as Character[]) {
+      const w = wanderers.get(o);
+      if (w instanceof Wanderer && Math.abs(o.x - instrument.x) < panel * 0.6) setTimeout(() => w.doTrick('jump'), Math.random() * 400);
+    }
+    return null;
+  }
+  return null;
+}
+
 /** On the ice rink, things thrown along the ice keep gliding. */
 const iceGlide = new WeakMap<Character, number>();
 const glides = new WeakMap<Character, () => void>();
@@ -573,6 +816,7 @@ function swingStick(stick: Character, sx: number, sy: number) {
 }
 
 physics.onSettle = (ch, on, spun) => {
+  floaty.delete(ch);
   // a dog landing on a dog bed has a nap
   if (on?.owner?.ref.kind === 'sample' && on.owner.ref.name === 'dog-bed' && isDog(ch)) setTimeout(() => snooze(ch), 400);
   const iceVx = iceGlide.get(ch);
@@ -980,6 +1224,8 @@ function checkTargets(ch: Character): 'used' | 'kept' | null {
     gobble(ch, { x: a.x + a.w / 2, y: a.y + a.h / 2 });
     return 'used';
   }
+  const did = interact(ch);
+  if (did) return did;
   if (ch.ref.kind !== 'sample') return null;
   if (fillBowl(ch)) return 'used';
   if (feed(ch)) return 'used';
@@ -1085,7 +1331,8 @@ async function showPlace(id: PlaceId) {
       const ref: Ref = item.kind === 'sample' ? { kind: 'sample', name: item.name } : { kind: 'photo', id: item.id };
       const pic = await pictureFor(ref).catch(() => null);
       if (!pic) continue; // e.g. a drawing that was deleted
-      addCharacter(pic, ref, { x: item.x * W, y: item.y * H, scale: item.scale, rotation: item.rotation, facing: item.facing });
+      const ch = addCharacter(pic, ref, { x: item.x * W, y: item.y * H, scale: item.scale, rotation: item.rotation, facing: item.facing });
+      if (item.wearing && BUILTIN[item.wearing]) putOnHat(ch, item.wearing);
     }
   } else {
     for (const s of place.start) {
@@ -1410,6 +1657,7 @@ gestures.onDrop = (ch, x, y, vx, vy) => {
   if (!letGo(ch, vx, vy)) sfx.drop(voice(ch)); // already standing on something
 };
 gestures.onShake = (ch) => {
+  hatOff(ch);
   ch.react('dizzy');
   sfx.dizzy(voice(ch));
 };
