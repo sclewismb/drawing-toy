@@ -18,9 +18,10 @@ import { HouseView, ROOM_FURNITURE } from './houseView';
 import { BUILTIN, FLOOR, PLACES, placeById, RESIDENTS, STREET, type PlaceId } from './places';
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
 import { MOTIONS } from './library';
+import { setupMaker, type MakerMode } from './maker';
 import { MoveButton } from './moveButton';
 import { feetOf, furnitureSurface, Physics, SHELVES, type Surface, type World } from './physics';
-import { SOUND_FOR } from './reactions';
+import { BEAR_REACTIONS, SOUND_FOR, SQUISH_REACTIONS } from './reactions';
 import { Bus, FOOD_FOR, TREASURES, type Lock, type SecretsApi } from './secrets';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
 import { storage, type SceneItem } from './storage';
@@ -536,9 +537,15 @@ interface Placement {
 }
 
 function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada = false) {
-  const size = ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1) : 1;
+  // made in the workshop: squishies are small and squish, teddies hug
+  const made = ref.kind === 'photo' ? library.get(ref.id)?.made : undefined;
+  const size = ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1) : made === 'squishy' ? 0.5 : made === 'bear' ? 0.7 : 1;
   const ch = new Character(picture, startSize() * size);
   ch.ref = ref;
+  if (made === 'squishy') {
+    ch.reactions = SQUISH_REACTIONS;
+    ch.surprises = false;
+  } else if (made === 'bear') ch.reactions = BEAR_REACTIONS;
   ch.position.set(at.x, at.y);
   if (at.scale) ch.scale.set(at.scale);
   if (at.rotation) ch.rotation = at.rotation;
@@ -597,6 +604,7 @@ function setupEggs(id: PlaceId) {
   teardownEggs();
   const { x0, x1 } = roomEdges(id, panel);
   events = new Bus();
+  events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
   eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, secrets, events });
 }
 
@@ -607,6 +615,17 @@ let found = new Set<string>();
 let locks: Lock[] = [];
 /** This place's surprises tell its secrets what happened. */
 let events = new Bus();
+
+// --- The workshop's maker: teddies and squishies (see maker.ts) ---
+const maker = setupMaker({
+  async onDone(kind, picture, recipe) {
+    const entry = await library.add(picture, { kind, recipe });
+    if (!current) return;
+    // here it comes! (and it's in the toy box now too)
+    const ch = addCharacter(picture, { kind: 'photo', id: entry.id }, toRoom(app.screen.width / 2, app.screen.height * 0.45), true);
+    setTimeout(() => letGo(ch), 650);
+  },
+});
 
 async function loadSecrets() {
   found = new Set((await storage.getMine<string[]>('secrets').catch(() => undefined)) ?? []);
@@ -1097,7 +1116,24 @@ gestures.onTap = (ch) => {
     const p = ch.getGlobalPosition();
     burst(sparkles, p.x, p.y, 20, 220);
   }
+  if (name === 'hug') hearts(roomSparkles, ch.x, ch.y - (ch.size * ch.scale.y) / 2, 5);
 };
+
+// Squishies: press and hold still to squeeze; let go and it slowly puffs back up.
+const squeezing = new Set<Character>();
+app.ticker.add(() => {
+  for (const ch of characters.children as Character[]) {
+    if (ch.reactions !== SQUISH_REACTIONS) continue;
+    const held = gestures.stillFor(ch);
+    if (held === 0 && squeezing.delete(ch)) ch.unsqueeze(); // started carrying it instead
+    if (held < 260) continue;
+    if (!squeezing.has(ch)) {
+      squeezing.add(ch);
+      sfx.squish(voice(ch) * 0.8);
+    }
+    ch.squeeze(Math.min(1, (held - 260) / 900));
+  }
+});
 gestures.onDragStart = (ch) => {
   sfx.pickup(voice(ch));
   gallery.hint(true);
@@ -1140,6 +1176,10 @@ gestures.onTapEmpty = (x, y) => {
 };
 gestures.onGestureEnd = (ch) => {
   gallery.hint(false);
+  if (squeezing.delete(ch) || ch.squeezed) {
+    ch.unsqueeze();
+    sfx.puff(voice(ch));
+  }
   // let go up in the air (after a tap or a pinch too): down it comes
   if (ch !== justDropped && !physics.active(ch) && !gestures.isHeld(ch)) letGo(ch);
   justDropped = null;

@@ -77,6 +77,67 @@ const anims = {
     const land = t > 0.85 ? (t - 0.85) / 0.15 : 0;
     r.fx.scale.set(1 + 0.15 * Math.sin(land * Math.PI), 1 - 0.2 * Math.sin(land * Math.PI));
   },
+  // --- squishies ---
+  // Squashed right down, then a springy bounce back.
+  flatten: (r, t) => {
+    const k = t < 0.12 ? ease.outCubic(t / 0.12) : elasticSettle((t - 0.12) / 0.88, 4);
+    r.fx.scale.set(1 + 0.5 * k, 1 - 0.55 * k);
+  },
+  // Squashed flat... and it rises back up ever so slowly (memory foam).
+  slowRise: (r, t) => {
+    const k = t < 0.06 ? ease.outCubic(t / 0.06) : 1 - ease.outCubic((t - 0.06) / 0.94);
+    r.fx.scale.set(1 + 0.45 * k, 1 - 0.55 * k);
+  },
+  // Pulled up tall and thin, then boings back.
+  tall: (r, t) => {
+    const k = t < 0.35 ? ease.inOutSine(t / 0.35) : elasticSettle((t - 0.35) / 0.65, 4);
+    r.fx.scale.set(1 - 0.3 * k, 1 + 0.6 * k);
+  },
+  // Jelly: wide, tall, wide, tall...
+  jelly: (r, t) => {
+    const k = Math.sin(t * Math.PI * 10) * decay(t);
+    r.fx.scale.set(1 + 0.22 * k, 1 - 0.22 * k);
+  },
+  // A poke in the side: it dents in and leans over, then puffs back.
+  poke: (r, t, dir) => {
+    const k = t < 0.15 ? ease.outCubic(t / 0.15) : 1 - ease.inOutSine((t - 0.15) / 0.85);
+    r.fx.scale.set(1 - 0.18 * k, 1 - 0.12 * k);
+    r.fx.skew.x = dir * 0.35 * k;
+  },
+  // Twisted round like a towel, then it unwinds with a wobble.
+  twist: (r, t, dir) => {
+    const k = t < 0.3 ? ease.inOutSine(t / 0.3) : elasticSettle((t - 0.3) / 0.7, 3);
+    r.fx.skew.x = dir * 0.45 * k;
+    r.fx.skew.y = -dir * 0.15 * k;
+    r.fx.scale.set(1 - 0.12 * k, 1 + 0.08 * k);
+  },
+  // Pancake! Flat as flat, then it pops up into the air and lands with a wobble.
+  pancake: (r, t) => {
+    let sx = 1, sy = 1, y = 0;
+    if (t < 0.25) {
+      const k = ease.outCubic(Math.min(1, t / 0.1));
+      sx = 1 + 0.75 * k;
+      sy = 1 - 0.7 * k;
+    } else if (t < 0.65) {
+      const k = (t - 0.25) / 0.4;
+      y = Math.sin(k * Math.PI) * r.size * 0.6;
+      sx = 0.85;
+      sy = 1.2;
+    } else {
+      const k = elasticSettle((t - 0.65) / 0.35, 3);
+      sx = 1 + 0.3 * k;
+      sy = 1 - 0.3 * k;
+    }
+    r.fx.y = r.restY - y;
+    r.fx.scale.set(sx, sy);
+  },
+  // --- teddies ---
+  // A big hug: squeezes in, wiggles side to side, and lets go.
+  hug: (r, t) => {
+    const k = Math.sin(t * Math.PI);
+    r.fx.scale.set(1 - 0.12 * k, 1 + 0.06 * k);
+    r.fx.rotation = Math.sin(t * Math.PI * 4) * 0.12 * k;
+  },
   // When shaken hard while being carried.
   dizzy: (r, t) => {
     r.fx.rotation = 0.25 * Math.sin(t * Math.PI * 10) * decay(t);
@@ -87,6 +148,14 @@ const anims = {
 export type ReactionName = keyof typeof anims;
 
 const DURATION: Record<ReactionName, number> = {
+  flatten: 900,
+  slowRise: 2600,
+  tall: 900,
+  jelly: 1000,
+  poke: 1200,
+  twist: 1100,
+  pancake: 1300,
+  hug: 1100,
   wobble: 750,
   bounce: 700,
   spin: 700,
@@ -99,6 +168,14 @@ const DURATION: Record<ReactionName, number> = {
 };
 
 export const SOUND_FOR: Record<ReactionName, PitchedSound> = {
+  flatten: 'squish',
+  slowRise: 'squish',
+  tall: 'squish',
+  jelly: 'squish',
+  poke: 'squish',
+  twist: 'squish',
+  pancake: 'squish',
+  hug: 'giggle',
   wobble: 'boing',
   bounce: 'spring',
   spin: 'slideWhistle',
@@ -112,6 +189,10 @@ export const SOUND_FOR: Record<ReactionName, PitchedSound> = {
 
 /** The everyday tap reactions (super and dizzy are special). */
 export const TAP_REACTIONS: ReactionName[] = ['wobble', 'bounce', 'spin', 'squish', 'jiggle', 'giggle', 'stretch'];
+/** Squishies squish a different way each time. */
+export const SQUISH_REACTIONS: ReactionName[] = ['flatten', 'slowRise', 'tall', 'jelly', 'poke', 'twist', 'pancake'];
+/** Teddies mostly want hugs. */
+export const BEAR_REACTIONS: ReactionName[] = ['hug', 'hug', 'giggle', 'wobble', 'bounce', 'spin'];
 
 export function resetFx(r: Reactable) {
   r.fx.position.set(0, r.restY);

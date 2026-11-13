@@ -1,14 +1,18 @@
 import { loadImage } from './loadImage';
 import { PLAYER_IDS } from './players';
-import { storage } from './storage';
+import { storage, type MadeKind } from './storage';
 
-/** One character made from a photo, kept forever (until a grown-up deletes it). */
+/** One character made from a photo (or made in the app), kept forever (until a grown-up deletes it). */
 export interface LibraryEntry {
   id: string;
   createdAt: number;
   png: Blob;
   /** Whose drawing it is (none = from before there were players: everyone's). */
   owner?: string;
+  /** Made in the app: a teddy, a squishy, an adopted pet or a person (none = a photo of a drawing). */
+  made?: MadeKind;
+  /** The maker's choices. */
+  recipe?: unknown;
 }
 
 /** How a drawing gets about by itself (chosen with the move button). */
@@ -58,7 +62,7 @@ export class Library {
     try {
       const stored = await storage.allCharacters();
       return new Library(
-        stored.map((s) => ({ id: s.id, createdAt: s.createdAt, owner: s.owner, png: new Blob([s.png], { type: 'image/png' }) })),
+        stored.map((s) => ({ id: s.id, createdAt: s.createdAt, owner: s.owner, made: s.made, recipe: s.recipe, png: new Blob([s.png], { type: 'image/png' }) })),
         motions,
         removed,
       );
@@ -104,14 +108,18 @@ export class Library {
     void storage.setSetting('removed-drawings', { ...this.removed }).catch(() => {});
   }
 
-  /** Save a new cut-out drawing. */
-  async add(picture: HTMLCanvasElement): Promise<LibraryEntry> {
+  /**
+   * Save a new cut-out drawing (or something made in the app: then say what
+   * it is and how it was made; `shared` = for everyone, not just this player).
+   */
+  async add(picture: HTMLCanvasElement, made?: { kind: MadeKind; recipe?: unknown; shared?: boolean }): Promise<LibraryEntry> {
     const png = await new Promise<Blob>((resolve) => picture.toBlob((b) => resolve(b!), 'image/png'));
-    const entry: LibraryEntry = { id: newId(), createdAt: Date.now(), png, owner: this.player ?? undefined };
+    const owner = made?.shared ? undefined : (this.player ?? undefined);
+    const entry: LibraryEntry = { id: newId(), createdAt: Date.now(), png, owner, made: made?.kind, recipe: made?.recipe };
     this.entries.push(entry);
     this.pictures.set(entry.id, Promise.resolve(picture));
     try {
-      await storage.addCharacter({ id: entry.id, createdAt: entry.createdAt, owner: entry.owner, png: await png.arrayBuffer() });
+      await storage.addCharacter({ id: entry.id, createdAt: entry.createdAt, owner: entry.owner, made: entry.made, recipe: entry.recipe, png: await png.arrayBuffer() });
     } catch (err) {
       console.warn('Could not save character', err);
     }

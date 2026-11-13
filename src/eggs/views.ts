@@ -18,6 +18,7 @@ import {
   rand,
   spray,
   tappable,
+  tumble,
   type Cleanups,
   type EggKit,
 } from './common';
@@ -148,6 +149,87 @@ export function streetEggs(kit: EggKit, geom: StreetGeom, cleanups: Cleanups) {
         tween(250, (t) => (flag.rotation = (Math.PI / 2) * t), done);
       });
     }), new Rectangle(-26, -64, 52, 70));
+  }
+
+  // --- the tiny workshop down the side street: half hidden in a bush, a teddy balloon,
+  // and a teddy that peeks out of the door now and then ---
+  const ws = buildings.workshop;
+  if (ws) {
+    // the teddy balloon, bobbing on its string above the roof
+    const balloon = new Container();
+    const bl = new Graphics();
+    bl.circle(-11, -12, 7).circle(11, -12, 7).fill(0xb5835a).stroke({ width: 2, color: INK });
+    bl.circle(0, 0, 15).fill(0xb5835a).stroke({ width: 2.5, color: INK });
+    bl.ellipse(0, 5, 6, 4.5).fill(0xe9c79f);
+    bl.circle(-5, -3, 1.8).circle(5, -3, 1.8).fill(INK);
+    const str = new Graphics();
+    balloon.addChild(str, bl);
+    const bx = ws.x - ws.w * 0.32, by = ws.y - ws.h - 34;
+    balloon.position.set(bx, by);
+    kit.under.addChild(balloon);
+    let bt = 0, lift = 0;
+    everyFrame((dt) => {
+      bt += dt;
+      const dx = Math.sin(bt * 0.0013) * 5;
+      bl.position.set(dx, -lift);
+      str.clear().moveTo(0, ws.y - ws.h * 0.62 - by).quadraticCurveTo(dx * 0.5 + 4, 14, dx, 15 - lift).stroke({ width: 1.5, color: INK });
+    }, cleanups);
+    tappable(balloon, oneAtATime((done) => {
+      sfx.giggle(1.5);
+      tween(1600, (t) => (lift = Math.sin(t * Math.PI) * 40), () => {
+        lift = 0;
+        done();
+      });
+    }), new Rectangle(-22, -30, 44, 48));
+
+    // a teddy peeks out of the door and waves, now and then
+    const door = { x: ws.x + ws.w * 0.31, y: ws.y - ws.h * 0.32 };
+    const peek = new Container();
+    const pg = new Graphics();
+    pg.circle(-7, -9, 4.5).circle(7, -9, 4.5).fill(0xe0a458).stroke({ width: 1.5, color: INK });
+    pg.circle(0, 0, 10).fill(0xe0a458).stroke({ width: 2, color: INK });
+    pg.circle(-3.5, -1.5, 1.4).circle(3.5, -1.5, 1.4).fill(INK);
+    pg.ellipse(0, 3.5, 3.5, 2.5).fill(0xf3dfc1);
+    const arm = new Graphics().roundRect(-3, -14, 6, 14, 3).fill(0xe0a458).stroke({ width: 1.5, color: INK });
+    arm.position.set(9, 6);
+    peek.addChild(arm, pg);
+    peek.position.set(door.x, door.y);
+    peek.scale.set(Math.max(0.8, Math.min(1.3, ws.h / 80)));
+    peek.alpha = 0;
+    kit.under.addChild(peek);
+    const peekOut = () => {
+      tween(2600, (t) => {
+        const k = t < 0.2 ? t / 0.2 : t > 0.8 ? (1 - t) / 0.2 : 1;
+        peek.alpha = k;
+        peek.x = door.x + 8 * k;
+        arm.rotation = k === 1 ? Math.sin(t * Math.PI * 8) * 0.6 : 0;
+      });
+      later(rand(6000, 10000), peekOut, cleanups);
+    };
+    later(2500, peekOut, cleanups);
+
+    // the bush in front (half hiding the shop); tap it and it rustles
+    const bush = new Container();
+    const bg2 = new Graphics();
+    const leaf = kit.season === 'winter' ? 0x40916c : kit.season === 'autumn' ? 0xe08a3c : 0x52b788;
+    const r = Math.max(14, ws.h * 0.24);
+    // one leafy shape: outlines first, then the leaves over them (so only the outside edge shows)
+    const blobs: [number, number, number][] = [[-0.9, -0.5, 0.75], [0.5, -0.6, 0.8], [-0.1, -1.1, 0.85], [0, -0.3, 1]];
+    for (const [bx2, by2, br] of blobs) bg2.circle(r * bx2, r * by2, r * br + 2.5).fill(INK);
+    for (const [bx2, by2, br] of blobs) bg2.circle(r * bx2, r * by2, r * br).fill(leaf);
+    if (kit.season === 'winter') bg2.ellipse(-r * 0.1, -r * 1.8, r * 0.6, r * 0.25).fill(0xffffff);
+    else for (const [fx, fy] of [[-0.6, -0.8], [0.3, -1.2], [0.6, -0.3]]) bg2.circle(r * fx, r * fy, 3.5).fill(0xff8fab);
+    bush.addChild(bg2);
+    bush.position.set(ws.x - ws.w * 0.28, ws.y + 4);
+    kit.over.addChild(bush);
+    tappable(bush, oneAtATime((done) => {
+      sfx.brrr();
+      for (let i = 0; i < 5; i++) {
+        const l = new Graphics().ellipse(0, 0, 4, 2.5).fill(leaf);
+        tumble(kit, l, bush.x + rand(-r, r), bush.y - r, bush.y + 6, { vx: rand(-0.06, 0.06), vy: -0.1, float: true });
+      }
+      tween(600, (t) => (bush.skew.x = Math.sin(t * Math.PI * 6) * 0.12 * (1 - t)), done);
+    }), new Rectangle(-r * 1.6, -r * 2, r * 3.2, r * 2.1));
   }
 
   // --- a cat sunning itself on the hill by the school ---

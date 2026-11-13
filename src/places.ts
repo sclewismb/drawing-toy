@@ -117,6 +117,7 @@ export const FLOOR: Record<PlaceId, number> = {
   ninja: 0.74,
   niagara: 0.8,
   conservatory: 0.74,
+  workshop: 0.74,
 };
 
 /**
@@ -159,6 +160,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
     { name: 'kid-girl', x: 1.0, y: 0.86 },
     { name: 'grownup', x: -0.1, y: 0.84 },
   ],
+  workshop: [{ name: 'grownup', x: 1.3, y: 0.86 }],
   conservatory: [
     { name: 'kid-girl', x: 0.2, y: 0.86 },
     { name: 'grandma', x: 1.5, y: 0.86 },
@@ -180,7 +182,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
   ],
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | 'workshop' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -205,6 +207,7 @@ export const STREET: {
   { id: 'ninja', building: 'buildings/ninja.svg' },
   { id: 'niagara', building: 'buildings/niagara.svg' },
   { id: 'conservatory', building: 'buildings/conservatory.svg' },
+  { id: 'workshop', building: 'buildings/workshop.svg' },
 ];
 
 export interface PlaceDef {
@@ -730,6 +733,8 @@ PLACES.push(
     sky: (w, h, season) => conservatorySky(w, h, season),
     drawBackdrop: allDrawnElsewhere,
   },
+  // the little teddy and squishy workshop, hidden down a side street (drawn in workshop.ts)
+  { id: 'workshop', toys: ['teddy', 'balloon', 'birthday-cake', 'table', 'stool'], start: [], drawBackdrop: allDrawnElsewhere },
 );
 
 export const placeById = (id: string) => PLACES.find((p) => p.id === id);

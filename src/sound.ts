@@ -123,6 +123,15 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 /** Every sound takes a pitch multiplier: bigger characters sound lower. */
 export const sfx = {
+  /** A soft squishy "fwumph": a low, muffled puff that sinks. */
+  squish(p = 1) {
+    hiss({ dur: 0.28, vol: 0.22, from: 900 * p, to: 260 * p, q: 0.7 });
+    tone({ from: 190 * p, to: 95 * p, dur: 0.24, vol: 0.18, filter: { type: 'lowpass', freq: 600 } });
+  },
+  /** Slowly puffing back up (a squishy rising). */
+  puff(p = 1) {
+    hiss({ dur: 0.9, vol: 0.08, from: 300 * p, to: 900 * p, q: 0.5 });
+  },
   boing(p = 1) {
     tone({ from: 230 * p, to: 140 * p, dur: 0.55, vol: 0.35, wobbleRate: 14, wobbleDepth: 45 * p });
     tone({ from: 460 * p, to: 280 * p, dur: 0.3, vol: 0.08 });

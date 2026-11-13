@@ -416,6 +416,12 @@ export class GestureController {
     this.onGestureEnd(ch);
   }
 
+  /** Held by one finger that hasn't moved yet (pressing and holding it)? For how long? */
+  stillFor(ch: Character) {
+    const g = this.gestures.get(ch);
+    return g && g.ids.length === 1 && !g.moved && !g.pinched ? performance.now() - g.startT : 0;
+  }
+
   select(ch: Character | null) {
     this.selected = ch;
     this.onSelect(ch);

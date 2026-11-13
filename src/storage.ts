@@ -12,12 +12,19 @@
 const DB_NAME = 'drawing-toy';
 const DB_VERSION = 1;
 
+/** Things made in the app rather than photographed: teddies, squishies, adopted pets, people. */
+export type MadeKind = 'bear' | 'squishy' | 'pet' | 'person';
+
 export interface StoredCharacter {
   id: string;
   png: ArrayBuffer;
   createdAt: number;
   /** The player who drew it (only they see it in their toy box). None = from before players: everyone's. */
   owner?: string;
+  /** Made in the app (none = a photo of a drawing). */
+  made?: MadeKind;
+  /** How it was made (the maker's choices), so it can be changed later. */
+  recipe?: unknown;
 }
 
 export type SceneItem = ({ kind: 'photo'; id: string } | { kind: 'sample'; name: string }) & {

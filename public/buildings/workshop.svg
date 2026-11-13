@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 260" width="240" height="260">
+  <!-- The little teddy and squishy workshop on the map: a tiny pink shop with a striped awning and a teddy on the roof. -->
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- a big teddy head on the roof, as the sign -->
+    <circle cx="82" cy="40" r="20" fill="#b5835a" /><circle cx="158" cy="40" r="20" fill="#b5835a" />
+    <circle cx="82" cy="40" r="9" fill="#e9c79f" stroke-width="3" /><circle cx="158" cy="40" r="9" fill="#e9c79f" stroke-width="3" />
+    <circle cx="120" cy="66" r="42" fill="#b5835a" />
+    <ellipse cx="120" cy="80" rx="18" ry="13" fill="#e9c79f" stroke-width="4" />
+    <circle cx="105" cy="60" r="5" fill="#2b2118" stroke="none" /><circle cx="135" cy="60" r="5" fill="#2b2118" stroke="none" />
+    <path d="M114 74 Q120 70 126 74 Q120 82 114 74 Z" fill="#4a3426" stroke-width="3" />
+    <!-- the walls -->
+    <rect x="28" y="108" width="184" height="148" rx="6" fill="#ffc2d4" />
+    <!-- a striped awning -->
+    <path d="M18 112 L222 112 L222 138 Q209 150 196 138 Q183 150 170 138 Q157 150 144 138 Q131 150 118 138 Q105 150 92 138 Q79 150 66 138 Q53 150 40 138 Q29 150 18 138 Z" fill="#ffffff" />
+    <path d="M44 112 L44 140 M96 112 L96 140 M148 112 L148 140 M200 112 L200 140" fill="none" stroke="#ff4d6d" stroke-width="14" />
+    <path d="M18 112 L222 112" fill="none" />
+    <!-- the shop window, with a teddy and a squishy inside -->
+    <rect x="44" y="160" width="76" height="64" rx="8" fill="#bfe8ff" />
+    <circle cx="70" cy="196" r="13" fill="#e0a458" stroke-width="3" /><circle cx="60" cy="184" r="6" fill="#e0a458" stroke-width="3" /><circle cx="80" cy="184" r="6" fill="#e0a458" stroke-width="3" />
+    <path d="M90 220 Q90 196 104 196 Q118 196 118 220 Z" fill="#caffbf" stroke-width="3" />
+    <path d="M44 192 L120 192" fill="none" stroke="#ffffff" stroke-width="4" />
+    <!-- flower box -->
+    <rect x="40" y="226" width="84" height="12" rx="4" fill="#a47e4b" stroke-width="4" />
+    <circle cx="56" cy="222" r="6" fill="#ff8fab" stroke-width="3" /><circle cx="82" cy="220" r="6" fill="#ffd166" stroke-width="3" /><circle cx="108" cy="222" r="6" fill="#ff8fab" stroke-width="3" />
+    <!-- the door, with a heart -->
+    <path d="M142 256 L142 172 Q142 156 158 156 L180 156 Q196 156 196 172 L196 256 Z" fill="#a8e6cf" />
+    <path d="M169 196 C158 186 158 176 169 182 C180 176 180 186 169 196 Z" fill="#ff4d6d" stroke-width="3" />
+    <circle cx="186" cy="214" r="4" fill="#ffd166" stroke-width="2" />
+  </g>
+</svg>

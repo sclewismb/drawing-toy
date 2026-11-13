@@ -126,6 +126,16 @@ export const SHELVES: Partial<Record<PlaceId, [x0: number, x1: number, y: number
   niagara: [
     [1.04, 1.76, 0.36], // the bridge
   ],
+  workshop: [
+    [0.33, 0.67, 0.58], // the maker table
+    [1.06, 1.52, 0.53], // the squishy bar
+    [0.03, 0.3, 0.2], // display shelves
+    [0.03, 0.3, 0.36],
+    [0.03, 0.3, 0.52],
+    [0.7, 0.97, 0.2],
+    [0.7, 0.97, 0.36],
+    [0.7, 0.97, 0.52],
+  ],
   conservatory: [
     [1.42, 1.6, 0.655], // the bench
     [-0.22, -0.12, 0.6], // the fruit stump

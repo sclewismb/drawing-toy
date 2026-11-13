@@ -3,6 +3,7 @@ import type { PlaceId } from '../places';
 import { backyard } from './backyard';
 import { bedroomA, bedroomB } from './bedrooms';
 import { conservatory } from './conservatory';
+import { workshop } from './workshop';
 import { fair } from './fair';
 import { restaurant, toyshop, vet } from './shops';
 import { zoo } from './zoo';
@@ -36,6 +37,7 @@ const PLACE_EGGS: Record<PlaceId, (kit: EggKit, cleanups: Cleanups) => void> = {
   ninja: ninjaGym,
   niagara,
   conservatory,
+  workshop,
 };
 
 const run = (build: (cleanups: Cleanups) => void) => {

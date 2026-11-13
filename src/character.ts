@@ -77,6 +77,11 @@ export class Character extends Container implements Reactable {
   private picW: number;
   private picH: number;
 
+  /** Which tap reactions it does (squishies squish, teddies hug). */
+  reactions: ReactionName[] = TAP_REACTIONS;
+  /** Rare surprise reaction now and then? */
+  surprises = true;
+
   /** 1 = facing the way it was drawn, -1 = mirrored. */
   facing = 1;
   private flipX = 1; // animated value travelling between 1 and -1
@@ -173,9 +178,9 @@ export class Character extends Container implements Reactable {
   react(force?: ReactionName): ReactionName {
     let name = force;
     if (!name) {
-      if (Math.random() < 1 / 12) name = 'super';
+      if (this.surprises && Math.random() < 1 / 12) name = 'super';
       else {
-        const options = TAP_REACTIONS.filter((r) => r !== this.lastReaction);
+        const options = this.reactions.filter((r) => r !== this.lastReaction);
         name = options[Math.floor(Math.random() * options.length)];
       }
     }
@@ -183,6 +188,32 @@ export class Character extends Container implements Reactable {
     this.cancelReaction?.();
     this.cancelReaction = playReaction(this, name);
     return name;
+  }
+
+  private squeezeK = 0;
+  /** Pressed and held (squishies): squashed down by k (0..1). */
+  squeeze(k: number) {
+    this.cancelReaction?.();
+    this.cancelReaction = undefined;
+    this.squeezeK = k;
+    this.fx.scale.set(1 + 0.42 * k, 1 - 0.5 * k);
+  }
+  get squeezed() {
+    return this.squeezeK > 0;
+  }
+  /** Let go after a squeeze: it rises back up, slowly (the squishier, the slower). */
+  unsqueeze() {
+    const from = this.squeezeK;
+    if (from <= 0) return;
+    this.squeezeK = 0;
+    this.cancelReaction = tween(
+      700 + 2200 * from,
+      (t) => {
+        const k = from * (1 - ease.outCubic(t));
+        this.fx.scale.set(1 + 0.42 * k, 1 - 0.5 * k);
+      },
+      () => this.fx.scale.set(1),
+    );
   }
 
   /** Arrive with a springy pop and a little twist. */

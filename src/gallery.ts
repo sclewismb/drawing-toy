@@ -34,7 +34,7 @@ export function setupGallery(opts: {
   let open = false;
   /** The tab showing (kept while the app is open). */
   let tab: string | null = null;
-  const LABELS: Record<string, string> = { here: 'Here', drawings: 'Drawings', animals: 'Animals and people', toys: 'Toys', go: 'Things that go', home: 'Furniture', food: 'Food', outside: 'Outside', treasure: 'Treasures' };
+  const LABELS: Record<string, string> = { here: 'Here', drawings: 'Drawings', made: 'Teddies and squishies', pets: 'My pets', people: 'People', animals: 'Animals and people', toys: 'Toys', go: 'Things that go', home: 'Furniture', food: 'Food', outside: 'Outside', treasure: 'Treasures' };
 
   function render() {
     thumbUrls.forEach((u) => URL.revokeObjectURL(u));
@@ -42,15 +42,25 @@ export function setupGallery(opts: {
     const tabs = opts.shelves()
       .filter((s) => s.items.length)
       .map((s) => ({ id: s.id as string, icon: s.icon, tiles: () => s.items.map((it) => makeTile({ kind: 'sample', name: it.name }, it.url, false)) }));
-    // the drawings (newest first) get their own tab, second, with the newest one as its picture
+    // The drawings (newest first) get their own tab, second, with the newest
+    // one as its picture; then what was made in the app: teddies and
+    // squishies, adopted pets, people. Each tab's picture is its newest one.
     const mine = [...opts.library.mine()].reverse();
-    if (mine.length) {
-      const urls = mine.map((e) => URL.createObjectURL(e.png));
+    const own: { id: string; entries: typeof mine }[] = [
+      { id: 'drawings', entries: mine.filter((e) => !e.made) },
+      { id: 'made', entries: mine.filter((e) => e.made === 'bear' || e.made === 'squishy') },
+      { id: 'pets', entries: mine.filter((e) => e.made === 'pet') },
+      { id: 'people', entries: mine.filter((e) => e.made === 'person') },
+    ];
+    let at = Math.min(1, tabs.length);
+    for (const group of own) {
+      if (!group.entries.length) continue;
+      const urls = group.entries.map((e) => URL.createObjectURL(e.png));
       thumbUrls.push(...urls);
-      tabs.splice(Math.min(1, tabs.length), 0, { id: 'drawings', icon: urls[0], tiles: () => mine.map((e, i) => makeTile({ kind: 'photo', id: e.id }, urls[i], true)) });
+      tabs.splice(at++, 0, { id: group.id, icon: urls[0], tiles: () => group.entries.map((e, i) => makeTile({ kind: 'photo', id: e.id }, urls[i], true)) });
     }
     if (!tabs.length) return;
-    if (!tab || !tabs.some((t) => t.id === tab)) tab = mine.length ? 'drawings' : tabs[0].id;
+    if (!tab || !tabs.some((t) => t.id === tab)) tab = own[0].entries.length ? 'drawings' : tabs[0].id;
     tabBar.replaceChildren(
       ...tabs.map((t) => {
         const b = document.createElement('button');

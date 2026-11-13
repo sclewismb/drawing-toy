@@ -30,7 +30,7 @@ const HOLD_MS = 1200;
  *   zoo / toy shop | ninja gym / fair | Niagara / town square |
  *   bus stop / conservatory
  */
-const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number }> = {
+const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number; base?: number }> = {
   house: { fx: 0.085, side: 'above' },
   police: { fx: 0.235, side: 'below' },
   fire: { fx: 0.335, side: 'above' },
@@ -44,6 +44,8 @@ const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number
   fair: { fx: 1.2, side: 'above', size: 1.45 },
   niagara: { fx: 1.362, side: 'above', size: 1.5 },
   conservatory: { fx: 1.635, side: 'above', size: 1.3 },
+  // tiny, and tucked away down a side street near the bottom: a surprise to find
+  workshop: { fx: 0.445, side: 'below', size: 0.42, base: 0.975 },
 };
 /** The cross streets between the blocks (the first one goes up into the tunnel). */
 const CROSS = [0.18, 0.4, 0.62, 0.84, 1.06, 1.28, 1.5];
@@ -65,7 +67,7 @@ const ROAD: [number, number][] = [
 ];
 /** Big trees along the front (birds live in them: see eggs). */
 const FRONT_TREES: [number, number, number][] = [
-  [0.155, 0.93, 0.04], [0.34, 0.95, 0.045], [0.46, 0.95, 0.04], [0.78, 0.95, 0.045], [0.9, 0.95, 0.04],
+  [0.155, 0.93, 0.04], [0.34, 0.95, 0.045], [0.505, 0.95, 0.04], [0.78, 0.95, 0.045], [0.9, 0.95, 0.04],
   [1.21, 0.95, 0.045], [1.34, 0.95, 0.04], [1.67, 0.95, 0.045],
 ];
 
@@ -345,6 +347,27 @@ export class StreetView extends Container {
       g.circle(x + 10, y - 49, 5).fill(0xfff3b0).stroke({ width: 2, color: INK });
     }
 
+    // --- little paw prints from the main road, down a side street to the tiny hidden workshop ---
+    const ws = SPOTS.workshop;
+    if (ws) {
+      const sx = B * ws.fx;
+      const from = { x: sx - B * 0.03, y: roadY(sx - B * 0.03) + roadW / 2 + 18 };
+      const to = { x: sx + u * 0.02, y: h * (ws.base ?? 0.97) - 6 };
+      const len = Math.hypot(to.x - from.x, to.y - from.y);
+      const fwd = { x: (to.x - from.x) / len, y: (to.y - from.y) / len };
+      const side = { x: -fwd.y, y: fwd.x };
+      const pawCol = winter ? 0x9aa5b1 : 0x8d6e63;
+      const n = Math.max(6, Math.round(len / 26));
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1);
+        const k = i % 2 ? 7 : -7;
+        const x = from.x + (to.x - from.x) * t + Math.sin(t * Math.PI * 2) * u * 0.015 + side.x * k;
+        const y = from.y + (to.y - from.y) * t + side.y * k;
+        g.ellipse(x, y, 6, 5).fill({ color: pawCol, alpha: 0.6 });
+        for (const s2 of [-1, 0, 1]) g.circle(x + fwd.x * 8 + side.x * s2 * 5, y + fwd.y * 8 + side.y * s2 * 5, 2.4).fill({ color: pawCol, alpha: 0.6 });
+      }
+    }
+
     // --- the family's street: the neighbours' houses either side of the house ---
     const houseCols = [0xffd6a5, 0xcaffbf, 0xa0c4ff];
     for (const [i, fx] of [0.015, 0.152].entries()) {
@@ -410,7 +433,9 @@ export class StreetView extends Container {
       let bw = tex.width * k, bh = tex.height * k;
       const s = span(x - bw * 0.6, x + bw * 0.6);
       let y: number;
-      if (spot.side === 'above') {
+      if (spot.base) {
+        y = h * spot.base; // tucked away at a set spot
+      } else if (spot.side === 'above') {
         // standing back from the road, with a driveway down to it
         y = s.lo - gap;
         g.moveTo(x, y - 4).lineTo(x, roadY(x)).stroke({ width: roadW * 0.5, color: INK, cap: 'round' });
