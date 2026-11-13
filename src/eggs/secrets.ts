@@ -4,7 +4,7 @@ import { burst, hearts } from '../fx';
 import type { PlaceId } from '../places';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
-import { ZOO } from '../zoo';
+import { ZOO, zooLayout } from '../zoo';
 import { everyFrame, glow, hotspot, INK, later, oneAtATime, rand, spray, tappable, tumble, type Cleanups, type EggKit } from './common';
 
 /**
@@ -26,7 +26,8 @@ import { everyFrame, glow, hotspot, INK, later, oneAtATime, rand, spray, tappabl
  *                   tap the ripples 3 times -> a fish jumps out
  *   ninja gym:      ring the bell 3 times -> a medal
  *   zoo:            a fish for the penguins, a bone for the lion, a carrot for the giraffe,
- *                   a banana for the monkey, fruit for the elephant
+ *                   a banana for the monkey, fruit for the elephant (and the hippo, zebras,
+ *                   parrots, tortoise), a fish for the crocodile or the flamingos
  *   park:           a gold coin in the fountain -> a wish (and a gem back)
  */
 
@@ -732,6 +733,43 @@ function zoo(kit: EggKit, cleanups: Cleanups) {
     accepts: ['watermelon', 'apple', 'banana'],
     area: () => ({ x: 0.28 * w, y: h * 0.4, w: 0.28 * w, h: h * 0.36 }),
     open: () => fed('elephant', 0.42 * w, h * 0.5, () => sfx.honk()),
+  });
+  // the newer animals (see zooLayout)
+  const Z = zooLayout(w, h);
+  kit.secrets?.lock({
+    accepts: ['carrot', 'apple'],
+    area: () => ({ x: Z.savannah.x0, y: h * 0.55, w: 0.16 * w, h: h * 0.24 }),
+    open: () => fed('zebras', Z.zebras[1].x, Z.zebras[1].y - h * 0.15, () => sfx.whinny()),
+  });
+  const pool = Z.hippo.pool;
+  kit.secrets?.lock({
+    accepts: ['watermelon', 'apple', 'banana', 'pizza'],
+    area: () => ({ x: pool.x - pool.rx, y: pool.y - h * 0.12, w: pool.rx * 2, h: h * 0.18 }),
+    open: () => fed('hippo', pool.x - 0.05 * w, pool.y - h * 0.06, () => sfx.grunt()),
+  });
+  const swamp = Z.croc.pool;
+  kit.secrets?.lock({
+    accepts: ['fish', 'bone', 'burger'],
+    area: () => ({ x: swamp.x - swamp.rx, y: swamp.y - h * 0.1, w: swamp.rx * 2, h: h * 0.16 }),
+    open: () => fed('crocodile', swamp.x - 0.05 * w, swamp.y - h * 0.05, () => sfx.snap()),
+  });
+  const lagoon = Z.flamingos.lagoon;
+  kit.secrets?.lock({
+    accepts: ['fish'],
+    area: () => ({ x: lagoon.x - lagoon.rx, y: lagoon.y - h * 0.2, w: lagoon.rx * 2, h: h * 0.26 }),
+    open: () => fed('flamingos', lagoon.x, lagoon.y - h * 0.15, () => sfx.squawk(0.6)),
+  });
+  const A = Z.aviary;
+  kit.secrets?.lock({
+    accepts: ['banana', 'apple', 'watermelon'],
+    area: () => ({ x: A.x - A.rx, y: A.top, w: A.rx * 2, h: A.base - A.top }),
+    open: () => fed('parrots', A.x, A.top + h * 0.2, () => sfx.squawk(1.2)),
+  });
+  const T = Z.tortoise;
+  kit.secrets?.lock({
+    accepts: ['apple', 'carrot', 'watermelon', 'flower', 'banana'],
+    area: () => ({ x: T.x0, y: T.y - h * 0.12, w: T.x1 - T.x0, h: h * 0.16 }),
+    open: () => fed('tortoise', (T.x0 + T.x1) / 2, T.y - h * 0.08, () => sfx.munch()),
   });
 }
 

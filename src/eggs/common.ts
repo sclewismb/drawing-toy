@@ -25,6 +25,11 @@ export interface EggKit {
   x1?: number;
   /** Outdoors: the sky, with its drifting clouds. */
   sky?: Sky;
+  /**
+   * Wide outdoor rooms with far scenery: things far away (behind the room's
+   * picture), on the layer that slides slower than the room (see WideRoom.far).
+   */
+  far?: Container;
   /** Deeper secrets: treasures that become toys, and spots to drop things on. */
   secrets?: SecretsApi;
   /** Surprises say what just happened here, so secrets can listen ("lights", "note"...). */

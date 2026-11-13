@@ -4,7 +4,7 @@ import { drawBackyard, YARD } from './backyard';
 import { drawFair, FAIR } from './fair';
 import { drawRestaurant, drawToyshop, drawVet, SHOP_WIDE } from './shops';
 import { fireWide, parkWide, policeWide, schoolWide, TOWN_WIDE } from './townWide';
-import { drawZoo, ZOO } from './zoo';
+import { drawZoo, drawZooFar, ZOO } from './zoo';
 import { CONSERVATORY, drawConservatory } from './conservatory';
 import { drawWorkshop, WORKSHOP } from './workshop';
 import { drawAdoption } from './adoption';
@@ -27,6 +27,15 @@ export interface WideRoom {
   left: number;
   right: number;
   draw: (g: Graphics, w: number, h: number, season: Season) => void;
+  /**
+   * Outdoors, for depth: far scenery (hazy hills, a distant train...) drawn
+   * behind the room's picture on a layer that slides slower than the room
+   * when you pan (`farSpeed` of the room's speed, 0.6 if not given).
+   */
+  far?: (g: Graphics, w: number, h: number, season: Season) => void;
+  farSpeed?: number;
+  /** The sky slides slower still (only where nothing in the sky has to line up with the picture). */
+  skySpeed?: number;
 }
 
 export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
@@ -45,7 +54,7 @@ export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
   vet: { ...SHOP_WIDE.vet, draw: (g, w, h) => (drawVet(g, w, h), drawAdoption(g, w, h)) },
   restaurant: { ...SHOP_WIDE.restaurant, draw: drawRestaurant },
   toyshop: { ...SHOP_WIDE.toyshop, draw: drawToyshop },
-  zoo: { left: ZOO.left, right: ZOO.right, draw: drawZoo },
+  zoo: { left: ZOO.left, right: ZOO.right, draw: drawZoo, far: drawZooFar, farSpeed: 0.55, skySpeed: 0.3 },
   ninja: { left: NINJA.left, right: NINJA.right, draw: drawNinja },
   niagara: { left: NIAGARA.left, right: NIAGARA.right, draw: drawNiagara },
   conservatory: { left: CONSERVATORY.left, right: CONSERVATORY.right, draw: drawConservatory },

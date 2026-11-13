@@ -68,7 +68,12 @@ const characters = new Container();
 const roomSparkles = new Container(); // star bursts from surprises (they slide with the room)
 const ui = new Container();
 const roomSky = new Sky(); // outdoors: the sky with drifting clouds, behind the picture
-room.addChild(roomSky, backdrop, characters, roomSparkles);
+// Far scenery in some outdoor places: slides slower than the room (parallax, see WideRoom.far)
+const farLayer = new Container();
+const farPicture = new Graphics();
+const farEggs = new Container(); // things that move far away (the zoo train)
+farLayer.addChild(farPicture, farEggs);
+room.addChild(roomSky, farLayer, backdrop, characters, roomSparkles);
 world.addChild(room, camera.arrows, ui);
 const sparkles = new Container();
 const fade = new Graphics();
@@ -256,7 +261,21 @@ function drawBackdrop() {
     place.drawBackdrop(backdrop, panel, roomH, season);
     WIDE[current]?.draw(backdrop, panel, roomH, season);
   }
+  farPicture.clear();
+  if (current) WIDE[current]?.far?.(farPicture, panel, roomH, season);
+  parallax();
   updateClocks();
+}
+
+/**
+ * Depth: far scenery (and the sky, where a place asks for it) slides slower
+ * than the room as it pans. A layer moving at `speed` of the room's speed is
+ * shifted right by (1 - speed) of the camera's position.
+ */
+function parallax() {
+  const wide = current ? WIDE[current] : undefined;
+  farLayer.x = wide?.far ? camera.x * (1 - (wide.farSpeed ?? 0.6)) : 0;
+  roomSky.x = wide?.skySpeed !== undefined ? camera.x * (1 - wide.skySpeed) : 0;
 }
 
 // --- Saving: each place's scene, shortly after anything changes and when
@@ -349,7 +368,10 @@ gestures.bounds = () => {
   const { x0, x1 } = roomEdges(current, panel);
   return { x0, x1, y0: 0, y1: roomH };
 };
-camera.onMove = () => gestures.refresh();
+camera.onMove = () => {
+  parallax();
+  gestures.refresh();
+};
 const EDGE = 90; // carrying a character this close to the edge slides the room
 app.ticker.add((t) => {
   if (screen !== 'place') return;
@@ -1035,7 +1057,7 @@ function teardownEggs() {
   eggsCleanup?.();
   eggsCleanup = null;
   locks = [];
-  for (const layer of [eggsUnder, eggsOver, roomSparkles]) {
+  for (const layer of [eggsUnder, eggsOver, roomSparkles, farEggs]) {
     for (const c of layer.removeChildren()) c.destroy({ children: true });
   }
 }
@@ -1046,7 +1068,7 @@ function setupEggs(id: PlaceId) {
   events = new Bus();
   events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
   events.on('adopt', (kind: PetKind) => adopt.open(kind)); // the vet's adoption corner
-  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, secrets, events });
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events });
 }
 
 // --- Secrets: deeper surprises (see secrets.ts and eggs/secrets.ts) ---

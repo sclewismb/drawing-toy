@@ -371,6 +371,40 @@ export const sfx = {
   hoHo() {
     for (let i = 0; i < 3; i++) tone({ type: 'triangle', from: 180, to: 140, dur: 0.22, vol: 0.25, delay: i * 0.28, filter: { type: 'lowpass', freq: 900 } });
   },
+  // --- The zoo ---
+  /** A little train's whistle: toot toot! */
+  toot(times = 2) {
+    for (let i = 0; i < times; i++) {
+      for (const f of [587, 740, 880]) tone({ type: 'square', from: f, to: f * 0.98, dur: 0.26, vol: 0.05, delay: i * 0.34, filter: { type: 'lowpass', freq: 2200 } });
+      hiss({ dur: 0.26, vol: 0.05, from: 2500, to: 2000, q: 1, delay: i * 0.34 });
+    }
+  },
+  /** Jaws snapping shut. */
+  snap() {
+    hiss({ dur: 0.06, vol: 0.35, from: 2500, to: 900, q: 1.5 });
+    tone({ type: 'square', from: 260, to: 90, dur: 0.09, vol: 0.18, filter: { type: 'lowpass', freq: 1200 } });
+  },
+  /** A parrot's squawk. */
+  squawk(p = 1) {
+    for (const d of [0, 0.2]) tone({ type: 'sawtooth', from: 1300 * p, to: 850 * p, dur: 0.16, vol: 0.12, delay: d, wobbleRate: 40, wobbleDepth: 120, filter: { type: 'bandpass', freq: 1600 * p, q: 3 } });
+  },
+  /** A horse-y whinny (the zebras). */
+  whinny() {
+    tone({ type: 'sawtooth', from: 1000, to: 520, dur: 0.9, vol: 0.12, wobbleRate: 16, wobbleDepth: 90, filter: { type: 'bandpass', freq: 1200, q: 2 } });
+    hiss({ dur: 0.25, vol: 0.08, from: 900, to: 500, delay: 0.85 });
+  },
+  /** A deep, happy grunt (the hippo). */
+  grunt(p = 1) {
+    for (const d of [0, 0.3]) tone({ type: 'sawtooth', from: 120 * p, to: 80 * p, dur: 0.26, vol: 0.2, delay: d, wobbleRate: 22, wobbleDepth: 15, filter: { type: 'lowpass', freq: 500 } });
+  },
+  /** Munch munch munch. */
+  munch() {
+    for (let i = 0; i < 4; i++) hiss({ dur: 0.07, vol: 0.18, from: 2200, to: 1200, q: 1.2, delay: i * 0.18 });
+  },
+  /** Hooves on the ground: clip clop. */
+  clipClop(n = 6) {
+    for (let i = 0; i < n; i++) tone({ type: 'triangle', from: i % 2 ? 700 : 560, to: 300, dur: 0.06, vol: 0.14, delay: i * 0.15 });
+  },
   /** Back out to the street. */
   zoomOut() {
     hiss({ dur: 0.3, vol: 0.18, from: 2200, to: 500, q: 1.2 });
