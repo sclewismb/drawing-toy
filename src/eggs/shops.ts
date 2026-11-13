@@ -1,9 +1,16 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
+import { pottedPlant } from '../depth';
 import { burst } from '../fx';
 import { SHOP_FLOOR } from '../shops';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
-import { everyFrame, glow, hotspot, INK, later, oneAtATime, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
+import { everyFrame, frontPiece, glow, hotspot, INK, later, oneAtATime, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
+
+/** A big potted plant at each front corner (in front of everyone). */
+function frontPlants(kit: EggKit, cleanups: Cleanups, xs: number[], pot: number) {
+  const size = kit.h * 0.3;
+  for (const x of xs) frontPiece(kit, cleanups, x, kit.h + 6, (g) => pottedPlant(g, 0, 0, size, pot), new Rectangle(-size * 0.4, -size * 0.95, size * 0.8, size * 0.95));
+}
 
 /** Surprises at the vet, the restaurant and the toy shop (see shops.ts for where things are). */
 
@@ -15,6 +22,7 @@ const COLOURS = [0xe5383b, 0xffd166, 0x4ea8ff, 0x7bd36b, 0xb07de8, 0xff8fb1];
 export function vet(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const fy = h * SHOP_FLOOR;
+  frontPlants(kit, cleanups, [-0.5 * w, 2.46 * w], 0xe76f51);
 
   // --- a sleepy puppy in its basket: tap to wake it up ---
   const px = -0.12 * w, py = fy + h * 0.06;
@@ -200,6 +208,7 @@ export function vet(kit: EggKit, cleanups: Cleanups) {
 export function restaurant(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const fy = h * SHOP_FLOOR;
+  frontPlants(kit, cleanups, [-0.55 * w, 1.55 * w], 0x2b2d42);
 
   // --- the chef's bell: ding! Something's ready ---
   const bx = -0.06 * w, by = h * 0.44;
@@ -376,6 +385,29 @@ export function restaurant(kit: EggKit, cleanups: Cleanups) {
 export function toyshop(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const fy = h * SHOP_FLOOR;
+  // at the front: a giant teddy (left) and a wobbly stack of blocks (right)
+  const S = h / 768;
+  frontPiece(kit, cleanups, -0.52 * w, h + 10, (g) => {
+    g.scale.set(S * 1.3);
+    g.ellipse(0, -60, 52, 58).fill(0xb5835a).stroke({ width: 4, color: INK });
+    g.ellipse(0, -52, 30, 34).fill(0xe6c08f);
+    for (const sx of [-34, 34]) g.circle(sx, -160, 18).fill(0xb5835a).stroke({ width: 4, color: INK }).circle(sx, -160, 9).fill(0xe6c08f);
+    g.circle(0, -130, 44).fill(0xb5835a).stroke({ width: 4, color: INK });
+    g.ellipse(0, -118, 18, 13).fill(0xe6c08f).stroke({ width: 2, color: INK });
+    g.circle(0, -124, 6).fill(INK);
+    g.circle(-15, -140, 5).circle(15, -140, 5).fill(INK);
+    g.moveTo(-8, -112).quadraticCurveTo(0, -106, 8, -112).stroke({ width: 3, color: INK });
+    g.poly([-20, -88, 0, -80, 20, -88, 20, -72, 0, -80, -20, -72]).fill(0xe5383b).stroke({ width: 2, color: INK }); // a bow
+  }, new Rectangle(-70 * S * 1.3, -190 * S * 1.3, 140 * S * 1.3, 190 * S * 1.3), () => sfx.squeak(0.8));
+  frontPiece(kit, cleanups, 1.54 * w, h + 6, (g) => {
+    g.scale.set(S * 1.2);
+    const cols = [0xe5383b, 0x4ea8ff, 0xffd166, 0x7bd36b, 0xb07de8];
+    for (let i = 0; i < 5; i++) {
+      const y = -i * 46, dx = [0, 8, -6, 10, -4][i];
+      g.roundRect(-30 + dx, y - 46, 60, 46, 6).fill(cols[i]).stroke({ width: 3, color: INK });
+      g.circle(dx, y - 23, 12).fill(0xffffff).stroke({ width: 2, color: INK });
+    }
+  }, new Rectangle(-50 * S * 1.2, -240 * S * 1.2, 100 * S * 1.2, 240 * S * 1.2), () => sfx.clank());
 
   // --- the train set: round and round; tap for a toot and a speedy lap ---
   const cx = -0.34 * w, cy = h * 0.47, rx = 0.17 * w, ry = h * 0.035;

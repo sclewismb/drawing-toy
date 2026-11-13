@@ -1,4 +1,5 @@
 import type { Graphics } from 'pixi.js';
+import { roomShade } from './depth';
 import { INK } from './places';
 import { SHOP_FLOOR } from './shops';
 
@@ -34,6 +35,7 @@ export function drawAdoption(g: Graphics, w: number, h: number) {
   for (let x = x0; x < x1; x += 90) g.moveTo(x, fy).lineTo(x - 30, h);
   g.stroke({ width: 2, color: 0xdee2e6 });
   g.rect(x0, fy - 10, x1 - x0, 10).fill(0xffffff).stroke({ width: 2, color: INK });
+  roomShade(g, x0, x1, h, fy);
   // an archway from the vet into the adoption corner, with hearts
   g.rect(x0 - 12, 0, 24, fy).fill(0xffffff).stroke({ width: 3, color: INK });
   for (let y = h * 0.1; y < fy - 20; y += h * 0.12) {

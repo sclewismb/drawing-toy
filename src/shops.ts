@@ -1,4 +1,5 @@
 import type { Graphics } from 'pixi.js';
+import { ceilingLight, doorway, roomShade, rug, softShadow } from './depth';
 import { frame, INK, seeded, windowView } from './places';
 
 /**
@@ -23,6 +24,24 @@ function room(g: Graphics, x0: number, x1: number, h: number, wall: number, floo
   g.rect(x0, fy - 8, x1 - x0, 16).fill(0xffffff).stroke({ width: 4, color: INK });
 }
 
+/** A window onto the street outside, with a frame, a sill and curtains. */
+function shopWindow(g: Graphics, x: number, y: number, ww: number, wh: number, curtain: number) {
+  windowView(g, x, y, ww, wh);
+  g.moveTo(x + ww / 2, y).lineTo(x + ww / 2, y + wh).moveTo(x, y + wh / 2).lineTo(x + ww, y + wh / 2).stroke({ width: 5, color: 0xffffff });
+  g.rect(x, y, ww, wh).stroke({ width: 8, color: 0xffffff }).rect(x, y, ww, wh).stroke({ width: 3, color: INK });
+  g.rect(x - 10, y + wh, ww + 20, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+  for (const side of [-1, 1]) {
+    const cx = side < 0 ? x - 6 : x + ww + 6;
+    g.moveTo(cx, y - 10).lineTo(cx - side * ww * 0.18, y - 10).quadraticCurveTo(cx - side * ww * 0.08, y + wh * 0.5, cx - side * ww * 0.14, y + wh + 6).lineTo(cx, y + wh + 6).closePath().fill(curtain).stroke({ width: 3, color: INK });
+  }
+  g.rect(x - ww * 0.22, y - 16, ww * 1.44, 8).fill(0x8d5524).stroke({ width: 2, color: INK });
+}
+
+/** Soft shadows on the floor under the furniture: [middle x, half width] as fractions of w. */
+function shadows(g: Graphics, w: number, fy: number, h: number, list: number[][]) {
+  for (const [cx, rx] of list) softShadow(g, cx * w, fy + 8, rx * w, h * 0.03);
+}
+
 function table(g: Graphics, x: number, top: number, tw: number, fy: number, cloth: number, check = 0xffffff) {
   g.rect(x - 8, top + 12, 16, fy - top - 12).fill(0x6b4226).stroke({ width: 2, color: INK });
   g.ellipse(x, fy + 4, tw * 0.25, 8).fill(0x6b4226);
@@ -43,6 +62,13 @@ function chair(g: Graphics, x: number, seat: number, fy: number, col: number, di
 export function drawVet(g: Graphics, w: number, h: number) {
   const fy = h * SHOP_FLOOR;
   room(g, -0.55 * w, 1.65 * w, h, 0xd8f3dc, 0xe9ecef);
+  roomShade(g, -0.55 * w, 1.65 * w, h, fy);
+  for (const lx of [-0.32, 0.3, 0.9, 1.4]) ceilingLight(g, lx * w, h);
+  // a doorway into the back of the vet, a rug in the waiting room, shadows under everything
+  doorway(g, -0.2 * w, h * 0.24, 0.15 * w, fy, 0xd8f3dc, 0xe9ecef);
+  rug(g, 0.53 * w, fy + h * 0.12, 0.3 * w, h * 0.12, 0x9fd8e8, 0x2a9d8f);
+  shadows(g, w, fy, h, [[-0.38, 0.16], [0.21, 0.17], [0.53, 0.11], [0.87, 0.1], [1.2, 0.13], [1.57, 0.06]]);
+  softShadow(g, -0.12 * w, fy + h * 0.11, 0.09 * w, h * 0.02);
   // paw prints along the wall
   const rnd = seeded(41);
   for (let x = -0.5 * w; x < 1.6 * w; x += 0.09 * w) {
@@ -88,6 +114,11 @@ export function drawRestaurant(g: Graphics, w: number, h: number) {
   g.rect(-0.6 * w, h * 0.5, 2.2 * w, fy - h * 0.5).fill(0xc1440e).stroke({ width: 3, color: INK });
   for (let x = -0.6 * w; x < 1.6 * w; x += 40) g.moveTo(x, h * 0.5).lineTo(x, fy - 8);
   g.stroke({ width: 2, color: 0x9c3a0c });
+  roomShade(g, -0.6 * w, 1.6 * w, h, fy);
+  // windows onto the street, and shadows under everything
+  shopWindow(g, 0.07 * w, h * 0.1, 0.2 * w, h * 0.26, 0xe5383b);
+  shopWindow(g, 0.73 * w, h * 0.1, 0.2 * w, h * 0.26, 0xe5383b);
+  shadows(g, w, fy, h, [[-0.45, 0.13], [0.17, 0.15], [0.5, 0.15], [0.83, 0.15], [1.16, 0.14], [1.38, 0.05], [1.53, 0.06]]);
   // left: the pizza oven and the kitchen pass
   const ox = -0.45 * w;
   g.moveTo(ox - 0.11 * w, fy).lineTo(ox - 0.11 * w, h * 0.38).arc(ox, h * 0.38, 0.11 * w, Math.PI, 0).lineTo(ox + 0.11 * w, fy).closePath().fill(0xd08c60).stroke({ width: 4, color: INK });
@@ -119,6 +150,12 @@ export function drawRestaurant(g: Graphics, w: number, h: number) {
 export function drawToyshop(g: Graphics, w: number, h: number) {
   const fy = h * SHOP_FLOOR;
   room(g, -0.6 * w, 1.6 * w, h, 0xf3e8ff, 0xe9c46a);
+  roomShade(g, -0.6 * w, 1.6 * w, h, fy);
+  // the stock room through a doorway (behind the train set), the shop window, a play rug, shadows
+  doorway(g, -0.52 * w, h * 0.17, 0.13 * w, fy, 0xf3e8ff, 0xe9c46a);
+  shopWindow(g, 1.35 * w, h * 0.13, 0.22 * w, h * 0.26, 0x7fdde0);
+  rug(g, 1.3 * w, fy + h * 0.14, 0.26 * w, h * 0.12, 0x7fdde0, 0xff8fb1);
+  shadows(g, w, fy, h, [[-0.34, 0.22], [0.24, 0.21], [0.76, 0.21], [0.5, 0.09], [1.2, 0.12], [1.48, 0.09]]);
   // bunting of little stars along the top
   for (let x = -0.58 * w; x < 1.6 * w; x += 0.06 * w) g.star(x, h * 0.06, 5, 12, 6).fill([0xffd166, 0xff8fb1, 0x7fdde0][Math.round(x) % 3 === 0 ? 0 : Math.round(x) % 2 ? 1 : 2]).stroke({ width: 2, color: INK });
   // left: the train set's table (the train goes round: see eggs), a kite on the wall

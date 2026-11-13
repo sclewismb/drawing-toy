@@ -118,6 +118,34 @@ export function later(ms: number, fn: () => void, cleanups: Cleanups) {
   cleanups.push(() => clearTimeout(id));
 }
 
+/**
+ * Something at the very front of a room (a potted plant, a big teddy...),
+ * in front of everyone, drawn round its bottom at (x, y). Tap it and it
+ * sways (and makes a sound).
+ */
+export function frontPiece(kit: EggKit, cleanups: Cleanups, x: number, y: number, draw: (g: Graphics) => void, hit: Rectangle, sound: () => void = () => sfx.flutter()) {
+  const c = new Container();
+  c.position.set(x, y);
+  const g = new Graphics();
+  draw(g);
+  c.addChild(g);
+  kit.over.addChild(c);
+  let wob = 0;
+  let t = 0;
+  everyFrame((dt) => {
+    t += dt;
+    c.rotation = Math.sin(t * 0.025) * wob * 0.07;
+  }, cleanups);
+  tappable(c, oneAtATime((done) => {
+    sound();
+    tween(900, (k) => (wob = Math.sin(k * Math.PI)), () => {
+      wob = 0;
+      done();
+    });
+  }), hit);
+  return c;
+}
+
 /** Several rectangles as one tap area. */
 export class MultiHit {
   private rects: Rectangle[];
