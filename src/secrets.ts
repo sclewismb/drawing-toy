@@ -33,10 +33,11 @@ export const FOOD_FOR: Record<string, string[]> = {
   hedgehog: ['carrot', 'apple'],
   chicken: ['carrot', 'watermelon'],
   duck: ['carrot'],
-  'kid-girl': ['pizza', 'burger', 'candy-floss', 'birthday-cake', 'ice-cream', 'cupcake', 'apple', 'watermelon', 'banana'],
-  'kid-boy': ['pizza', 'burger', 'candy-floss', 'birthday-cake', 'ice-cream', 'cupcake', 'apple', 'watermelon', 'banana'],
-  grandma: ['birthday-cake', 'pizza', 'cupcake', 'apple'],
-  grownup: ['burger', 'pizza', 'birthday-cake', 'ice-cream', 'cupcake'],
+  reindeer: ['carrot', 'apple', 'candy-cane'],
+  'kid-girl': ['pizza', 'burger', 'candy-floss', 'birthday-cake', 'ice-cream', 'cupcake', 'apple', 'watermelon', 'banana', 'candy-cane', 'gingerbread'],
+  'kid-boy': ['pizza', 'burger', 'candy-floss', 'birthday-cake', 'ice-cream', 'cupcake', 'apple', 'watermelon', 'banana', 'candy-cane', 'gingerbread'],
+  grandma: ['birthday-cake', 'pizza', 'cupcake', 'apple', 'gingerbread', 'candy-cane'],
+  grownup: ['burger', 'pizza', 'birthday-cake', 'ice-cream', 'cupcake', 'gingerbread', 'candy-cane'],
 };
 
 /** A spot that something can be dropped onto (in room coordinates). */

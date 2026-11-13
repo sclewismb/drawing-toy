@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 240" width="130" height="240">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" fill="none">
+    <path d="M86 220 L86 70 Q86 22 56 22 Q26 22 26 56" stroke="#3a3a3a" stroke-width="40" />
+    <path d="M86 220 L86 70 Q86 22 56 22 Q26 22 26 56" stroke="#ffffff" stroke-width="28" />
+    <path d="M86 220 L86 70 Q86 22 56 22 Q26 22 26 56" stroke="#e5383b" stroke-width="28" stroke-dasharray="16 16" stroke-linecap="butt" />
+    <path d="M80 200 L80 84" stroke="#ffffff" stroke-width="5" opacity="0.6" />
+  </g>
+</svg>

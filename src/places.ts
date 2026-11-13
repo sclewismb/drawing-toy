@@ -114,6 +114,12 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   'dog-house': { url: 'props/dog-house.svg', size: 1.0 },
   'rope-toy': { url: 'props/rope-toy.svg', size: 0.4 },
   'squeaky-bone': { url: 'props/squeaky-bone.svg', size: 0.32 },
+  // Christmas (the reindeer is a critter: it trots about)
+  'xmas-tree': { url: 'props/xmas-tree.svg', size: 1.25 },
+  present: { url: 'props/present.svg', size: 0.42 },
+  stocking: { url: 'props/stocking.svg', size: 0.45 },
+  'candy-cane': { url: 'props/candy-cane.svg', size: 0.38 },
+  gingerbread: { url: 'props/gingerbread.svg', size: 0.42 },
   // animals and little people that walk about by themselves (see critters.ts)
   ...Object.fromEntries(Object.entries(CRITTERS).map(([name, c]) => [name, { url: c.url, size: c.size }])),
   // treasures found by solving secrets (see secrets.ts)
@@ -359,7 +365,7 @@ export const PLACES: PlaceDef[] = [
     // First bedroom (its name is set on the iPad): geometric painted wall, daybed.
     id: 'bedroom-a',
     parent: 'house',
-    toys: ['koala', 'daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse', 'dinosaur', 'rocket', 'castle', 'building-blocks', 'drum', 'bookshelf'],
+    toys: ['koala', 'daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse', 'dinosaur', 'rocket', 'castle', 'building-blocks', 'drum', 'bookshelf', 'present', 'stocking', 'candy-cane', 'gingerbread'],
     start: [
       { name: 'daybed', x: 0.66, y: 0.79 },
       { name: 'koala', x: 0.6, y: 0.66 }, // sitting on the bed
@@ -405,7 +411,7 @@ export const PLACES: PlaceDef[] = [
     // Second bedroom (its name is set on the iPad): turquoise wall, butterflies, tie-dye bed.
     id: 'bedroom-b',
     parent: 'house',
-    toys: ['red-panda', 'bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant', 'lamp', 'bookshelf', 'fishbowl', 'magnifier'],
+    toys: ['red-panda', 'bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant', 'lamp', 'bookshelf', 'fishbowl', 'magnifier', 'present', 'stocking', 'candy-cane', 'gingerbread'],
     start: [
       { name: 'bed-tiedye', x: 0.48, y: 0.78 },
       { name: 'red-panda', x: 0.44, y: 0.66 }, // on the bed
@@ -463,7 +469,7 @@ export const PLACES: PlaceDef[] = [
     // Lounge room: grey walls, big window with blinds, TV, pictures, grey couch.
     id: 'lounge',
     parent: 'house',
-    toys: ['couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant', 'piano', 'lamp', 'fishbowl', 'dog-bed', 'dog-bowl', 'squeaky-bone'],
+    toys: ['couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant', 'piano', 'lamp', 'fishbowl', 'dog-bed', 'dog-bowl', 'squeaky-bone', 'xmas-tree', 'present', 'stocking', 'candy-cane', 'gingerbread', 'reindeer'],
     start: [
       { name: 'couch', x: 0.68, y: 0.7 },
       { name: 'armchair', x: 0.16, y: 0.76 },
@@ -651,7 +657,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'park',
-    toys: ['bench', 'slide', 'flower', 'ball', 'kite', 'bicycle', 'scooter', 'soccer-goal', 'skateboard', 'ice-cream', 'soccer-ball', 'frisbee', 'basketball-hoop', 'basketball', 'beach-ball'],
+    toys: ['bench', 'slide', 'flower', 'ball', 'kite', 'bicycle', 'scooter', 'soccer-goal', 'skateboard', 'ice-cream', 'soccer-ball', 'frisbee', 'basketball-hoop', 'basketball', 'beach-ball', 'reindeer', 'gingerbread', 'candy-cane'],
     start: [
       { name: 'monster', x: 0.25, y: 0.68 },
       { name: 'cat', x: 0.5, y: 0.68 },
@@ -693,7 +699,7 @@ PLACES.push({
   // (like the rooms), and all of it is drawn in backyard.ts.
   id: 'backyard',
   parent: 'house',
-  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower', 'bicycle', 'scooter', 'kite', 'wheelbarrow', 'tent', 'soccer-goal', 'watering-can', 'snowman', 'digger', 'dump-truck', 'dog-house', 'frisbee', 'tennis-ball', 'bouncy-ball'],
+  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower', 'bicycle', 'scooter', 'kite', 'wheelbarrow', 'tent', 'soccer-goal', 'watering-can', 'snowman', 'digger', 'dump-truck', 'dog-house', 'frisbee', 'tennis-ball', 'bouncy-ball', 'reindeer', 'xmas-tree', 'present'],
   start: [
     { name: 'ride-car', x: -0.2, y: 0.86 },
     { name: 'sand-bucket', x: 0.28, y: 0.8 },

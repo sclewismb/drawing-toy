@@ -39,6 +39,7 @@ export const CRITTERS: Record<string, CritterKind> = {
   grownup: { url: 'critters/grownup.svg', size: 0.95, gait: 'walk', speed: 0.06, trick: 'wave', voice: () => sfx.yippee(0.8) },
   pig: { url: 'critters/pig.svg', size: 0.6, gait: 'trot', speed: 0.05, trick: 'nibble', voice: () => sfx.oink() },
   piglet: { url: 'critters/piglet.svg', size: 0.42, gait: 'trot', speed: 0.08, trick: 'jump', voice: () => sfx.oink(1.5) },
+  reindeer: { url: 'critters/reindeer.svg', size: 0.7, gait: 'trot', speed: 0.09, trick: 'jump', voice: () => sfx.sleighBells() },
 };
 
 export const isCritter = (name: string) => name in CRITTERS;

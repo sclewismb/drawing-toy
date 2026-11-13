@@ -713,9 +713,142 @@ function ladybird(plant: Character) {
   }, () => bug.destroy());
 }
 
+// --- Christmas toys ---------------------------------------------------------
+
+/** What can be inside a present (any toy, picked at random). */
+const SURPRISES = ['teddy', 'ball', 'rocket', 'dinosaur', 'toy-train', 'kite', 'drum', 'guitar', 'race-car', 'skateboard', 'building-blocks', 'castle', 'bouncy-ball', 'beach-ball', 'balloon', 'pirate-ship', 'rocking-horse', 'candy-cane', 'gingerbread', 'stocking'];
+/** Small things that fit in a Christmas stocking. */
+const STOCKING_STUFFERS = new Set(['candy-cane', 'gingerbread', 'present', 'bouncy-ball', 'tennis-ball', 'apple', 'cupcake']);
+
+/**
+ * A present is unwrapped (dropped onto someone, or just tapped): wrapping
+ * paper flies everywhere, and out pops a surprise toy.
+ */
+function unwrap(present: Character, who?: Character) {
+  const at = { x: present.x, y: present.y };
+  sfx.zip();
+  setTimeout(() => sfx.tada(), 380);
+  const cols = [0xe5383b, 0xff4d6d, 0xffd166, 0x7bd36b, 0x4ea8ff];
+  for (let i = 0; i < 20; i++) {
+    const bit = new Graphics();
+    if (i % 5 === 4) bit.moveTo(-10, 0).quadraticCurveTo(0, -10, 10, 0).stroke({ width: 5, color: 0xffd166 }); // ribbon
+    else bit.rect(-8, -6, 16, 12).fill(cols[i % cols.length]).stroke({ width: 1.5, color: 0x3a3a3a });
+    bit.position.set(at.x, at.y);
+    roomSparkles.addChild(bit);
+    const a = (i / 20) * Math.PI * 2 + Math.random() * 0.3, d = 80 + Math.random() * 110, spin = (Math.random() - 0.5) * 12;
+    tween(1000, (t) => {
+      const e = ease.outCubic(t);
+      bit.x = at.x + Math.cos(a) * d * e;
+      bit.y = at.y + Math.sin(a) * d * e + t * t * 90;
+      bit.rotation = spin * t;
+      bit.alpha = 1 - t * t;
+    }, () => bit.destroy());
+  }
+  gobble(present, at, 260);
+  if (who && !who.destroyed) {
+    who.react('super');
+    setTimeout(() => sfx.yippee(voice(who)), 300);
+  }
+  const pool = SURPRISES.filter((n) => BUILTIN[n]);
+  const toy = pool[Math.floor(Math.random() * pool.length)];
+  const place = current;
+  void pictureFor({ kind: 'sample', name: toy }).then((pic) => {
+    if (!pic || current !== place) return;
+    const ch = addCharacter(pic, { kind: 'sample', name: toy }, { x: at.x, y: at.y - 30 }, true);
+    setTimeout(() => letGo(ch), 650);
+    saveSoon();
+  });
+}
+
+/** The Christmas tree twinkles: its lights flash in colours (and the star shines, or it snows a little). */
+const treeTricks = new WeakMap<Character, number>();
+function twinkleTree(tree: Character) {
+  const b = roomBox(tree);
+  const trick = ((treeTricks.get(tree) ?? -1) + 1) % 3;
+  treeTricks.set(tree, trick);
+  const lights = new Container();
+  roomSparkles.addChild(lights);
+  const cols = [0xff4d6d, 0xffd166, 0x4ea8ff, 0x7bd36b, 0xb07de8, 0xffffff];
+  const dots: Graphics[] = [];
+  for (let i = 0; i < 18; i++) {
+    const k = Math.random(); // 0 = top of the tree, 1 = bottom
+    const half = b.w * 0.4 * (0.15 + k * 0.85);
+    const c = cols[i % cols.length];
+    const d = new Graphics().circle(0, 0, 13).fill({ color: c, alpha: 0.3 }).circle(0, 0, 6).fill(c);
+    d.position.set(b.x + b.w / 2 + (Math.random() * 2 - 1) * half, b.y + b.h * (0.22 + k * 0.55));
+    lights.addChild(d);
+    dots.push(d);
+  }
+  const top = { x: b.x + b.w / 2, y: b.y + b.h * 0.08 };
+  if (trick === 0) {
+    sfx.jingle();
+  } else if (trick === 1) {
+    sfx.twinkle();
+    sfx.sleighBells();
+    burst(roomSparkles, top.x, top.y, 14, 90);
+  } else {
+    sfx.twinkle();
+    for (let i = 0; i < 24; i++) {
+      const f = new Graphics().circle(0, 0, 3 + Math.random() * 3).fill(0xffffff).stroke({ width: 1, color: 0xbfd7ea });
+      const fx = b.x + Math.random() * b.w, fy = b.y - 20 - Math.random() * 60;
+      f.position.set(fx, fy);
+      roomSparkles.addChild(f);
+      const delay = Math.random() * 600;
+      tween(1800 + delay, (t) => {
+        const q = Math.max(0, (t * (1800 + delay) - delay) / 1800);
+        f.y = fy + q * (b.h + 60);
+        f.x = fx + Math.sin(q * 10 + i) * 10;
+        f.alpha = q > 0.8 ? (1 - q) / 0.2 : q > 0 ? 1 : 0;
+      }, () => f.destroy());
+    }
+  }
+  tween(2600, (t) => dots.forEach((d, i) => (d.alpha = (Math.sin(t * 45 + i * 1.9) > 0 ? 1 : 0.25) * (t > 0.85 ? (1 - t) / 0.15 : 1))), () => lights.destroy({ children: true }));
+}
+
+/** The gingerbread person runs away a little when tapped (you can't catch me!). */
+function runAway(ch: Character) {
+  if (!current || ch.destroyed || physics.active(ch)) return;
+  const { x0, x1 } = roomEdges(current, panel);
+  const dist = roomH * (0.16 + Math.random() * 0.12);
+  let dir = Math.random() < 0.5 ? -1 : 1;
+  if (ch.x + dir * dist > x1 - 60 || ch.x + dir * dist < x0 + 60) dir = -dir;
+  restingOn.delete(ch);
+  const from = ch.x;
+  setTimeout(() => sfx.giggle(1.7), 150);
+  tween(900, (t) => {
+    if (ch.destroyed || gestures.isHeld(ch)) return;
+    ch.x = from + dir * dist * ease.outCubic(t);
+    ch.body.y = -Math.abs(Math.sin(t * Math.PI * 5)) * 16 * (1 - t);
+  }, () => {
+    if (ch.destroyed) return;
+    ch.body.y = 0;
+    saveSoon();
+  });
+}
+
+/** Something small tucked into a Christmas stocking. */
+function stuffStocking(thing: Character, stocking: Character) {
+  const b = roomBox(stocking);
+  gobble(thing, { x: b.x + b.w * 0.55, y: b.y + b.h * 0.12 }, 380);
+  setTimeout(() => {
+    sfx.sleighBells();
+    sfx.twinkle();
+    if (!stocking.destroyed) stocking.react('wobble');
+    burst(roomSparkles, b.x + b.w * 0.55, b.y + b.h * 0.12, 10, 60);
+  }, 380);
+}
+
 /** Drop one thing onto another: does something happen? */
 function interact(ch: Character): 'used' | 'kept' | null {
   const name = nameOf(ch);
+  if (name === 'present') {
+    const who = underneath(ch, isSomeone);
+    if (who) return (unwrap(ch, who), 'used');
+  }
+  if (STOCKING_STUFFERS.has(name)) {
+    const stocking = underneath(ch, (o) => nameOf(o) === 'stocking', 0.6);
+    if (stocking) return (stuffStocking(ch, stocking), 'used');
+  }
   if (HATS.has(name)) {
     const who = underneath(ch, (o) => isSomeone(o) || nameOf(o) === 'snowman', 0.5);
     if (who) {
@@ -1600,6 +1733,11 @@ gestures.onTap = (ch) => {
   // dog things: the squeaky bone squeaks, and someone's at home in the kennel
   if (ch.ref.kind === 'sample' && ch.ref.name === 'squeaky-bone') sfx.squeak(1.6);
   if (ch.ref.kind === 'sample' && ch.ref.name === 'dog-house') setTimeout(() => sfx.woof(), 250);
+  // Christmas: unwrap a present, the tree twinkles, the gingerbread person runs off, the stocking jingles
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'present') return unwrap(ch);
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'xmas-tree') twinkleTree(ch);
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'gingerbread') runAway(ch);
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'stocking') sfx.sleighBells();
   if (isDog(ch) && restingOn.get(ch)?.ref.kind === 'sample' && (restingOn.get(ch)!.ref as { name: string }).name === 'dog-bed') snooze(ch);
   // an adopted pet: its name pops up above it
   const pet = petOf(ch);
@@ -1848,5 +1986,10 @@ if (import.meta.env.DEV) {
     eggsOver,
     secrets: () => ({ found, locks, events, checkTargets }),
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
+    /** Put a toy into the room at a screen point (for testing). */
+    addToy: async (name: string, x = app.screen.width / 2, y = app.screen.height * 0.75) => {
+      const pic = await pictureFor({ kind: 'sample', name });
+      return pic ? addCharacter(pic, { kind: 'sample', name }, toRoom(x, y)) : null;
+    },
   });
 }

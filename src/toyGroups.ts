@@ -5,11 +5,11 @@ import { TREASURES } from './secrets';
 /**
  * The toy box has picture tabs so there's less to scroll through:
  *   this place's toys | drawings | animals & people | toys | things that go |
- *   furniture | food | outdoors | treasures (once some are found)
+ *   furniture | food | outdoors | Christmas | treasures (once some are found)
  * Each tab's picture is one of its own toys (no words). The drawings tab
  * comes from the library, so the gallery adds that one itself.
  */
-export type GroupId = 'here' | 'animals' | 'toys' | 'go' | 'home' | 'food' | 'outside' | 'treasure';
+export type GroupId = 'here' | 'animals' | 'toys' | 'go' | 'home' | 'food' | 'outside' | 'xmas' | 'treasure';
 
 const GROUP: Record<string, GroupId> = {};
 const put = (g: GroupId, names: string[]) => names.forEach((n) => (GROUP[n] = g));
@@ -18,6 +18,7 @@ put('go', ['fire-engine', 'police-car', 'ride-car', 'race-car', 'bicycle', 'scoo
 put('home', ['dog-bed', 'dog-bowl', 'bed', 'bed-tiedye', 'daybed', 'sofa', 'couch', 'armchair', 'fridge', 'table', 'stool', 'school-desk', 'lamp', 'piano', 'fishbowl', 'bookshelf', 'potted-plant']);
 put('food', ['birthday-cake', 'candy-floss', 'pizza', 'burger', 'ice-cream', 'apple', 'cupcake', 'watermelon', 'banana', 'carrot', 'fish', 'bone']);
 put('outside', ['basketball-hoop', 'dog-house', 'bench', 'slide', 'trampoline', 'flower', 'hydrant', 'cone', 'helmet', 'police-hat', 'tent', 'snowman', 'soccer-goal', 'watering-can', 'butterfly-net', 'sand-bucket']);
+put('xmas', ['xmas-tree', 'present', 'stocking', 'candy-cane', 'gingerbread', 'reindeer']); // the reindeer moves here from the animals
 put('treasure', ['golden-key', 'crown', 'magic-wand', 'medal', 'gem', 'gold-coin', 'trophy']);
 // everything else is a toy (ball, teddy, kite, dinosaur, rocket, castle...)
 
@@ -34,6 +35,7 @@ const ICON: Record<Exclude<GroupId, 'here'>, string> = {
   home: 'couch',
   food: 'pizza',
   outside: 'flower',
+  xmas: 'xmas-tree',
   treasure: 'crown',
 };
 
@@ -54,7 +56,7 @@ export function shelves(here: string[], found: Set<string>, url: (name: string) 
   const names = Object.keys(BUILTIN).filter((n) => !hidden(n));
   const item = (name: string) => ({ name, url: url(name) });
   const list: Shelf[] = [{ id: 'here', icon: hereIcon, items: here.filter((n) => BUILTIN[n] && !hidden(n)).map(item) }];
-  for (const id of ['animals', 'toys', 'go', 'home', 'food', 'outside', 'treasure'] as const) {
+  for (const id of ['animals', 'toys', 'go', 'home', 'food', 'outside', 'xmas', 'treasure'] as const) {
     let items = names.filter((n) => groupOf(n) === id && !ADOPT_ONLY.has(n));
     // the treasure tab shows every treasure found, food ones too
     if (id === 'treasure') items = Object.keys(TREASURES).filter((n) => found.has(n));
