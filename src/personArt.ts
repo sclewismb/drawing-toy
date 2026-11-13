@@ -7,13 +7,13 @@ import { circle, ellipse, fillPath, part, shade, trim, type Ctx } from './makerA
  */
 export const AGES = ['grown', 'big', 'little'] as const;
 export const SKINS = ['#ffe3d3', '#f6cfb3', '#e8b48a', '#c68b59', '#8d5524', '#5c3a21'];
-export const HAIRS = ['braids', 'ponytail', 'bun', 'swept', 'short', 'long', 'curly', 'bald'] as const;
-export const HAIR_COLOURS = ['#3b2a20', '#6b4226', '#9a6a3a', '#c09a62', '#e6c77d', '#1f1f1f', '#b5542e', '#a7a7a7'];
+export const HAIRS = ['braids', 'ponytail', 'bun', 'swept', 'short', 'long', 'curly', 'pixie', 'bald'] as const;
+export const HAIR_COLOURS = ['#3b2a20', '#6b4226', '#9a6a3a', '#c09a62', '#e6c77d', '#1f1f1f', '#b5542e', '#a7a7a7', '#ecebe6', '#d1bc92'];
 export const EYE_COLOURS = ['#6f93a8', '#3d8bd9', '#2b9348', '#6b4226', '#8d6e3f'];
 export const GLASSES = ['none', 'dark', 'blue', 'round', 'sun'] as const;
-export const FACE_BITS = ['none', 'freckles', 'stubble', 'beard', 'moustache'] as const;
-export const TOPS = ['tee', 'tank', 'hoodie', 'fleece', 'sweatshirt', 'jersey'] as const;
-export const TOP_COLOURS = ['#9bd0ff', '#4ea8ff', '#2b3a67', '#2b2d42', '#adb5bd', '#7b2cbf', '#e5383b', '#ff8fab', '#52b788', '#ffd166', '#ff922b', '#f8f9fa'];
+export const FACE_BITS = ['none', 'freckles', 'stubble', 'beard', 'moustache', 'lines'] as const;
+export const TOPS = ['tee', 'tank', 'hoodie', 'fleece', 'sweatshirt', 'jersey', 'shirt'] as const;
+export const TOP_COLOURS = ['#9bd0ff', '#4ea8ff', '#2b3a67', '#2b2d42', '#adb5bd', '#7b2cbf', '#e5383b', '#ff8fab', '#52b788', '#ffd166', '#ff922b', '#f8f9fa', '#1f1f1f'];
 export const BOTTOMS = ['jeans', 'joggers', 'camo', 'hockey', 'shorts', 'skirt', 'leggings'] as const;
 export const SHOES = ['#2b2d42', '#f8f9fa', '#e5383b', '#4ea8ff', '#ff8fab'];
 export const PERSON_EXTRAS = ['none', 'hockey-stick', 'cap', 'earrings', 'octopus', 'balloon'] as const;
@@ -41,7 +41,7 @@ const idx = (a: readonly unknown[]) => Math.floor(Math.random() * a.length);
 export const randomPerson = (): PersonRecipe => ({
   age: pick(AGES),
   skin: idx(SKINS),
-  hair: pick(HAIRS.slice(0, 7)),
+  hair: pick(HAIRS.filter((h) => h !== 'bald')),
   hairColour: idx(HAIR_COLOURS),
   eyes: idx(EYE_COLOURS),
   glasses: Math.random() < 0.6 ? 'none' : pick(GLASSES),
@@ -56,6 +56,24 @@ export const randomPerson = (): PersonRecipe => ({
 
 export const PERSON_AREA = { w: 300, h: 640 };
 const INK = '#3a3a3a';
+
+/** Light colours get darker marks, dark colours lighter ones. */
+function marks(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  const lum = ((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11;
+  return lum > 140 ? shade(hex, -0.45) : shade(hex, 0.5);
+}
+/** A holiday shirt's pattern: rows of little dashes. */
+function dashes(c: Ctx, hex: string, y0: number, y1: number) {
+  c.fillStyle = marks(hex);
+  for (let y = y0, row = 0; y < y1; y += 22, row++) {
+    for (let x = (row % 2) * 7; x < 300; x += 14) {
+      c.beginPath();
+      c.roundRect(x, y, 7, 15, 3.5);
+      c.fill();
+    }
+  }
+}
 
 /** Where things are, for each size of person. */
 export function bodyOf(age: PersonRecipe['age']) {
@@ -122,7 +140,7 @@ export function drawPerson(c: Ctx, r: PersonRecipe) {
   }, pants);
 
   // --- arms (sleeves and hands) ---
-  const longSleeves = r.top !== 'tee' && r.top !== 'tank';
+  const longSleeves = r.top !== 'tee' && r.top !== 'tank' && r.top !== 'shirt';
   const armLen = b.hip - b.shoulder + 26;
   for (const s of [-1, 1]) {
     const ax = cx + s * (b.half + 14);
@@ -131,9 +149,19 @@ export function drawPerson(c: Ctx, r: PersonRecipe) {
       cc.fillStyle = '#20c997';
       cc.fillRect(0, b.shoulder + armLen * 0.55, 300, 12);
       cc.fillRect(0, b.shoulder + armLen * 0.55 + 20, 300, 12);
-    } : r.top === 'tee' ? (cc) => {
+    } : r.top === 'tee' || r.top === 'shirt' ? (cc) => {
       cc.fillStyle = top;
       cc.fillRect(0, 0, 300, b.shoulder + 52);
+      if (r.top === 'shirt') {
+        cc.save();
+        cc.beginPath();
+        cc.rect(0, 0, 300, b.shoulder + 52);
+        cc.clip();
+        dashes(cc, top, b.shoulder, b.shoulder + 52);
+        cc.restore();
+        cc.fillStyle = shade(top, -0.2);
+        cc.fillRect(0, b.shoulder + 46, 300, 6);
+      }
     } : undefined);
     fillPath(c, circle(ax, b.shoulder + armLen + 8, 15), r.bottoms === 'hockey' && r.top === 'jersey' ? '#1f1f1f' : skin, 5); // hand (or a hockey glove)
   }
@@ -169,6 +197,12 @@ export function drawPerson(c: Ctx, r: PersonRecipe) {
       fillPath(cc, circle(cx, b.shoulder + 60, 26), '#20c997', 4); // a round crest (no team name)
       fillPath(cc, circle(cx, b.shoulder + 60, 14), '#2b2d42');
     }
+    if (r.top === 'shirt') {
+      dashes(cc, top, b.shoulder + 4, b.hip + 10);
+      cc.fillStyle = shade(top, -0.18);
+      cc.fillRect(cx - 4, b.shoulder, 8, b.hip - b.shoulder + 10);
+      for (let y = b.shoulder + 44; y < b.hip - 6; y += 36) fillPath(cc, circle(cx, y, 5), shade(top, -0.4));
+    }
     if (r.top === 'tank') {
       fillPath(cc, (p) => {
         p.moveTo(cx - b.half * 0.55, b.shoulder - 2);
@@ -185,6 +219,22 @@ export function drawPerson(c: Ctx, r: PersonRecipe) {
     cc.closePath();
   }, skin, 4);
   else if (r.top === 'fleece') part(c, (cc) => cc.roundRect(cx - 34, b.shoulder - 14, 68, 26, 10), top);
+  else if (r.top === 'shirt') {
+    fillPath(c, (cc) => {
+      cc.moveTo(cx - 24, b.shoulder);
+      cc.lineTo(cx, b.shoulder + 34);
+      cc.lineTo(cx + 24, b.shoulder);
+      cc.closePath();
+    }, skin, 4);
+    for (const s of [-1, 1]) {
+      fillPath(c, (cc) => {
+        cc.moveTo(cx + s * 32, b.shoulder - 8);
+        cc.lineTo(cx + s * 3, b.shoulder + 36);
+        cc.lineTo(cx + s * 40, b.shoulder + 22);
+        cc.closePath();
+      }, top, 4);
+    }
+  }
   else if (r.top !== 'tank') fillPath(c, ellipse(cx, b.shoulder + 2, 26, 12), skin, 4);
 
   // --- head ---
@@ -224,7 +274,37 @@ export function drawPerson(c: Ctx, r: PersonRecipe) {
       cc.moveTo(hx - hr * 1.0, hy - hr * 0.1);
       cc.bezierCurveTo(hx - hr * 1.05, hy - hr * 1.25, hx + hr * 1.05, hy - hr * 1.25, hx + hr * 1.0, hy - hr * 0.1);
       cc.quadraticCurveTo(hx, hy - hr * 0.8, hx - hr * 1.0, hy - hr * 0.1);
-    }, hair);
+    }, hair, (cc) => {
+      cc.lineWidth = 3.5;
+      cc.lineCap = 'round';
+      cc.strokeStyle = shade(hair, -0.25);
+      for (const [x0, x1, bend] of [[-0.42, -0.52, 0.1], [-0.05, 0.1, -0.12], [0.35, 0.62, -0.14]]) {
+        cc.beginPath();
+        cc.moveTo(hx + hr * x0, hy - hr * 0.98);
+        cc.quadraticCurveTo(hx + hr * ((x0 + x1) / 2 + bend), hy - hr * 0.86, hx + hr * x1, hy - hr * 0.7);
+        cc.stroke();
+      }
+    });
+  } else if (r.hair === 'pixie') {
+    // short and feathery, with a fringe swept to one side
+    part(c, (cc) => {
+      cc.moveTo(hx - hr * 1.0, hy - hr * 0.02);
+      cc.bezierCurveTo(hx - hr * 1.2, hy - hr * 1.55, hx + hr * 1.2, hy - hr * 1.55, hx + hr * 1.0, hy - hr * 0.02);
+      cc.quadraticCurveTo(hx + hr * 0.94, hy - hr * 0.42, hx + hr * 0.62, hy - hr * 0.52);
+      cc.quadraticCurveTo(hx + hr * 0.1, hy - hr * 0.46, hx - hr * 0.42, hy - hr * 0.42);
+      cc.quadraticCurveTo(hx - hr * 0.78, hy - hr * 0.36, hx - hr * 0.86, hy - hr * 0.12);
+      cc.quadraticCurveTo(hx - hr * 0.94, hy - hr * 0.3, hx - hr * 1.0, hy - hr * 0.02);
+    }, hair, (cc) => {
+      cc.lineWidth = 5;
+      cc.lineCap = 'round';
+      for (const [x0, y0, x1, y1, col] of [[0.7, -0.95, 0.0, -0.6, 0.4], [0.25, -1.1, -0.45, -0.55, 0.3], [0.9, -0.55, 0.45, -0.58, -0.2], [-0.2, -1.1, -0.75, -0.3, -0.2]] as const) {
+        cc.strokeStyle = shade(hair, col);
+        cc.beginPath();
+        cc.moveTo(hx + hr * x0, hy + hr * y0);
+        cc.quadraticCurveTo(hx + hr * (x0 + x1) * 0.5, hy + hr * (y0 + y1) * 0.5 - hr * 0.12, hx + hr * x1, hy + hr * y1);
+        cc.stroke();
+      }
+    });
   } else if (r.hair === 'long') {
     part(c, hairCap, hair);
   } else if (r.hair === 'curly') {
@@ -266,6 +346,23 @@ export function drawPerson(c: Ctx, r: PersonRecipe) {
   c.globalAlpha = 1;
   if (r.face === 'freckles') {
     for (const s of [-1, 1]) for (const [dx, dy] of [[0.45, 0.24], [0.56, 0.3], [0.5, 0.36], [0.62, 0.22], [0.38, 0.32]]) fillPath(c, circle(hx + s * hr * dx, hy + hr * dy, 2.2), '#b5651d');
+  }
+  // smile lines: little creases by the eyes and round the smile
+  if (r.face === 'lines') {
+    c.lineWidth = 2.5;
+    c.lineCap = 'round';
+    c.strokeStyle = shade(skin, -0.22);
+    for (const s of [-1, 1]) {
+      const ox = hx + s * hr * 0.6;
+      c.beginPath();
+      for (const dy of [-0.05, 0.08]) {
+        c.moveTo(ox, ey + hr * dy);
+        c.lineTo(ox + s * hr * 0.1, ey + hr * dy * 1.9);
+      }
+      c.moveTo(hx + s * hr * 0.3, hy + hr * 0.36);
+      c.quadraticCurveTo(hx + s * hr * 0.46, hy + hr * 0.52, hx + s * hr * 0.42, hy + hr * 0.7);
+      c.stroke();
+    }
   }
   // nose and a big smile
   c.beginPath();
