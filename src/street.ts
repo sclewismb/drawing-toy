@@ -46,11 +46,12 @@ const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number
   conservatory: { fx: 1.635, side: 'above', size: 1.3 },
   // tiny, and tucked away down a side street near the bottom: a surprise to find
   workshop: { fx: 0.445, side: 'below', size: 0.42, base: 0.975 },
+  arena: { fx: 1.8, side: 'above', size: 1.45 },
 };
 /** The cross streets between the blocks (the first one goes up into the tunnel). */
-const CROSS = [0.18, 0.4, 0.62, 0.84, 1.06, 1.28, 1.5];
+const CROSS = [0.18, 0.4, 0.62, 0.84, 1.06, 1.28, 1.5, 1.72];
 /** How long the map is (in B). */
-const MAP_LENGTH = 1.74;
+const MAP_LENGTH = 1.96;
 /**
  * The main road: low (further down) under the places above it and high
  * under the places below it, so it winds between them.
@@ -63,12 +64,13 @@ const ROAD: [number, number][] = [
   [0.918, 0.665], [1.005, 0.535], [1.06, 0.6],
   [1.115, 0.535], [1.2, 0.665], [1.28, 0.6],
   [1.362, 0.665], [1.45, 0.535], [1.5, 0.6],
-  [1.555, 0.535], [1.635, 0.665], [1.77, 0.6],
+  [1.555, 0.535], [1.635, 0.665], [1.72, 0.6],
+  [1.8, 0.665], [1.88, 0.535], [1.99, 0.6],
 ];
 /** Big trees along the front (birds live in them: see eggs). */
 const FRONT_TREES: [number, number, number][] = [
   [0.155, 0.93, 0.04], [0.34, 0.95, 0.045], [0.505, 0.95, 0.04], [0.78, 0.95, 0.045], [0.9, 0.95, 0.04],
-  [1.21, 0.95, 0.045], [1.34, 0.95, 0.04], [1.67, 0.95, 0.045],
+  [1.21, 0.95, 0.045], [1.34, 0.95, 0.04], [1.67, 0.95, 0.045], [1.92, 0.95, 0.045],
 ];
 
 /**

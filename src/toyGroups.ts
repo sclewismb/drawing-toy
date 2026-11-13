@@ -18,7 +18,7 @@ put('go', ['fire-engine', 'police-car', 'ride-car', 'race-car', 'bicycle', 'scoo
 put('home', ['bed', 'bed-tiedye', 'daybed', 'sofa', 'couch', 'armchair', 'fridge', 'table', 'stool', 'school-desk', 'lamp', 'piano', 'fishbowl', 'bookshelf', 'potted-plant']);
 put('food', ['birthday-cake', 'candy-floss', 'pizza', 'burger', 'ice-cream', 'apple', 'cupcake', 'watermelon', 'banana', 'carrot', 'fish', 'bone']);
 put('outside', ['bench', 'slide', 'trampoline', 'flower', 'hydrant', 'cone', 'helmet', 'police-hat', 'tent', 'snowman', 'soccer-goal', 'watering-can', 'butterfly-net', 'sand-bucket']);
-put('treasure', ['golden-key', 'crown', 'magic-wand', 'medal', 'gem', 'gold-coin']);
+put('treasure', ['golden-key', 'crown', 'magic-wand', 'medal', 'gem', 'gold-coin', 'trophy']);
 // everything else is a toy (ball, teddy, kite, dinosaur, rocket, castle...)
 
 export const groupOf = (name: string): GroupId => GROUP[name] ?? 'toys';

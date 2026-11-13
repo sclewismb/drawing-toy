@@ -5,6 +5,7 @@ import { bedroomA, bedroomB } from './bedrooms';
 import { conservatory } from './conservatory';
 import { workshop } from './workshop';
 import { adoption } from './adoption';
+import { arena } from './arena';
 import { christmasIndoors } from './christmas';
 import { fair } from './fair';
 import { restaurant, toyshop, vet } from './shops';
@@ -40,6 +41,7 @@ const PLACE_EGGS: Record<PlaceId, (kit: EggKit, cleanups: Cleanups) => void> = {
   niagara,
   conservatory,
   workshop,
+  arena,
 };
 
 /** Places with a ceiling (they get a garland of lights at Christmas). */

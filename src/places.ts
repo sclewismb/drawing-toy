@@ -92,6 +92,11 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   piano: { url: 'props/piano.svg', size: 1.3 },
   fishbowl: { url: 'props/fishbowl.svg', size: 0.55 },
   bookshelf: { url: 'props/bookshelf.svg', size: 1.3 },
+  // hockey
+  'hockey-stick': { url: 'props/hockey-stick.svg', size: 0.85 },
+  puck: { url: 'props/puck.svg', size: 0.22 },
+  skates: { url: 'props/skates.svg', size: 0.45 },
+  'hockey-net': { url: 'props/hockey-net.svg', size: 1.1 },
   // animals and little people that walk about by themselves (see critters.ts)
   ...Object.fromEntries(Object.entries(CRITTERS).map(([name, c]) => [name, { url: c.url, size: c.size }])),
   // treasures found by solving secrets (see secrets.ts)
@@ -118,6 +123,7 @@ export const FLOOR: Record<PlaceId, number> = {
   niagara: 0.8,
   conservatory: 0.74,
   workshop: 0.74,
+  arena: 0.62,
 };
 
 /**
@@ -158,6 +164,11 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
     { name: 'grownup', x: -0.1, y: 0.84 },
   ],
   workshop: [{ name: 'grownup', x: 1.3, y: 0.86 }],
+  arena: [
+    { name: 'kid-boy', x: 0.3, y: 0.86 },
+    { name: 'kid-girl', x: 1.1, y: 0.86 },
+    { name: 'grownup', x: -0.3, y: 0.84 },
+  ],
   conservatory: [
     { name: 'kid-girl', x: 0.2, y: 0.86 },
     { name: 'grandma', x: 1.5, y: 0.86 },
@@ -179,7 +190,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
   ],
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | 'workshop' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | 'workshop' | 'arena' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -205,6 +216,7 @@ export const STREET: {
   { id: 'niagara', building: 'buildings/niagara.svg' },
   { id: 'conservatory', building: 'buildings/conservatory.svg' },
   { id: 'workshop', building: 'buildings/workshop.svg' },
+  { id: 'arena', building: 'buildings/arena.svg' },
 ];
 
 export interface PlaceDef {
@@ -732,6 +744,16 @@ PLACES.push(
   },
   // the little teddy and squishy workshop, hidden down a side street (drawn in workshop.ts)
   { id: 'workshop', toys: ['teddy', 'balloon', 'birthday-cake', 'table', 'stool'], start: [], drawBackdrop: allDrawnElsewhere },
+  // the hockey arena (drawn in arena.ts): the ice is slippery
+  {
+    id: 'arena',
+    toys: ['hockey-stick', 'puck', 'skates', 'hockey-net', 'helmet', 'balloon'],
+    start: [
+      { name: 'puck', x: 0.5, y: 0.84 },
+      { name: 'hockey-stick', x: 0.42, y: 0.8 },
+    ],
+    drawBackdrop: allDrawnElsewhere,
+  },
 );
 
 export const placeById = (id: string) => PLACES.find((p) => p.id === id);

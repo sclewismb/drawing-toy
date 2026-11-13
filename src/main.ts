@@ -426,7 +426,23 @@ physics.onLand = (ch, speed, bounced, on) => {
   else if (bounced) sfx.drop(voice(ch) * 1.2);
   if (speed > 0.9) ch.react('squish');
 };
+/** On the ice rink, things thrown along the ice keep gliding. */
+const iceGlide = new WeakMap<Character, number>();
+function glide(ch: Character, vx: number) {
+  const { x0, x1 } = roomEdges(current!, panel);
+  const from = ch.x, to = Math.max(x0 + 40, Math.min(x1 - 40, from + vx * 800));
+  sfx.whoosh();
+  tween(1300, (t) => {
+    if (!ch.destroyed) ch.x = from + (to - from) * ease.outCubic(t);
+  }, () => {
+    if (!ch.destroyed && checkTargets(ch) !== 'used') saveSoon(); // into a net? goal!
+  });
+}
+
 physics.onSettle = (ch, on, spun) => {
+  const iceVx = iceGlide.get(ch);
+  iceGlide.delete(ch);
+  if (current === 'arena' && !on && iceVx && Math.abs(iceVx) > 0.08) glide(ch, iceVx);
   // thrown onto a secret spot, or onto a hungry animal?
   if (aimed.has(ch)) {
     aimed.delete(ch);
@@ -1242,6 +1258,7 @@ gestures.onDrop = (ch, x, y, vx, vy) => {
   const hit = checkTargets(ch);
   if (hit === 'used') return;
   if (!hit) aimed.add(ch);
+  if (current === 'arena') iceGlide.set(ch, vx * 0.8);
   const speed = Math.hypot(vx, vy);
   if (speed > 0.7) sfx.whoosh();
   follow = speed > 0.7 ? { ch } : null;

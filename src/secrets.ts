@@ -21,6 +21,7 @@ export const TREASURES: Record<string, { url: string; size: number }> = {
   medal: { url: 'treasures/medal.svg', size: 0.35 },
   gem: { url: 'treasures/gem.svg', size: 0.3 },
   'gold-coin': { url: 'treasures/gold-coin.svg', size: 0.32 },
+  trophy: { url: 'treasures/trophy.svg', size: 0.45 },
 };
 
 /** Which animals (and people) like which food. */
