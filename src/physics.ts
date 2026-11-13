@@ -51,6 +51,8 @@ export const FURNITURE: Record<string, { top: number; bounce?: number }> = {
   'police-car': { top: 0.2 },
   'rocking-horse': { top: 0.36 },
   wheelbarrow: { top: 0.25 },
+  'dog-bed': { top: 0.4 },
+  'dog-house': { top: 0.06 },
   piano: { top: 0.14 },
   bookshelf: { top: 0.03 },
   'dump-truck': { top: 0.22 },
@@ -179,6 +181,8 @@ export class Physics {
   onLand: (ch: Character, speed: number, bounced: boolean, on: Surface | null) => void = () => {};
   /** It has come to rest (on a surface, or the floor). `spun` = it was spinning (so stand it back up). */
   onSettle: (ch: Character, on: Surface | null, spun: boolean) => void = () => {};
+  /** How bouncy a thing itself is (balls!) and how heavy (frisbees and beach balls float). */
+  feel: (ch: Character) => { bounce?: number; gravity?: number } = () => ({});
 
   active(ch: Character) {
     return this.bodies.has(ch);
@@ -250,7 +254,7 @@ export class Physics {
         this.bodies.delete(ch);
         continue;
       }
-      b.vy += GRAVITY * dt;
+      b.vy += GRAVITY * (this.feel(ch).gravity ?? 1) * dt;
       ch.x += b.vx * dt;
       ch.y += b.vy * dt;
       ch.rotation += b.spin * dt;
@@ -292,13 +296,15 @@ export class Physics {
         if (feet >= landAt) {
           setFeet(ch, landAt);
           const impact = b.vy;
-          const bouncy = on?.bounce ?? 0.42;
-          if (bouncy > 0.8 && b.bounces < 4) {
+          const own = this.feel(ch).bounce;
+          const bouncy = on?.bounce ?? own ?? 0.42;
+          const maxBounces = own && own > 0.7 ? 9 : 5;
+          if ((on?.bounce ?? 0) > 0.8 && b.bounces < 4) {
             // the trampoline: boing, boing, boing...
             b.vy = -Math.max(impact * bouncy, 1.05 - b.bounces * 0.18);
             b.bounces++;
             this.onLand(ch, impact, true, on);
-          } else if (impact > 0.4 && b.bounces < 5) {
+          } else if (impact > (own ? 0.18 : 0.4) && b.bounces < maxBounces) {
             b.vy = -impact * bouncy;
             b.vx *= 0.7;
             b.spin *= 0.6;

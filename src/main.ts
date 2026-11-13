@@ -426,6 +426,103 @@ physics.onLand = (ch, speed, bounced, on) => {
   else if (bounced) sfx.drop(voice(ch) * 1.2);
   if (speed > 0.9) ch.react('squish');
 };
+// --- Balls and dog things ---
+/** Things dogs run after when they're thrown. */
+const FETCHABLE = new Set(['ball', 'tennis-ball', 'soccer-ball', 'basketball', 'beach-ball', 'bouncy-ball', 'frisbee', 'rope-toy', 'squeaky-bone']);
+/** Things the hockey stick can hit. */
+const HITTABLE = new Set(['puck', 'ball', 'tennis-ball', 'soccer-ball', 'basketball', 'beach-ball', 'bouncy-ball']);
+/** Each ball bounces its own way; frisbees and beach balls are light and float. */
+const FEEL: Record<string, { bounce?: number; gravity?: number }> = {
+  ball: { bounce: 0.55 },
+  'tennis-ball': { bounce: 0.68 },
+  'soccer-ball': { bounce: 0.6 },
+  basketball: { bounce: 0.74 },
+  'beach-ball': { bounce: 0.8, gravity: 0.45 },
+  'bouncy-ball': { bounce: 0.88 },
+  frisbee: { bounce: 0.2, gravity: 0.3 },
+  balloon: { gravity: 0.25 },
+};
+physics.feel = (ch) => (ch.ref.kind === 'sample' ? (FEEL[ch.ref.name] ?? {}) : {});
+
+const isDog = (ch: Character) => (ch.ref.kind === 'sample' && ch.ref.name === 'dog') || !!(petOf(ch) && PETS[petOf(ch)!.kind]?.fetches);
+const named = (name: string) => (characters.children as Character[]).filter((c) => !c.destroyed && c.ref.kind === 'sample' && c.ref.name === name);
+
+/** Zzz... floating up from a sleepy one. */
+function snooze(ch: Character) {
+  wanderers.get(ch)?.rest(9000);
+  for (let i = 0; i < 3; i++) {
+    setTimeout(() => {
+      if (ch.destroyed) return;
+      const z = new Text({ text: 'z', style: { fontFamily: 'system-ui, sans-serif', fontSize: 30 + i * 6, fontWeight: '800', fill: 0x4dabf7, stroke: { color: 0xffffff, width: 4 } } });
+      z.anchor.set(0.5);
+      const x0 = ch.x + 20, y0 = ch.y - (ch.size * ch.scale.y) / 2;
+      z.position.set(x0, y0);
+      roomSparkles.addChild(z);
+      tween(1800, (t) => {
+        z.position.set(x0 + Math.sin(t * 6) * 10 + t * 30, y0 - t * 90);
+        z.alpha = 1 - t;
+      }, () => z.destroy());
+    }, i * 700);
+  }
+}
+
+/** Food dropped in a dog bowl: the nearest dog trots over to eat it. */
+function fillBowl(food: Character) {
+  if (food.ref.kind !== 'sample' || !['bone', 'burger'].includes(food.ref.name)) return false;
+  const box = roomBox(food);
+  const bowl = named('dog-bowl').reverse().find((b) => over(box, roomBox(b), 0.6));
+  if (!bowl) return false;
+  gobble(food, { x: bowl.x, y: bowl.y }, 350);
+  sfx.pop(1.1);
+  const dog = (characters.children as Character[]).filter((c) => !c.destroyed && isDog(c) && !gestures.isHeld(c)).sort((a, b) => Math.abs(a.x - bowl.x) - Math.abs(b.x - bowl.x))[0];
+  if (!dog) return true;
+  wanderers.get(dog)?.rest(5000);
+  const brain = wanderers.get(dog);
+  if (brain instanceof Wanderer) brain.face(bowl.x);
+  brain?.kind.voice();
+  const from = { x: dog.x, y: dog.y };
+  const side = dog.x < bowl.x ? -1 : 1;
+  const to = { x: bowl.x + side * (dog.size * dog.scale.x) * 0.45, y: bowl.y + ((bowl.size * bowl.scale.y) / 2 - (dog.size * dog.scale.y) / 2) };
+  tween(900, (t) => !dog.destroyed && dog.position.set(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t), () => {
+    if (dog.destroyed) return;
+    [0, 170, 340, 510].forEach((ms) => setTimeout(() => sfx.pop(1.5), ms));
+    setTimeout(() => {
+      if (dog.destroyed) return;
+      hearts(roomSparkles, dog.x, dog.y - (dog.size * dog.scale.y) / 2, 6);
+      dog.react('giggle');
+      saveSoon();
+    }, 650);
+  });
+  return true;
+}
+
+// Basketball: a ball dropping down through a hoop's rim scores (swish!).
+const ballLastY = new WeakMap<Character, number>();
+const lastSwish = new WeakMap<Character, number>();
+app.ticker.add(() => {
+  if (!current) return;
+  const hoops = named('basketball-hoop');
+  for (const ball of named('basketball')) {
+    const prev = ballLastY.get(ball);
+    ballLastY.set(ball, ball.y);
+    if (prev === undefined || ball.y <= prev || !hoops.length) continue;
+    for (const hoop of hoops) {
+      const b = roomBox(hoop);
+      const rimY = b.y + b.h * 0.28;
+      const [f0, f1] = hoop.facing === 1 ? [0.15, 0.62] : [0.38, 0.85];
+      if (prev < rimY && ball.y >= rimY && ball.x > b.x + b.w * f0 && ball.x < b.x + b.w * f1 && performance.now() - (lastSwish.get(ball) ?? 0) > 1000) {
+        lastSwish.set(ball, performance.now());
+        sfx.puff(2.2);
+        setTimeout(() => sfx.yippee(1.2), 200);
+        const g = hoop.getGlobalPosition();
+        burst(sparkles, ball.getGlobalPosition().x, ball.getGlobalPosition().y, 16, 120);
+        void g;
+        hoop.react('jiggle');
+      }
+    }
+  }
+});
+
 /** On the ice rink, things thrown along the ice keep gliding. */
 const iceGlide = new WeakMap<Character, number>();
 const glides = new WeakMap<Character, () => void>();
@@ -460,7 +557,7 @@ function swingStick(stick: Character, sx: number, sy: number) {
   const b = roomBox(stick);
   const blade = { x: b.x, y: b.y + b.h * 0.65, w: b.w, h: b.h * 0.35 }; // the bottom of the stick
   for (const o of characters.children as Character[]) {
-    if (o === stick || o.destroyed || o.ref.kind !== 'sample' || (o.ref.name !== 'puck' && o.ref.name !== 'ball')) continue;
+    if (o === stick || o.destroyed || o.ref.kind !== 'sample' || !HITTABLE.has(o.ref.name)) continue;
     if (now - (lastHit.get(o) ?? 0) < 350 || gestures.isHeld(o)) continue;
     if (!over(roomBox(o), blade, 0.7)) continue;
     lastHit.set(o, now);
@@ -476,6 +573,8 @@ function swingStick(stick: Character, sx: number, sy: number) {
 }
 
 physics.onSettle = (ch, on, spun) => {
+  // a dog landing on a dog bed has a nap
+  if (on?.owner?.ref.kind === 'sample' && on.owner.ref.name === 'dog-bed' && isDog(ch)) setTimeout(() => snooze(ch), 400);
   const iceVx = iceGlide.get(ch);
   iceGlide.delete(ch);
   if (current === 'arena' && !on && iceVx && Math.abs(iceVx) > 0.08) glide(ch, iceVx);
@@ -882,6 +981,7 @@ function checkTargets(ch: Character): 'used' | 'kept' | null {
     return 'used';
   }
   if (ch.ref.kind !== 'sample') return null;
+  if (fillBowl(ch)) return 'used';
   if (feed(ch)) return 'used';
   if (wave(ch)) return 'kept';
   return null;
@@ -1228,6 +1328,10 @@ gestures.onTap = (ch) => {
     burst(sparkles, p.x, p.y, 20, 220);
   }
   if (name === 'hug') hearts(roomSparkles, ch.x, ch.y - (ch.size * ch.scale.y) / 2, 5);
+  // dog things: the squeaky bone squeaks, and someone's at home in the kennel
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'squeaky-bone') sfx.squeak(1.6);
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'dog-house') setTimeout(() => sfx.woof(), 250);
+  if (isDog(ch) && restingOn.get(ch)?.ref.kind === 'sample' && (restingOn.get(ch)!.ref as { name: string }).name === 'dog-bed') snooze(ch);
   // an adopted pet: its name pops up above it
   const pet = petOf(ch);
   const person = personOf(ch);
@@ -1302,7 +1406,7 @@ gestures.onDrop = (ch, x, y, vx, vy) => {
   const speed = Math.hypot(vx, vy);
   if (speed > 0.7) sfx.whoosh();
   follow = speed > 0.7 ? { ch } : null;
-  if (ch.ref.kind === 'sample' && ch.ref.name === 'ball' && speed > 0.5) thrownFrom.set(ch, toRoom(x, y).x);
+  if (ch.ref.kind === 'sample' && FETCHABLE.has(ch.ref.name) && speed > 0.5) thrownFrom.set(ch, toRoom(x, y).x);
   if (!letGo(ch, vx, vy)) sfx.drop(voice(ch)); // already standing on something
 };
 gestures.onShake = (ch) => {

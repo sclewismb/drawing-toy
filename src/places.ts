@@ -101,6 +101,19 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   puck: { url: 'props/puck.svg', size: 0.22 },
   skates: { url: 'props/skates.svg', size: 0.45 },
   'hockey-net': { url: 'props/hockey-net.svg', size: 1.1 },
+  // balls (each bounces its own way) and things for dogs
+  'tennis-ball': { url: 'props/tennis-ball.svg', size: 0.2 },
+  'soccer-ball': { url: 'props/soccer-ball.svg', size: 0.3 },
+  basketball: { url: 'props/basketball.svg', size: 0.3 },
+  'beach-ball': { url: 'props/beach-ball.svg', size: 0.45 },
+  'bouncy-ball': { url: 'props/bouncy-ball.svg', size: 0.14 },
+  frisbee: { url: 'props/frisbee.svg', size: 0.38 },
+  'basketball-hoop': { url: 'props/basketball-hoop.svg', size: 1.5 },
+  'dog-bed': { url: 'props/dog-bed.svg', size: 0.8 },
+  'dog-bowl': { url: 'props/dog-bowl.svg', size: 0.4 },
+  'dog-house': { url: 'props/dog-house.svg', size: 1.0 },
+  'rope-toy': { url: 'props/rope-toy.svg', size: 0.4 },
+  'squeaky-bone': { url: 'props/squeaky-bone.svg', size: 0.32 },
   // animals and little people that walk about by themselves (see critters.ts)
   ...Object.fromEntries(Object.entries(CRITTERS).map(([name, c]) => [name, { url: c.url, size: c.size }])),
   // treasures found by solving secrets (see secrets.ts)
@@ -450,7 +463,7 @@ export const PLACES: PlaceDef[] = [
     // Lounge room: grey walls, big window with blinds, TV, pictures, grey couch.
     id: 'lounge',
     parent: 'house',
-    toys: ['couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant', 'piano', 'lamp', 'fishbowl'],
+    toys: ['couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant', 'piano', 'lamp', 'fishbowl', 'dog-bed', 'dog-bowl', 'squeaky-bone'],
     start: [
       { name: 'couch', x: 0.68, y: 0.7 },
       { name: 'armchair', x: 0.16, y: 0.76 },
@@ -615,7 +628,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'school',
-    toys: ['school-desk', 'globe', 'books', 'toy-train', 'building-blocks', 'magnifier', 'piano'],
+    toys: ['school-desk', 'globe', 'books', 'toy-train', 'building-blocks', 'magnifier', 'piano', 'soccer-ball'],
     start: [
       { name: 'school-desk', x: 0.3, y: 0.86 },
       { name: 'school-desk', x: 0.62, y: 0.86 },
@@ -638,7 +651,7 @@ export const PLACES: PlaceDef[] = [
   },
   {
     id: 'park',
-    toys: ['bench', 'slide', 'flower', 'ball', 'kite', 'bicycle', 'scooter', 'soccer-goal', 'skateboard', 'ice-cream'],
+    toys: ['bench', 'slide', 'flower', 'ball', 'kite', 'bicycle', 'scooter', 'soccer-goal', 'skateboard', 'ice-cream', 'soccer-ball', 'frisbee', 'basketball-hoop', 'basketball', 'beach-ball'],
     start: [
       { name: 'monster', x: 0.25, y: 0.68 },
       { name: 'cat', x: 0.5, y: 0.68 },
@@ -680,7 +693,7 @@ PLACES.push({
   // (like the rooms), and all of it is drawn in backyard.ts.
   id: 'backyard',
   parent: 'house',
-  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower', 'bicycle', 'scooter', 'kite', 'wheelbarrow', 'tent', 'soccer-goal', 'watering-can', 'snowman', 'digger', 'dump-truck'],
+  toys: ['ride-car', 'sand-bucket', 'ball', 'trampoline', 'slide', 'flower', 'bicycle', 'scooter', 'kite', 'wheelbarrow', 'tent', 'soccer-goal', 'watering-can', 'snowman', 'digger', 'dump-truck', 'dog-house', 'frisbee', 'tennis-ball', 'bouncy-ball'],
   start: [
     { name: 'ride-car', x: -0.2, y: 0.86 },
     { name: 'sand-bucket', x: 0.28, y: 0.8 },
@@ -713,7 +726,7 @@ const allDrawnElsewhere = () => {
   /* see shops.ts / zoo.ts */
 };
 PLACES.push(
-  { id: 'vet', toys: ['ball', 'teddy', 'flower'], start: [{ name: 'ball', x: 0.35, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
+  { id: 'vet', toys: ['ball', 'teddy', 'flower', 'dog-bed', 'dog-bowl', 'rope-toy', 'squeaky-bone', 'tennis-ball'], start: [{ name: 'ball', x: 0.35, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
   {
     id: 'restaurant',
     toys: ['pizza', 'burger', 'birthday-cake', 'table', 'stool', 'ice-cream', 'cupcake', 'watermelon'],
@@ -738,7 +751,7 @@ PLACES.push(
     drawBackdrop: allDrawnElsewhere,
   },
   // the ninja kids gym and Niagara Falls (drawn in destinations.ts)
-  { id: 'ninja', toys: ['ball', 'trampoline', 'bench', 'soccer-goal', 'skateboard'], start: [{ name: 'ball', x: 0.45, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
+  { id: 'ninja', toys: ['ball', 'trampoline', 'bench', 'soccer-goal', 'skateboard', 'basketball', 'basketball-hoop'], start: [{ name: 'ball', x: 0.45, y: 0.9 }], drawBackdrop: allDrawnElsewhere },
   {
     id: 'niagara',
     toys: ['balloon', 'kite', 'ball', 'teddy', 'pirate-ship', 'tent'],
