@@ -17,6 +17,8 @@ import type { Cleanups, EggKit } from './common';
 import { kitchen, lounge } from './house';
 import { fireStation, park, policeStation, school } from './town';
 import { SECRET_EGGS } from './secrets';
+import { MORE_EGGS } from './more';
+import { moreStreet } from './more/map';
 import { houseEggs, streetEggs, type HouseGeom, type StreetGeom } from './views';
 import { WIDE_EGGS } from './wide';
 
@@ -61,6 +63,7 @@ export function createEggs(id: PlaceId, kit: EggKit): () => void {
   return run((c) => {
     PLACE_EGGS[id](kit, c);
     WIDE_EGGS[id]?.(kit, c); // the new parts either side of the wide rooms
+    MORE_EGGS[id]?.(kit, c); // five more little hidden things in every place
     SECRET_EGGS[id]?.(kit, c); // deeper secrets, on top of everything else
     if (id === 'vet') adoption(kit, c); // the pets waiting to be adopted
     if (kit.season === 'winter' && INDOORS.has(id)) christmasIndoors(kit, c, id); // Christmas decorations
@@ -71,7 +74,10 @@ export function createEggs(id: PlaceId, kit: EggKit): () => void {
 }
 
 export function createStreetEggs(kit: EggKit, geom: StreetGeom) {
-  return run((c) => streetEggs(kit, geom, c));
+  return run((c) => {
+    streetEggs(kit, geom, c);
+    moreStreet(kit, geom, c); // five more little hidden things on the map
+  });
 }
 
 export function createHouseEggs(kit: EggKit, behind: Container, geom: HouseGeom) {
