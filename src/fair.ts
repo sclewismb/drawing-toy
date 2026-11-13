@@ -1,4 +1,5 @@
 import type { Graphics } from 'pixi.js';
+import { haze, ridge, softShadow, treeLine } from './depth';
 import { INK } from './places';
 import { PALETTE, type Season } from './seasons';
 import type { SkyDef } from './sky';
@@ -26,6 +27,37 @@ export function fairSky(w: number, h: number, season: Season): SkyDef {
   };
 }
 
+/**
+ * Far away behind the fair (it slides slower as you pan): hazy hills, a
+ * line of trees, a big roller coaster and some far-off tents.
+ */
+export function drawFairFar(g: Graphics, w: number, h: number, season: Season) {
+  const pal = PALETTE[season];
+  const x0 = -FAIR.left * w, x1 = (1 + FAIR.right) * w;
+  const gy = h * FAIR.ground;
+  const winter = season === 'winter';
+  ridge(g, x0, x1, h * 0.36, h * 0.5, h * 0.75, haze(pal.hillBack, pal.sky, 0.55), 31, 0.5 * w);
+  // a roller coaster: its track loops and dips, on stilts
+  const rc = haze(0xe5383b, pal.sky, 0.5), st = haze(0x8d99ae, pal.sky, 0.5);
+  const cx0 = 0.55 * w, cx1 = 1.35 * w;
+  const track = (x: number) => h * 0.36 + Math.sin(((x - cx0) / (cx1 - cx0)) * Math.PI * 3) * h * 0.07 + ((x - cx0) / (cx1 - cx0)) * h * 0.05;
+  for (let x = cx0; x <= cx1; x += 26) g.moveTo(x, track(x)).lineTo(x, gy).stroke({ width: 3, color: st });
+  g.moveTo(cx0, track(cx0));
+  for (let x = cx0; x <= cx1; x += 8) g.lineTo(x, track(x));
+  g.stroke({ width: 7, color: rc });
+  const lx = 0.98 * w, ly = h * 0.33, lr = h * 0.06; // a loop-the-loop
+  g.circle(lx, ly, lr).stroke({ width: 7, color: rc });
+  g.moveTo(lx, ly + lr).lineTo(lx, gy).stroke({ width: 3, color: st });
+  ridge(g, x0, x1, h * 0.5, h * 0.58, h * 0.75, haze(pal.hillBack, pal.sky, 0.3), 32, 0.4 * w);
+  // far-off tents
+  for (const [tx, c] of [[-0.45, 0x4ea8ff], [0.2, 0xffd166], [1.55, 0x7bd36b]] as const) {
+    const x = tx * w, col = haze(c, pal.sky, 0.45), b = h * 0.62;
+    g.poly([x - 40, b, x, b - 50, x + 40, b]).fill(col);
+    g.poly([x - 12, b, x, b - 50, x + 12, b]).fill(haze(0xffffff, pal.sky, 0.3));
+  }
+  treeLine(g, x0, x1, gy + 6, h * 0.03, haze(winter ? 0x6a9a7f : 0x40916c, pal.sky, 0.35), 33);
+}
+
 /** A striped stall with a roof and a counter (the food or game goes on top: see eggs). */
 export function stall(g: Graphics, x: number, base: number, sw: number, sh: number, stripe: number) {
   g.rect(x, base - sh * 0.62, sw, sh * 0.62).fill(0xfff3e6).stroke({ width: 4, color: INK });
@@ -50,6 +82,9 @@ export function drawFair(g: Graphics, w: number, h: number, season: Season) {
 
   // grass, and a sandy path all the way along
   g.rect(x0, gy, x1 - x0, h - gy).fill(pal.grass);
+  // soft shadows under the booth, the stalls, the cart and the rides
+  for (const [sx, rx] of [[-0.66, 0.1], [-0.47, 0.07], [-0.255, 0.1], [-0.1, 0.06], [0.5, 0.17], [1.22, 0.18], [1.555, 0.11], [1.74, 0.12]]) softShadow(g, sx * w, gy + 8, rx * w, h * 0.03);
+  for (let i = 1; i <= 4; i++) g.rect(x0, h - i * h * 0.025, x1 - x0, i * h * 0.025).fill({ color: 0x000000, alpha: 0.014 });
   g.rect(x0, h * 0.76, x1 - x0, h * 0.13).fill(winter ? 0xeef2f6 : 0xe9d8a6);
   g.rect(x0, h * 0.76, x1 - x0, 4).fill(winter ? 0xd5dee8 : 0xd4b483);
 

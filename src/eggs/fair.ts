@@ -3,7 +3,27 @@ import { FAIR } from '../fair';
 import { burst } from '../fx';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
-import { cloudRain, everyFrame, glow, hotspot, INK, later, oneAtATime, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
+import { cloudRain, everyFrame, frontPiece, glow, hotspot, INK, later, oneAtATime, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
+
+/** A tub of flowers at the very front (tap: it wobbles and a petal or two flies off). */
+function flowerTub(kit: EggKit, cleanups: Cleanups, x: number, colour: number) {
+  const S = kit.h / 768;
+  const petals = [0xff8fb1, 0xffd166, 0xffffff, 0xb07de8];
+  frontPiece(kit, cleanups, x, kit.h + 6, (g) => {
+    g.scale.set(S * 1.2);
+    for (const [fx, fy, r] of [[-40, -120, 1], [0, -150, 1.2], [40, -118, 1], [-20, -100, 0.8], [24, -96, 0.8]]) {
+      g.moveTo(fx * 0.4, -60).lineTo(fx, fy).stroke({ width: 4, color: 0x2d6a4f });
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2;
+        g.circle(fx + Math.cos(a) * 11 * r, fy + Math.sin(a) * 11 * r, 9 * r).fill(petals[(k + Math.abs(fx)) % petals.length]).stroke({ width: 2, color: INK });
+      }
+      g.circle(fx, fy, 7 * r).fill(0xffb703).stroke({ width: 2, color: INK });
+    }
+    g.ellipse(0, -66, 70, 16).fill(0x40916c).stroke({ width: 3, color: INK });
+    g.poly([-66, -66, 66, -66, 52, 0, -52, 0]).fill(colour).stroke({ width: 4, color: INK });
+    g.rect(-70, -74, 140, 14).fill(0xffffff).stroke({ width: 3, color: INK });
+  }, new Rectangle(-80 * S * 1.2, -180 * S * 1.2, 160 * S * 1.2, 180 * S * 1.2), () => sfx.pling());
+}
 
 const COLOURS = [0xe5383b, 0xffd166, 0x4ea8ff, 0x7bd36b, 0xb07de8, 0xff8fb1];
 
@@ -11,6 +31,8 @@ const COLOURS = [0xe5383b, 0xffd166, 0x4ea8ff, 0x7bd36b, 0xb07de8, 0xff8fb1];
 export function fair(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const gy = h * FAIR.ground;
+  flowerTub(kit, cleanups, -FAIR.left * w + 0.06 * w, 0xe5383b);
+  flowerTub(kit, cleanups, (1 + FAIR.right) * w - 0.06 * w, 0x4ea8ff);
 
   // --- the Ferris wheel: always turning; tap it for a fast whizz with flashing lights ---
   const fx = 0.5 * w, fy = h * 0.37, R = h * 0.27;
