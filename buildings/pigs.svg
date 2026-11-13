@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 280" width="340" height="280">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+
+    <!-- A pig family's cottage on the map: stone walls, a thatched roof, a green door, a mud puddle and a fence (our own design). -->
+    <ellipse cx="250" cy="262" rx="70" ry="14" fill="#8d5524" />
+    <ellipse cx="236" cy="258" rx="26" ry="5" fill="#a0703e" stroke="none" />
+    <rect x="40" y="130" width="230" height="130" fill="#b8c4ce" />
+    <path d="M60 160 L100 160 M120 150 L170 150 M190 168 L240 168 M60 210 L110 210 M150 230 L200 230 M210 200 L250 200" fill="none" stroke="#8d99a6" stroke-width="4" />
+    <path d="M20 140 Q40 40 155 40 Q270 40 290 140 Z" fill="#e0b25a" />
+    <path d="M40 120 Q60 70 100 56 M100 130 Q110 80 140 52 M170 52 Q200 80 210 130 M210 56 Q250 70 270 120" fill="none" stroke="#b8862f" stroke-width="5" />
+    <rect x="214" y="20" width="30" height="52" fill="#8d99a6" />
+    <path d="M222 14 Q216 0 230 -6" fill="none" stroke="#ced4da" stroke-width="8" />
+    <path d="M134 260 L134 190 Q155 168 176 190 L176 260 Z" fill="#52b788" />
+    <circle cx="168" cy="226" r="5" fill="#ffd166" stroke-width="3" />
+    <circle cx="86" cy="196" r="22" fill="#bfe8ff" stroke-width="5" />
+    <path d="M86 174 L86 218 M64 196 L108 196" fill="none" stroke-width="3" />
+    <circle cx="226" cy="196" r="22" fill="#bfe8ff" stroke-width="5" />
+    <path d="M226 174 L226 218 M204 196 L248 196" fill="none" stroke-width="3" />
+    <rect x="60" y="222" width="52" height="12" rx="4" fill="#a47e4b" stroke-width="4" />
+    <circle cx="72" cy="218" r="6" fill="#ff8fab" stroke-width="3" /><circle cx="98" cy="218" r="6" fill="#ffd166" stroke-width="3" />
+    <path d="M6 272 L6 238 M26 272 L26 238 M290 272 L290 238 M310 272 L310 238 M332 272 L332 238 M2 248 L36 248 M286 248 L338 248" fill="none" stroke="#ffffff" stroke-width="7" />
+  </g>
+</svg>
