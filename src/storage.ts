@@ -105,6 +105,28 @@ export interface Everything {
 }
 
 export const storage = {
+  /**
+   * A fresh start for the worlds: forget every place's saved scene (both
+   * players'), keeping the drawings, made toys, players and settings.
+   */
+  async resetWorlds() {
+    const d = await db();
+    await new Promise<void>((resolve, reject) => {
+      const t = d.transaction('scene', 'readwrite');
+      const s = t.objectStore('scene');
+      const req = s.openCursor();
+      req.onsuccess = () => {
+        const cur = req.result;
+        if (!cur) return;
+        const key = String(cur.key);
+        if (key === 'current' || /(^|:)place:/.test(key)) cur.delete();
+        cur.continue();
+      };
+      t.oncomplete = () => resolve();
+      t.onerror = () => reject(t.error);
+    });
+  },
+
   /** Everything saved on this iPad (for a backup file). */
   async dumpAll(): Promise<Everything> {
     const d = await db();

@@ -13,7 +13,7 @@ import { sfx } from './sound';
  * way), which is plenty for a paper cut-out world.
  */
 
-type Gait = 'trot' | 'walk' | 'hop' | 'waddle' | 'scurry' | 'creep';
+type Gait = 'trot' | 'walk' | 'hop' | 'waddle' | 'scurry' | 'creep' | 'slither';
 type Trick = 'jump' | 'look' | 'nibble' | 'peck' | 'hide' | 'wave';
 
 export interface CritterKind {
@@ -274,6 +274,8 @@ export class Wanderer {
         return this.pose(-Math.abs(Math.sin(p)) * 3 * k, Math.sin(p) * 0.03);
       case 'creep':
         return this.pose(-Math.abs(Math.sin(p)) * 2 * k, Math.sin(p) * 0.02);
+      case 'slither':
+        return this.pose(-Math.abs(Math.sin(p * 0.5)) * 2 * k, Math.sin(p * 0.5) * 0.06);
     }
   }
 

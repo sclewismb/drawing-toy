@@ -34,7 +34,7 @@ export function setupGallery(opts: {
   let open = false;
   /** The tab showing (kept while the app is open). */
   let tab: string | null = null;
-  const LABELS: Record<string, string> = { here: 'Here', drawings: 'Drawings', made: 'Teddies and squishies', pets: 'My pets', people: 'People', animals: 'Animals and people', toys: 'Toys', go: 'Things that go', home: 'Furniture', food: 'Food', outside: 'Outside', treasure: 'Treasures' };
+  const LABELS: Record<string, string> = { here: 'Here', drawings: 'Drawings', made: 'Teddies and squishies', pets: 'My pets', people: 'People', animals: 'Friends', toys: 'Toys', go: 'Things that go', home: 'Furniture', food: 'Food', outside: 'Outside', treasure: 'Treasures' };
 
   function render() {
     thumbUrls.forEach((u) => URL.revokeObjectURL(u));

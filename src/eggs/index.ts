@@ -4,6 +4,7 @@ import { backyard } from './backyard';
 import { bedroomA, bedroomB } from './bedrooms';
 import { conservatory } from './conservatory';
 import { workshop } from './workshop';
+import { adoption } from './adoption';
 import { fair } from './fair';
 import { restaurant, toyshop, vet } from './shops';
 import { zoo } from './zoo';
@@ -52,6 +53,7 @@ export function createEggs(id: PlaceId, kit: EggKit): () => void {
     PLACE_EGGS[id](kit, c);
     WIDE_EGGS[id]?.(kit, c); // the new parts either side of the wide rooms
     SECRET_EGGS[id]?.(kit, c); // deeper secrets, on top of everything else
+    if (id === 'vet') adoption(kit, c); // the pets waiting to be adopted
   });
 }
 

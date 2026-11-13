@@ -125,23 +125,20 @@ export const FLOOR: Record<PlaceId, number> = {
  * where a scene was already saved (positions as fractions, like `start`).
  */
 export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]> = {
+  // (house pets moved out: adopted pets live in the house now)
+  'bedroom-b': [],
+  lounge: [],
+  kitchen: [],
+  police: [],
   'bedroom-a': [{ name: 'hedgehog', x: 0.3, y: 0.88 }],
-  'bedroom-b': [{ name: 'bunny', x: 0.72, y: 0.86 }],
-  lounge: [{ name: 'dog', x: 0.56, y: 0.83 }],
-  kitchen: [{ name: 'kitten', x: 0.84, y: 0.86 }],
   fire: [{ name: 'grownup', x: 0.24, y: 0.8 }],
-  police: [{ name: 'dog', x: 0.78, y: 0.84 }],
   school: [{ name: 'kid-boy', x: 0.46, y: 0.8 }],
   park: [
     { name: 'duck', x: 0.3, y: 0.86 },
     { name: 'kid-girl', x: 0.56, y: 0.8 },
     { name: 'grandma', x: 0.74, y: 0.8 },
   ],
-  vet: [
-    { name: 'grownup', x: 0.24, y: 0.8 },
-    { name: 'kitten', x: 0.5, y: 0.86 },
-    { name: 'bunny', x: 1.2, y: 0.86 },
-  ],
+  vet: [{ name: 'grownup', x: 0.24, y: 0.8 }],
   restaurant: [
     { name: 'grownup', x: -0.15, y: 0.8 },
     { name: 'kid-girl', x: 0.66, y: 0.82 },

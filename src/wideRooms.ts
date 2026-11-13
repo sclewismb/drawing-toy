@@ -7,6 +7,7 @@ import { fireWide, parkWide, policeWide, schoolWide, TOWN_WIDE } from './townWid
 import { drawZoo, ZOO } from './zoo';
 import { CONSERVATORY, drawConservatory } from './conservatory';
 import { drawWorkshop, WORKSHOP } from './workshop';
+import { drawAdoption } from './adoption';
 import { drawNiagara, drawNinja, NIAGARA, NINJA } from './destinations';
 import type { Season } from './seasons';
 
@@ -39,7 +40,7 @@ export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
   school: { ...TOWN_WIDE.school, draw: schoolWide },
   park: { ...TOWN_WIDE.park, draw: parkWide },
   // the vet, the restaurant, the toy shop and the zoo (all drawn in shops.ts and zoo.ts)
-  vet: { ...SHOP_WIDE.vet, draw: drawVet },
+  vet: { ...SHOP_WIDE.vet, draw: (g, w, h) => (drawVet(g, w, h), drawAdoption(g, w, h)) },
   restaurant: { ...SHOP_WIDE.restaurant, draw: drawRestaurant },
   toyshop: { ...SHOP_WIDE.toyshop, draw: drawToyshop },
   zoo: { left: ZOO.left, right: ZOO.right, draw: drawZoo },

@@ -23,9 +23,12 @@ put('treasure', ['golden-key', 'crown', 'magic-wand', 'medal', 'gem', 'gold-coin
 
 export const groupOf = (name: string): GroupId => GROUP[name] ?? 'toys';
 
+/** Animals only come into the toy box by being adopted at the vet (people, the monster and the robot stay). */
+const ADOPT_ONLY = new Set(['dog', 'kitten', 'bunny', 'duck', 'chicken', 'hedgehog', 'turtle', 'cat']);
+
 /** Each tab's picture. */
 const ICON: Record<Exclude<GroupId, 'here'>, string> = {
-  animals: 'dog',
+  animals: 'kid-girl',
   toys: 'teddy',
   go: 'race-car',
   home: 'couch',
@@ -52,7 +55,7 @@ export function shelves(here: string[], found: Set<string>, url: (name: string) 
   const item = (name: string) => ({ name, url: url(name) });
   const list: Shelf[] = [{ id: 'here', icon: hereIcon, items: here.filter((n) => BUILTIN[n] && !hidden(n)).map(item) }];
   for (const id of ['animals', 'toys', 'go', 'home', 'food', 'outside', 'treasure'] as const) {
-    let items = names.filter((n) => groupOf(n) === id);
+    let items = names.filter((n) => groupOf(n) === id && !ADOPT_ONLY.has(n));
     // the treasure tab shows every treasure found, food ones too
     if (id === 'treasure') items = Object.keys(TREASURES).filter((n) => found.has(n));
     if (items.length) list.push({ id, icon: url(ICON[id]), items: items.map(item) });

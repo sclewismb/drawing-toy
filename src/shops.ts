@@ -8,7 +8,7 @@ import { frame, INK, seeded, windowView } from './places';
  * in eggs/shops.ts.
  */
 export const SHOP_WIDE = {
-  vet: { left: 0.55, right: 0.65 },
+  vet: { left: 0.55, right: 1.5 }, // the adoption corner is on the far right (adoption.ts)
   restaurant: { left: 0.6, right: 0.6 },
   toyshop: { left: 0.6, right: 0.6 },
 };

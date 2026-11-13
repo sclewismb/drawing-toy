@@ -80,7 +80,7 @@ export function shade(hex: string, amount: number) {
 }
 
 /** A filled, outlined part, with an optional pattern drawn only inside it. */
-function part(c: Ctx, path: PathFn, fill: string | CanvasGradient, inside?: (c: Ctx) => void, line = 8) {
+export function part(c: Ctx, path: PathFn, fill: string | CanvasGradient, inside?: (c: Ctx) => void, line = 8) {
   c.beginPath();
   path(c);
   c.fillStyle = fill;
@@ -102,10 +102,10 @@ function part(c: Ctx, path: PathFn, fill: string | CanvasGradient, inside?: (c: 
   c.stroke();
 }
 
-const ellipse = (x: number, y: number, rx: number, ry: number, rot = 0): PathFn => (c) => c.ellipse(x, y, rx, ry, rot, 0, TAU);
-const circle = (x: number, y: number, r: number): PathFn => ellipse(x, y, r, r);
+export const ellipse = (x: number, y: number, rx: number, ry: number, rot = 0): PathFn => (c) => c.ellipse(x, y, rx, ry, rot, 0, TAU);
+export const circle = (x: number, y: number, r: number): PathFn => ellipse(x, y, r, r);
 
-function heartPath(c: Ctx, x: number, y: number, s: number) {
+export function heartPath(c: Ctx, x: number, y: number, s: number) {
   c.moveTo(x, y + s * 0.35);
   c.bezierCurveTo(x - s * 1.1, y - s * 0.3, x - s * 0.5, y - s * 1.05, x, y - s * 0.45);
   c.bezierCurveTo(x + s * 0.5, y - s * 1.05, x + s * 1.1, y - s * 0.3, x, y + s * 0.35);
@@ -120,7 +120,7 @@ function starPath(c: Ctx, x: number, y: number, r: number, points = 5, inner = 0
   }
   c.closePath();
 }
-function fillPath(c: Ctx, path: PathFn, fill: string, stroke = 0) {
+export function fillPath(c: Ctx, path: PathFn, fill: string, stroke = 0) {
   c.beginPath();
   path(c);
   c.fillStyle = fill;
@@ -751,6 +751,8 @@ export function trim(src: HTMLCanvasElement, margin = 10): HTMLCanvasElement {
   out.getContext('2d')!.drawImage(src, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
   return out;
 }
+
+export type { Ctx, PathFn };
 
 /** The finished toy as a picture, ready to be a character (`scale` < 1 for little ones on shelves). */
 export function renderToy(kind: 'bear' | 'squishy', recipe: BearRecipe | SquishyRecipe, scale = 1): HTMLCanvasElement {

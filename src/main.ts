@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Ticker } from 'pixi.js';
+import { Application, Container, Graphics, Text, Ticker } from 'pixi.js';
 import { Camera } from './camera';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
@@ -19,6 +19,9 @@ import { BUILTIN, FLOOR, PLACES, placeById, RESIDENTS, STREET, type PlaceId } fr
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
 import { MOTIONS } from './library';
 import { setupMaker, type MakerMode } from './maker';
+import { setupAdopt } from './adopt';
+import type { PetKind, PetRecipe } from './petArt';
+import { PETS } from './pets';
 import { MoveButton } from './moveButton';
 import { feetOf, furnitureSurface, Physics, SHELVES, type Surface, type World } from './physics';
 import { BEAR_REACTIONS, SOUND_FOR, SQUISH_REACTIONS } from './reactions';
@@ -101,6 +104,20 @@ const builtinUrl = (name: string) => base + BUILTIN[name].url;
 
 // --- Saved drawings (on this iPad only) ---
 const library = await Library.load();
+
+// A fresh start for the worlds (once): the house pets moved out so the
+// kids' adopted pets can move in. Drawings, players and settings are kept.
+if ((await storage.getSetting<number>('world-version').catch(() => 2)) !== 2) {
+  await storage.resetWorlds().catch(() => {});
+  await storage.setSetting('world-version', 2).catch(() => {});
+}
+
+/** An adopted pet's kind (and name), if this character is one. */
+function petOf(ch: Character): PetRecipe | null {
+  if (ch.ref.kind !== 'photo') return null;
+  const e = library.get(ch.ref.id);
+  return e?.made === 'pet' && e.recipe ? (e.recipe as PetRecipe) : null;
+}
 void storage.askToKeep();
 
 // --- The street, and the family house with its rooms ---
@@ -293,7 +310,7 @@ ui.addChild(moveButton);
 gestures.onSelect = (ch) => {
   if (ch) flipButton.show();
   else flipButton.hide();
-  if (ch?.ref.kind === 'photo') moveButton.show(library.motion(ch.ref.id));
+  if (ch?.ref.kind === 'photo' && !petOf(ch)) moveButton.show(library.motion(ch.ref.id)); // (pets move by themselves)
   else moveButton.hide();
 };
 
@@ -426,7 +443,9 @@ function fetchBall(ball: Character, homeX: number) {
   let best: Wanderer | null = null;
   for (const ch of characters.children as Character[]) {
     const w = wanderers.get(ch);
-    if (!(w instanceof Wanderer) || ch.ref.kind !== 'sample' || ch.ref.name !== 'dog') continue;
+    const pet = petOf(ch);
+    const fetcher = (ch.ref.kind === 'sample' && ch.ref.name === 'dog') || (pet && PETS[pet.kind]?.fetches);
+    if (!(w instanceof Wanderer) || !fetcher) continue;
     if (w.isFetching || gestures.isHeld(ch) || physics.active(ch) || feetOf(ch) < roomH * FLOOR[current!]) continue;
     if (!best || Math.abs(ch.x - ball.x) < Math.abs(best.ch.x - ball.x)) best = w;
   }
@@ -451,7 +470,9 @@ function startMoving(ch: Character, justChanged = false) {
   ch.sprite.rotation = 0;
   wanderers.delete(ch);
   let brain: Brain | null = null;
+  const pet = petOf(ch);
   if (ch.ref.kind === 'sample' && CRITTERS[ch.ref.name]) brain = new Wanderer(ch, CRITTERS[ch.ref.name]);
+  else if (pet && PETS[pet.kind]) brain = PETS[pet.kind].fly ? new Flyer(ch, PETS[pet.kind]) : new Wanderer(ch, PETS[pet.kind]);
   else if (ch.ref.kind === 'photo') {
     const m = library.motion(ch.ref.id);
     if (m === 'walk') brain = new Wanderer(ch, DRAWN_WALK);
@@ -539,7 +560,8 @@ interface Placement {
 function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada = false) {
   // made in the workshop: squishies are small and squish, teddies hug
   const made = ref.kind === 'photo' ? library.get(ref.id)?.made : undefined;
-  const size = ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1) : made === 'squishy' ? 0.5 : made === 'bear' ? 0.7 : 1;
+  const petKind = made === 'pet' ? (library.get((ref as { id: string }).id)?.recipe as PetRecipe | undefined)?.kind : undefined;
+  const size = ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1) : made === 'squishy' ? 0.5 : made === 'bear' ? 0.7 : petKind ? (PETS[petKind]?.size ?? 0.5) : 1;
   const ch = new Character(picture, startSize() * size);
   ch.ref = ref;
   if (made === 'squishy') {
@@ -605,6 +627,7 @@ function setupEggs(id: PlaceId) {
   const { x0, x1 } = roomEdges(id, panel);
   events = new Bus();
   events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
+  events.on('adopt', (kind: PetKind) => adopt.open(kind)); // the vet's adoption corner
   eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, secrets, events });
 }
 
@@ -615,6 +638,18 @@ let found = new Set<string>();
 let locks: Lock[] = [];
 /** This place's surprises tell its secrets what happened. */
 let events = new Bus();
+
+// --- Adopting a pet at the vet (see adopt.ts): it comes to say hello, and it's theirs ---
+const adopt = setupAdopt({
+  async onAdopt(recipe, picture) {
+    const entry = await library.add(picture, { kind: 'pet', recipe });
+    if (!current) return;
+    const ch = addCharacter(picture, { kind: 'photo', id: entry.id }, toRoom(app.screen.width / 2, app.screen.height * 0.5), true);
+    hearts(roomSparkles, ch.x, ch.y - ch.size / 2, 10);
+    setTimeout(() => letGo(ch), 650);
+    setTimeout(() => !ch.destroyed && nameBubble(ch, recipe.name), 900);
+  },
+});
 
 // --- The workshop's maker: teddies and squishies (see maker.ts) ---
 const maker = setupMaker({
@@ -695,7 +730,7 @@ function feed(food: Character) {
   const name = food.ref.name;
   const box = roomBox(food);
   const eater = (characters.children as Character[])
-    .filter((o) => o !== food && !o.destroyed && o.ref.kind === 'sample' && FOOD_FOR[o.ref.name]?.includes(name))
+    .filter((o) => o !== food && !o.destroyed && (o.ref.kind === 'sample' ? FOOD_FOR[o.ref.name] : PETS[petOf(o)?.kind as PetKind]?.food)?.includes(name))
     .reverse()
     .find((o) => over(box, roomBox(o), 0.4));
   if (!eater) return false;
@@ -1117,7 +1152,30 @@ gestures.onTap = (ch) => {
     burst(sparkles, p.x, p.y, 20, 220);
   }
   if (name === 'hug') hearts(roomSparkles, ch.x, ch.y - (ch.size * ch.scale.y) / 2, 5);
+  // an adopted pet: its name pops up above it
+  const pet = petOf(ch);
+  if (pet) {
+    brain?.kind.voice();
+    nameBubble(ch, pet.name);
+  }
 };
+
+/** A pet's name in a little bubble that floats up and fades. */
+function nameBubble(ch: Character, name: string) {
+  const bubble = new Container();
+  const label = new Text({ text: name, style: { fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 26, fontWeight: '800', fill: 0x3a2a00 } });
+  label.anchor.set(0.5);
+  const bg = new Graphics().roundRect(-label.width / 2 - 16, -24, label.width + 32, 48, 24).fill(0xffd43b).stroke({ width: 4, color: 0x3a3a3a });
+  bubble.addChild(bg, label);
+  const y0 = ch.y - (ch.size * ch.scale.y) / 2 - 30;
+  bubble.position.set(ch.x, y0);
+  roomSparkles.addChild(bubble);
+  tween(1800, (t) => {
+    bubble.y = y0 - t * 40;
+    bubble.alpha = t > 0.7 ? (1 - t) / 0.3 : 1;
+    bubble.scale.set(t < 0.15 ? t / 0.15 : 1);
+  }, () => bubble.destroy({ children: true }));
+}
 
 // Squishies: press and hold still to squeeze; let go and it slowly puffs back up.
 const squeezing = new Set<Character>();
