@@ -1,8 +1,8 @@
 import { sfx } from './sound';
 
 /**
- * Two players, each with their own world. They're shown as pictures (a
- * rocket and a butterfly), with a name under each if a grown-up typed one in
+ * Two players, each with their own world. They're shown as pictures (their
+ * favourite stuffies: a koala and a red panda), with a name under each if a grown-up typed one in
  * the grown-up box. Names and codes are saved on this iPad only.
  *
  * A grown-up master code opens either world, and the grown-up box itself.

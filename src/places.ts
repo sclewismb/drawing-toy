@@ -93,6 +93,9 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   piano: { url: 'props/piano.svg', size: 1.3 },
   fishbowl: { url: 'props/fishbowl.svg', size: 0.55 },
   bookshelf: { url: 'props/bookshelf.svg', size: 1.3 },
+  // the kids' own favourite stuffies (also their pictures on the "who's playing?" screen)
+  koala: { url: 'props/koala.svg', size: 0.6 },
+  'red-panda': { url: 'props/red-panda.svg', size: 0.6 },
   // hockey
   'hockey-stick': { url: 'props/hockey-stick.svg', size: 0.85 },
   puck: { url: 'props/puck.svg', size: 0.22 },
@@ -343,9 +346,10 @@ export const PLACES: PlaceDef[] = [
     // First bedroom (its name is set on the iPad): geometric painted wall, daybed.
     id: 'bedroom-a',
     parent: 'house',
-    toys: ['daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse', 'dinosaur', 'rocket', 'castle', 'building-blocks', 'drum', 'bookshelf'],
+    toys: ['koala', 'daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse', 'dinosaur', 'rocket', 'castle', 'building-blocks', 'drum', 'bookshelf'],
     start: [
       { name: 'daybed', x: 0.66, y: 0.79 },
+      { name: 'koala', x: 0.6, y: 0.66 }, // sitting on the bed
       { name: 'ball', x: 0.4, y: 0.9 },
     ],
     drawBackdrop(g, w, h) {
@@ -388,9 +392,10 @@ export const PLACES: PlaceDef[] = [
     // Second bedroom (its name is set on the iPad): turquoise wall, butterflies, tie-dye bed.
     id: 'bedroom-b',
     parent: 'house',
-    toys: ['bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant', 'lamp', 'bookshelf', 'fishbowl', 'magnifier'],
+    toys: ['red-panda', 'bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant', 'lamp', 'bookshelf', 'fishbowl', 'magnifier'],
     start: [
       { name: 'bed-tiedye', x: 0.48, y: 0.78 },
+      { name: 'red-panda', x: 0.44, y: 0.66 }, // on the bed
       { name: 'books', x: 0.88, y: 0.66 },
     ],
     drawBackdrop(g, w, h) {
