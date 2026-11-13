@@ -22,6 +22,8 @@ import { setupMaker, type MakerMode } from './maker';
 import { setupAdopt } from './adopt';
 import type { PetKind, PetRecipe } from './petArt';
 import { PETS } from './pets';
+import type { PersonRecipe } from './personArt';
+import type { CritterKind } from './critters';
 import { MoveButton } from './moveButton';
 import { feetOf, furnitureSurface, Physics, SHELVES, type Surface, type World } from './physics';
 import { BEAR_REACTIONS, SOUND_FOR, SQUISH_REACTIONS } from './reactions';
@@ -111,6 +113,19 @@ if ((await storage.getSetting<number>('world-version').catch(() => 2)) !== 2) {
   await storage.resetWorlds().catch(() => {});
   await storage.setSetting('world-version', 2).catch(() => {});
 }
+
+/** A person made in the maker (their size and name), if this character is one. */
+function personOf(ch: Character): PersonRecipe | null {
+  if (ch.ref.kind !== 'photo') return null;
+  const e = library.get(ch.ref.id);
+  return e?.made === 'person' && e.recipe ? (e.recipe as PersonRecipe) : null;
+}
+/** How made people get about: grown-ups stroll and wave, kids skip and jump. */
+const PEOPLE: Record<PersonRecipe['age'], CritterKind> = {
+  grown: { url: '', size: 0.95, gait: 'walk', speed: 0.06, trick: 'wave', voice: () => sfx.yippee(0.85) },
+  big: { url: '', size: 0.85, gait: 'walk', speed: 0.08, trick: 'jump', voice: () => sfx.giggle(1.2) },
+  little: { url: '', size: 0.75, gait: 'walk', speed: 0.08, trick: 'jump', voice: () => sfx.giggle(1.4) },
+};
 
 /** An adopted pet's kind (and name), if this character is one. */
 function petOf(ch: Character): PetRecipe | null {
@@ -310,7 +325,7 @@ ui.addChild(moveButton);
 gestures.onSelect = (ch) => {
   if (ch) flipButton.show();
   else flipButton.hide();
-  if (ch?.ref.kind === 'photo' && !petOf(ch)) moveButton.show(library.motion(ch.ref.id)); // (pets move by themselves)
+  if (ch?.ref.kind === 'photo' && !petOf(ch) && !personOf(ch)) moveButton.show(library.motion(ch.ref.id)); // (pets and people move by themselves)
   else moveButton.hide();
 };
 
@@ -473,6 +488,7 @@ function startMoving(ch: Character, justChanged = false) {
   const pet = petOf(ch);
   if (ch.ref.kind === 'sample' && CRITTERS[ch.ref.name]) brain = new Wanderer(ch, CRITTERS[ch.ref.name]);
   else if (pet && PETS[pet.kind]) brain = PETS[pet.kind].fly ? new Flyer(ch, PETS[pet.kind]) : new Wanderer(ch, PETS[pet.kind]);
+  else if (personOf(ch)) brain = new Wanderer(ch, PEOPLE[personOf(ch)!.age] ?? PEOPLE.big);
   else if (ch.ref.kind === 'photo') {
     const m = library.motion(ch.ref.id);
     if (m === 'walk') brain = new Wanderer(ch, DRAWN_WALK);
@@ -561,7 +577,14 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
   // made in the workshop: squishies are small and squish, teddies hug
   const made = ref.kind === 'photo' ? library.get(ref.id)?.made : undefined;
   const petKind = made === 'pet' ? (library.get((ref as { id: string }).id)?.recipe as PetRecipe | undefined)?.kind : undefined;
-  const size = ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1) : made === 'squishy' ? 0.5 : made === 'bear' ? 0.7 : petKind ? (PETS[petKind]?.size ?? 0.5) : 1;
+  const personAge = made === 'person' ? (library.get((ref as { id: string }).id)?.recipe as PersonRecipe | undefined)?.age : undefined;
+  const size =
+    ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1)
+    : made === 'squishy' ? 0.5
+    : made === 'bear' ? 0.7
+    : petKind ? (PETS[petKind]?.size ?? 0.5)
+    : personAge ? (PEOPLE[personAge]?.size ?? 0.85)
+    : 1;
   const ch = new Character(picture, startSize() * size);
   ch.ref = ref;
   if (made === 'squishy') {
@@ -654,7 +677,7 @@ const adopt = setupAdopt({
 // --- The workshop's maker: teddies and squishies (see maker.ts) ---
 const maker = setupMaker({
   async onDone(kind, picture, recipe) {
-    const entry = await library.add(picture, { kind, recipe });
+    const entry = await library.add(picture, { kind, recipe, shared: kind === 'person' }); // people are everyone's
     if (!current) return;
     // here it comes! (and it's in the toy box now too)
     const ch = addCharacter(picture, { kind: 'photo', id: entry.id }, toRoom(app.screen.width / 2, app.screen.height * 0.45), true);
@@ -1154,9 +1177,11 @@ gestures.onTap = (ch) => {
   if (name === 'hug') hearts(roomSparkles, ch.x, ch.y - (ch.size * ch.scale.y) / 2, 5);
   // an adopted pet: its name pops up above it
   const pet = petOf(ch);
-  if (pet) {
+  const person = personOf(ch);
+  if (pet || person) {
     brain?.kind.voice();
-    nameBubble(ch, pet.name);
+    const name = (pet ?? person)!.name;
+    if (name) nameBubble(ch, name);
   }
 };
 

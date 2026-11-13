@@ -20,6 +20,26 @@ import {
   type BearRecipe,
   type SquishyRecipe,
 } from './makerArt';
+import {
+  AGES,
+  bodyOf,
+  BOTTOMS,
+  drawPerson,
+  EYE_COLOURS,
+  FACE_BITS,
+  GLASSES,
+  HAIR_COLOURS,
+  HAIRS,
+  newPerson,
+  PERSON_EXTRAS,
+  randomPerson,
+  renderPerson,
+  SHOES,
+  SKINS,
+  TOP_COLOURS,
+  TOPS,
+  type PersonRecipe,
+} from './personArt';
 import { sfx } from './sound';
 
 /**
@@ -29,13 +49,15 @@ import { sfx } from './sound';
  * show the toy with that choice. The dice makes a surprise one; the green
  * tick finishes it (stuffed, with a heart inside) and it goes to the toy box.
  */
-export type MakerMode = 'bear' | 'squishy';
+export type MakerMode = 'bear' | 'squishy' | 'person';
+export type MakerRecipe = BearRecipe | SquishyRecipe | PersonRecipe;
 type Ctx = CanvasRenderingContext2D;
 type Area = { x: number; y: number; w: number; h: number };
 
 const AREA: Record<MakerMode, Area> = {
   bear: { x: -10, y: -150, w: 620, h: 860 },
   squishy: { x: 0, y: -10, w: 560, h: 520 },
+  person: { x: -40, y: 0, w: 380, h: 650 },
 };
 const HEAD: Area = { x: 100, y: -20, w: 400, h: 420 };
 const EYES_AT: Area = { x: 190, y: 160, w: 220, h: 150 };
@@ -72,6 +94,8 @@ const CSS = `
 #maker .mk-tab { width: 62px; height: 62px; border-radius: 50%; border: 4px solid #3a3a3a; background: #fff; padding: 5px; transition: transform .15s; }
 #maker .mk-tab.on { background: #ffd166; transform: scale(1.1); }
 #maker .mk-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 12px; overflow-y: auto; align-content: start; touch-action: pan-y; padding: 4px; }
+#maker .mk-name { font: 800 30px/1.2 system-ui, -apple-system, sans-serif; padding: 14px 22px; border-radius: 20px; border: 4px solid #3a3a3a; width: min(100%, 360px); box-sizing: border-box; -webkit-user-select: text; user-select: text; }
+#maker .mk-options.naming { display: flex; justify-content: center; padding-top: 18px; }
 #maker .mk-options.stuffing { display: flex; gap: 28px; justify-content: center; align-items: center; padding-top: 18px; overflow: visible; }
 #maker .mk-opt { aspect-ratio: 1; border-radius: 20px; border: 4px solid #3a3a3a; background: #fff; padding: 4px; }
 #maker .mk-opt.swatch { border-radius: 50%; }
@@ -163,7 +187,35 @@ function pedal(c: Ctx, size: number) {
   fluffAndHeart(c, size * 0.7);
 }
 
-export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvasElement, recipe: BearRecipe | SquishyRecipe) => void }) {
+function pencil(c: Ctx, size: number) {
+  const s = size / 100;
+  c.save();
+  c.translate(50 * s, 50 * s);
+  c.rotate(-0.8);
+  c.lineWidth = 5 * s;
+  c.strokeStyle = '#3a3a3a';
+  c.fillStyle = '#ffd43b';
+  c.beginPath();
+  c.rect(-12 * s, -36 * s, 24 * s, 56 * s);
+  c.fill();
+  c.stroke();
+  c.fillStyle = '#ff8fab';
+  c.beginPath();
+  c.rect(-12 * s, -44 * s, 24 * s, 10 * s);
+  c.fill();
+  c.stroke();
+  c.fillStyle = '#f3dfc1';
+  c.beginPath();
+  c.moveTo(-12 * s, 20 * s);
+  c.lineTo(0, 40 * s);
+  c.lineTo(12 * s, 20 * s);
+  c.closePath();
+  c.fill();
+  c.stroke();
+  c.restore();
+}
+
+export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvasElement, recipe: MakerRecipe) => void }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -176,6 +228,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       <button class="mk-btn" data-close aria-label="Close">${CROSS}</button>
       <button class="mk-btn" data-mode="bear" aria-label="Teddy"></button>
       <button class="mk-btn" data-mode="squishy" aria-label="Squishy"></button>
+      <button class="mk-btn" data-mode="person" aria-label="A person"></button>
       <span class="gap"></span>
       <button class="mk-btn" data-dice aria-label="Surprise me">${DICE}</button>
     </div>
@@ -195,6 +248,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   let mode: MakerMode = 'bear';
   let bear = newBear();
   let squishy = newSquishy();
+  let person = newPerson();
   let plump = 0; // how stuffed the teddy is (0..1)
   let plumpShown = 0;
   let tab = 'animal';
@@ -203,7 +257,31 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   let finishT = 0;
   const particles: { x: number; y: number; vx: number; vy: number; life: number; kind: 'fluff' | 'heart' | 'star'; tx?: number; ty?: number }[] = [];
 
-  const drawToy = (c: Ctx, r = mode === 'bear' ? bear : squishy, p = 1) => (mode === 'bear' ? drawBear(c, r as BearRecipe, p) : drawSquishy(c, r as SquishyRecipe));
+  const drawToy = (c: Ctx, p = 1) => (mode === 'bear' ? drawBear(c, bear, p) : mode === 'squishy' ? drawSquishy(c, squishy) : drawPerson(c, person));
+  const personWith = (patch: Partial<PersonRecipe>) => ({ ...person, ...patch });
+  const headArea = (): Area => {
+    const b = bodyOf(person.age);
+    return { x: 150 - b.headR * 1.7, y: b.headY - b.headR * 1.7, w: b.headR * 3.4, h: b.headR * 3.4 };
+  };
+  const bodyArea = (): Area => {
+    const b = bodyOf(person.age);
+    return { x: 30, y: b.shoulder - 40, w: 240, h: b.hip - b.shoulder + 90 };
+  };
+  const legsArea = (): Area => {
+    const b = bodyOf(person.age);
+    return { x: 30, y: b.hip - 30, w: 240, h: 640 - b.hip + 30 };
+  };
+  const personChoice = <K extends keyof PersonRecipe>(key: K, values: readonly PersonRecipe[K][], area: () => Area): Choice[] =>
+    values.map((v) => ({
+      on: person[key] === v,
+      draw: (c, size) => fit(c, size, area(), (cc) => drawPerson(cc, personWith({ [key]: v } as Partial<PersonRecipe>))),
+      pick: () => {
+        person = personWith({ [key]: v } as Partial<PersonRecipe>);
+        changed();
+      },
+    }));
+  const personSwatches = (key: 'skin' | 'hairColour' | 'eyes' | 'topColour' | 'shoes', cols: string[]): Choice[] =>
+    cols.map((col, i) => ({ swatch: col, on: person[key] === i, pick: () => ((person = personWith({ [key]: i })), changed()) }));
   const bearWith = (patch: Partial<BearRecipe>) => ({ ...bear, ...patch });
   const squishyWith = (patch: Partial<SquishyRecipe>) => ({ ...squishy, ...patch });
   const bearChoice = <K extends keyof BearRecipe>(key: K, values: readonly BearRecipe[K][], area: Area | null): Choice[] =>
@@ -250,6 +328,21 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       { id: 'face', icon: (c, s) => fit(c, s, { x: 160, y: 250, w: 240, h: 200 }, (cc) => drawSquishy(cc, squishyWith({ shape: 'bun', face: squishy.face === 'none' ? 'happy' : squishy.face }))), choices: () => squishyChoice('face', FACES) },
       { id: 'topping', icon: (c, s) => fit(c, s, AREA.squishy, (cc) => drawSquishy(cc, squishyWith({ shape: 'bun', topping: 'sprinkles', face: 'none' }))), choices: () => squishyChoice('topping', TOPPINGS) },
     ],
+    person: [
+      { id: 'age', icon: (c, s) => fit(c, s, AREA.person, (cc) => drawPerson(cc, person)), choices: () => personChoice('age', AGES, () => AREA.person) },
+      { id: 'skin', icon: (c, s) => palette(c, s, [SKINS[0], SKINS[2], SKINS[4]]), choices: () => personSwatches('skin', SKINS) },
+      { id: 'hair', icon: (c, s) => fit(c, s, headArea(), (cc) => drawPerson(cc, person)), choices: () => personChoice('hair', HAIRS, headArea) },
+      { id: 'hairColour', icon: (c, s) => palette(c, s, [HAIR_COLOURS[1], HAIR_COLOURS[4], HAIR_COLOURS[6]]), choices: () => personSwatches('hairColour', HAIR_COLOURS) },
+      { id: 'eyes', icon: (c, s) => palette(c, s, [EYE_COLOURS[0], EYE_COLOURS[2], EYE_COLOURS[3]]), choices: () => personSwatches('eyes', EYE_COLOURS) },
+      { id: 'glasses', icon: (c, s) => fit(c, s, headArea(), (cc) => drawPerson(cc, personWith({ glasses: 'round' }))), choices: () => personChoice('glasses', GLASSES, headArea) },
+      { id: 'face', icon: (c, s) => fit(c, s, headArea(), (cc) => drawPerson(cc, personWith({ face: 'freckles' }))), choices: () => personChoice('face', FACE_BITS, headArea) },
+      { id: 'top', icon: (c, s) => fit(c, s, bodyArea(), (cc) => drawPerson(cc, person)), choices: () => personChoice('top', TOPS, bodyArea) },
+      { id: 'topColour', icon: (c, s) => palette(c, s, [TOP_COLOURS[0], TOP_COLOURS[6], TOP_COLOURS[9]]), choices: () => personSwatches('topColour', TOP_COLOURS) },
+      { id: 'bottoms', icon: (c, s) => fit(c, s, legsArea(), (cc) => drawPerson(cc, person)), choices: () => personChoice('bottoms', BOTTOMS, legsArea) },
+      { id: 'shoes', icon: (c, s) => palette(c, s, [SHOES[0], SHOES[2], SHOES[4]]), choices: () => personSwatches('shoes', SHOES) },
+      { id: 'extra', icon: (c, s) => fit(c, s, AREA.person, (cc) => drawPerson(cc, personWith({ extra: 'balloon' }))), choices: () => personChoice('extra', PERSON_EXTRAS, () => AREA.person) },
+      { id: 'name', icon: pencil, choices: () => [] },
+    ],
   };
 
   // --- drawing the page ---
@@ -274,11 +367,29 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     for (const b of modeButtons) {
       b.classList.toggle('on', b.dataset.mode === mode);
       const c = b.querySelector('canvas')!;
-      paint(c, (cc, s) => (b.dataset.mode === 'bear' ? fit(cc, s, HEAD, (x) => drawBear(x, bear, 1)) : fit(cc, s, AREA.squishy, (x) => drawSquishy(x, squishy))));
+      paint(c, (cc, s) =>
+        b.dataset.mode === 'bear'
+          ? fit(cc, s, HEAD, (x) => drawBear(x, bear, 1))
+          : b.dataset.mode === 'squishy'
+            ? fit(cc, s, AREA.squishy, (x) => drawSquishy(x, squishy))
+            : fit(cc, s, headArea(), (x) => drawPerson(x, person)),
+      );
     }
   }
   function renderOptions() {
     optionsEl.classList.toggle('stuffing', tab === 'stuff');
+    optionsEl.classList.toggle('naming', tab === 'name');
+    if (tab === 'name') {
+      // a name, typed on the iPad (shown when they're tapped)
+      const input = document.createElement('input');
+      input.className = 'mk-name';
+      input.maxLength = 20;
+      input.autocomplete = 'off';
+      input.value = person.name;
+      input.addEventListener('input', () => (person = personWith({ name: input.value.slice(0, 20) })));
+      optionsEl.replaceChildren(input);
+      return;
+    }
     if (tab === 'stuff') {
       // the stuffing pedal and the heart
       const pedalBtn = document.createElement('button');
@@ -402,7 +513,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     c.rotate(rot);
     c.scale(s * fs * (1 + 0.06 * wig), s * fs * (1 - 0.06 * wig));
     c.translate(-(area.x + area.w / 2), -(area.y + area.h));
-    drawToy(c, undefined, mode === 'bear' ? 0.35 + 0.65 * plumpShown : 1);
+    drawToy(c, mode === 'bear' ? 0.35 + 0.65 * plumpShown : 1);
     c.restore();
     // fluff, hearts and stars flying about
     for (let i = particles.length - 1; i >= 0; i--) {
@@ -460,7 +571,8 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   root.querySelector('[data-dice]')!.addEventListener('click', () => {
     sfx.boing(1.2);
     if (mode === 'bear') bear = { ...randomBear(), heart: bear.heart };
-    else squishy = randomSquishy();
+    else if (mode === 'squishy') squishy = randomSquishy();
+    else person = { ...randomPerson(), name: person.name };
     changed();
   });
   root.querySelector('[data-close]')!.addEventListener('click', () => {
@@ -486,8 +598,8 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       }
       setTimeout(() => {
         const kind = mode;
-        const recipe = mode === 'bear' ? { ...bear, heart: true } : { ...squishy };
-        const picture = renderToy(kind, recipe);
+        const recipe: MakerRecipe = mode === 'bear' ? { ...bear, heart: true } : mode === 'squishy' ? { ...squishy } : { ...person, name: person.name.trim() };
+        const picture = kind === 'person' ? renderPerson(recipe as PersonRecipe) : renderToy(kind, recipe as BearRecipe | SquishyRecipe);
         close();
         opts.onDone(kind, picture, recipe);
       }, 950);
@@ -509,6 +621,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       if (!root.hidden) return;
       bear = newBear();
       squishy = newSquishy();
+      person = newPerson();
       plump = plumpShown = 0;
       particles.length = 0;
       finishing = false;
