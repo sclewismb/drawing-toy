@@ -28,11 +28,30 @@ function devSaveEndpoint(): Plugin {
   };
 }
 
+/**
+ * Builds only: stamp the build time into dist/sw.js. The browser installs a
+ * new service worker only when sw.js changes, and the new one taking over is
+ * what tells an already-open app (an iPad Home Screen app that was only
+ * paused) to refresh into the new version.
+ */
+function stampServiceWorker(): Plugin {
+  return {
+    name: 'stamp-service-worker',
+    apply: 'build',
+    closeBundle() {
+      const file = path.join('dist', 'sw.js');
+      if (!fs.existsSync(file)) return;
+      const text = fs.readFileSync(file, 'utf8');
+      fs.writeFileSync(file, text.replace('__BUILD__', new Date().toISOString()));
+    },
+  };
+}
+
 export default defineConfig({
   // Relative paths so the built site works from any folder (e.g. GitHub Pages /repo-name/).
   base: './',
   build: {
     target: 'es2022', // allows top-level await; supported by Safari 15+
   },
-  plugins: [devSaveEndpoint()],
+  plugins: [devSaveEndpoint(), stampServiceWorker()],
 });

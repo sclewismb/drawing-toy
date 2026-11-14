@@ -2333,11 +2333,15 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   });
 
   // When a new version has taken over: save, then refresh to show it (once
-  // nobody is in the middle of dragging something or moving between places).
+  // nobody is in the middle of dragging something, moving between places, or
+  // making or dressing someone).
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadOldVersion) return;
+    let calm = 0;
     const tryReload = async () => {
-      if (gestures.busy || switching) return void setTimeout(tryReload, 500);
+      const busy = gestures.busy || switching || dressup.isOpen || maker.isOpen || adopt.isOpen;
+      calm = busy ? 0 : calm + 1;
+      if (calm < 4) return void setTimeout(tryReload, 500); // two quiet seconds (so new clothes or a new toy finish saving)
       await saveNow();
       location.reload();
     };
