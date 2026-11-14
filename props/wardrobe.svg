@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 330" width="240" height="330">
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- feet -->
+    <path d="M36 300 L36 322 L58 322 L58 300 Z M182 300 L182 322 L204 322 L204 300 Z" fill="#9a6a3a" />
+    <!-- the body, a curved top with a little heart -->
+    <path d="M22 70 Q22 40 60 34 Q120 6 180 34 Q218 40 218 70 L218 304 L22 304 Z" fill="#e8b57a" />
+    <path d="M120 28 C108 18 98 26 104 36 C108 42 116 46 120 50 C124 46 132 42 136 36 C142 26 132 18 120 28 Z" fill="#ff8fab" stroke-width="4" />
+    <!-- two doors -->
+    <path d="M36 66 L117 66 L117 290 L36 290 Z" fill="#f2c995" />
+    <path d="M123 66 L204 66 L204 290 L123 290 Z" fill="#f2c995" />
+    <!-- panels on the doors -->
+    <path d="M50 82 L103 82 L103 160 L50 160 Z M50 178 L103 178 L103 274 L50 274 Z M137 82 L190 82 L190 160 L137 160 Z M137 178 L190 178 L190 274 L137 274 Z" fill="#e8b57a" stroke-width="4" />
+    <!-- a hanger and a little shirt painted on the doors -->
+    <path d="M76 104 Q76 96 82 97 Q86 99 82 104 L64 116 L96 116 Z" fill="none" stroke-width="3.5" />
+    <path d="M150 104 L160 98 Q164 104 170 104 Q176 104 180 98 L190 104 L186 116 L180 114 L180 140 L160 140 L160 114 L154 116 Z" fill="#9bd0ff" stroke-width="3.5" />
+    <!-- knobs -->
+    <circle cx="108" cy="178" r="7" fill="#ffd166" stroke-width="4" />
+    <circle cx="132" cy="178" r="7" fill="#ffd166" stroke-width="4" />
+  </g>
+  <!-- a soft shine -->
+  <path d="M44 84 L44 150" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.5" />
+  <path d="M131 84 L131 150" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.5" />
+</svg>
