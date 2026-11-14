@@ -55,6 +55,20 @@ interface Ctx {
 }
 
 /** Pick one of n reactions at random, never the same one twice in a row. */
+/**
+ * An animation to wait for (`await anim(ms, t => ...)`) that just stops when
+ * we leave the zoo, so whatever comes after it never touches animals that
+ * have gone (it used to finish anyway and throw errors).
+ */
+function waiting(cleanups: Cleanups) {
+  let gone = false;
+  cleanups.push(() => (gone = true));
+  return (ms: number, fn: (t: number) => void) =>
+    new Promise<void>((res) => {
+      cleanups.push(tween(ms, fn, () => !gone && res()));
+    });
+}
+
 function variety(n: number) {
   let last = -1;
   return () => {
@@ -400,8 +414,9 @@ function meerkats({ kit, cleanups, S, L }: Ctx) {
     return kat;
   });
 
-  const popUp = (k: (typeof kats)[number], ms = 320) => new Promise<void>((res) => tween(ms, (t) => k.set(ease.outBack(t)), res));
-  const duck = (k: (typeof kats)[number], ms = 260) => new Promise<void>((res) => tween(ms, (t) => k.set(1 - t), res));
+  const anim = waiting(cleanups);
+  const popUp = (k: (typeof kats)[number], ms = 320) => anim(ms, (t) => k.set(ease.outBack(t)));
+  const duck = (k: (typeof kats)[number], ms = 260) => anim(ms, (t) => k.set(1 - t));
   const look = (dir: number) => kats.forEach((k) => (k.head.scale.x = dir));
   const wait = (ms: number) => new Promise<void>((res) => later(ms, res, cleanups));
 
@@ -467,7 +482,7 @@ function meerkats({ kit, cleanups, S, L }: Ctx) {
         // everyone up, and the middle one has a little dance
         await Promise.all(kats.map((m) => popUp(m)));
         sfx.giggle(1.6);
-        await new Promise<void>((res) => tween(1200, (t) => (kats[1].inner.rotation = Math.sin(t * Math.PI * 6) * 0.2), res));
+        await anim(1200, (t) => (kats[1].inner.rotation = Math.sin(t * Math.PI * 6) * 0.2));
         kats[1].inner.rotation = 0;
         for (const m of kats) await duck(m, 180);
       }
@@ -727,7 +742,7 @@ function flamingos({ kit, cleanups, S, L, clock }: Ctx) {
   const swap = (b: (typeof birds)[number]) => {
     b.c.scale.x *= -1; // (it turns round as it changes legs)
   };
-  const anim = (ms: number, fn: (t: number) => void) => new Promise<void>((res) => tween(ms, fn, res));
+  const anim = waiting(cleanups);
   const flapOnce = (b: (typeof birds)[number], pitch: number) => {
     sfx.squawk(pitch);
     sfx.flutter();
@@ -837,7 +852,7 @@ function hippo({ kit, cleanups, w, S, L, clock }: Ctx) {
   };
   later(2000, bubbler, cleanups);
 
-  const anim = (ms: number, fn: (t: number) => void) => new Promise<void>((res) => tween(ms, fn, res));
+  const anim = waiting(cleanups);
   const wait = (ms: number) => new Promise<void>((res) => later(ms, res, cleanups));
   const pick = variety(4);
   tappable(c, oneAtATime(async (done) => {
@@ -954,7 +969,7 @@ function crocodile({ kit, cleanups, w, S, L, clock }: Ctx) {
     ring.visible = sink < 40;
     lid.visible = t % 4.5 < 0.15; // a blink
   }, cleanups);
-  const anim = (ms: number, fn: (t: number) => void) => new Promise<void>((res) => tween(ms, fn, res));
+  const anim = waiting(cleanups);
   const wait = (ms: number) => new Promise<void>((res) => later(ms, res, cleanups));
   const pick = variety(4);
   tappable(c, oneAtATime(async (done) => {
@@ -1084,7 +1099,7 @@ function parrots({ kit, cleanups, h, S, L, clock }: Ctx) {
       b.wing.rotation = -b.flap * 1.2;
     });
   }, cleanups);
-  const anim = (ms: number, fn: (t: number) => void) => new Promise<void>((res) => tween(ms, fn, res));
+  const anim = waiting(cleanups);
   const flap = (b: (typeof birds)[number], ms: number) => anim(ms, (t) => (b.flap = Math.abs(Math.sin(t * Math.PI * (ms / 150)))));
   const pick = variety(4);
   for (const b of birds) {
@@ -1187,7 +1202,7 @@ function tortoise({ kit, cleanups, w, S, L }: Ctx) {
     head.scale.set(1 - tucked * 0.7);
     head.y = -14 + (walking ? Math.sin(step * 0.12) * 1.5 : 0);
   }, cleanups);
-  const anim = (ms: number, fn: (t: number) => void) => new Promise<void>((res) => tween(ms, fn, res));
+  const anim = waiting(cleanups);
   const wait = (ms: number) => new Promise<void>((res) => later(ms, res, cleanups));
   const pick = variety(4);
   tappable(c, oneAtATime(async (done) => {
