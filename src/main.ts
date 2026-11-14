@@ -5,7 +5,6 @@ import { drawClockHands } from './clock';
 import { createEggs, createHouseEggs, createStreetEggs } from './eggs';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
-import { FlipButton } from './flipButton';
 import { burst, hearts } from './fx';
 import { setupGallery, type GalleryPick } from './gallery';
 import { GestureController } from './gestures';
@@ -21,6 +20,8 @@ import { MOTIONS } from './library';
 import { setupMaker, type MakerMode } from './maker';
 import { setupAdopt } from './adopt';
 import type { PetKind, PetRecipe } from './petArt';
+import type { BearRecipe, SquishyRecipe } from './makerArt';
+import { PET_SPOTS, SAMPLE_SPOTS, toySpots, type WearSpots } from './wearSpots';
 import { PETS } from './pets';
 import { bodyOf, personOffset, type PersonRecipe } from './personArt';
 import { renderGlow, renderWorn, SLOT_OF, type GlowRecipe, type GlowShape, type GlowSlot, type WornGlow } from './glowArt';
@@ -57,7 +58,7 @@ document.body.appendChild(app.canvas);
 // --- Layers, back to front ---
 //   world:    the place you're in. Its `room` holds the background, surprises
 //             and characters, and slides sideways in the wide rooms; the
-//             arrows and the flip button stay put on the screen.
+//             arrows and the move button stay put on the screen.
 //   street:   the neighbourhood map
 //   sparkles: star bursts, on top of whichever is showing
 //   fade:     white flash when moving between the street and a place
@@ -319,14 +320,8 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => void saveNow().then(saveChalk));
 
-// --- Gestures and the flip button ---
+// --- Gestures ---
 const gestures = new GestureController(app, characters);
-const flipButton = new FlipButton(() => {
-  gestures.selected?.flip();
-  sfx.whoosh();
-  saveSoon();
-});
-ui.addChild(flipButton);
 
 // The move button: only beside the kids' own drawings. Each tap picks the
 // next way of getting about (still, walk, hop, fly). The drawing remembers.
@@ -346,8 +341,6 @@ const moveButton = new MoveButton(() => {
 ui.addChild(moveButton);
 
 gestures.onSelect = (ch) => {
-  if (ch) flipButton.show();
-  else flipButton.hide();
   if (ch?.ref.kind === 'photo' && !petOf(ch) && !personOf(ch)) moveButton.show(library.motion(ch.ref.id)); // (pets and people move by themselves)
   else moveButton.hide();
 };
@@ -845,7 +838,7 @@ function stuffStocking(thing: Character, stocking: Character) {
 function interact(ch: Character): 'used' | 'kept' | null {
   const name = nameOf(ch);
   if (glowOf(ch)) {
-    const who = underneath(ch, (o) => isSomeone(o) && !glowOf(o), 0.5);
+    const who = underneath(ch, canWear, 0.5);
     if (who) return (wearGlow(ch, who), 'used');
   }
   if (name === 'present') {
@@ -1105,18 +1098,28 @@ app.ticker.add((t) => {
   sayHellos(list, now);
 });
 
-// Keep the flip button floating at the top-right corner of the selected character.
+// Keep the move button floating at the top-right corner of the selected drawing.
 app.ticker.add(() => {
   const ch = gestures.selected;
-  if (!ch || !flipButton.visible) return;
+  if (!ch || !moveButton.visible) return;
   const b = ch.getBounds();
-  const r = FlipButton.SIZE / 2;
+  const r = MoveButton.SIZE / 2;
   const { width, height } = app.screen;
-  flipButton.x = Math.min(width - r - 8, Math.max(r + 8, b.maxX + r * 0.3));
-  flipButton.y = Math.min(height - r - 8 - MoveButton.SIZE - 12, Math.max(r + 8, b.minY - r * 0.3));
-  // the move button sits just under it
-  moveButton.position.set(flipButton.x, flipButton.y + FlipButton.SIZE + 12);
+  moveButton.x = Math.min(width - r - 8, Math.max(r + 8, b.maxX + r * 0.3));
+  moveButton.y = Math.min(height - r - 8, Math.max(r + 8, b.minY - r * 0.3));
 });
+
+// Carried along, characters turn to face the way they're going (there's no
+// flip button): a little way back the other way and round they turn.
+const turnFrom = new WeakMap<Character, number>();
+function faceTheWay(ch: Character, x: number) {
+  const from = turnFrom.get(ch);
+  if (from === undefined || (x - from) * ch.facing > 0) return void turnFrom.set(ch, x); // still going the way it faces
+  if (Math.abs(x - from) < 36) return;
+  ch.flip();
+  sfx.flutter();
+  turnFrom.set(ch, x);
+}
 
 // --- Characters and toys ---
 const startSize = () => Math.min(app.screen.width, app.screen.height) * 0.3;
@@ -1281,6 +1284,8 @@ interface WearFit {
   wrist: { x: number; y: number; half: number };
   hand: { x: number; y: number };
   tall: number;
+  /** An animal: it holds things in its mouth. */
+  mouth?: boolean;
 }
 const personOffsets = new WeakMap<object, { x: number; y: number; w: number; h: number }>();
 const pictureTops = new WeakMap<HTMLCanvasElement, number>();
@@ -1327,7 +1332,21 @@ function wearFit(ch: Character): WearFit {
       tall: (612 - b.headY + b.headR) * k,
     };
   }
-  // anyone else: a good guess from the picture (its top in the middle is the top of the head)
+  // animals, stuffies, teddies, squishies and the little people: where their head, paws... are
+  const s = spotsOf(ch);
+  if (s) {
+    const at = (fx: number, fy: number) => ({ x: (fx - 0.5) * W, y: (fy - 0.5) * H });
+    return {
+      head: { ...at(s.head[0], s.head[1]), r: s.head[2] * W },
+      eyes: { ...at(s.eyes[0], s.eyes[1]), gap: s.eyes[2] * W },
+      neck: { ...at(s.neck[0], s.neck[1]), half: s.neck[2] * W },
+      wrist: { ...at(s.wrist[0], s.wrist[1]), half: s.wrist[2] * W },
+      hand: at(s.hand[0], s.hand[1]),
+      tall: (s.tall ?? 1) * H,
+      mouth: s.mouth,
+    };
+  }
+  // anyone else (a drawing): a good guess from the picture (its top in the middle is the top of the head)
   const top = -H / 2 + topOf(ch.picture) * k, tall = H / 2 - top;
   let r = Math.min(W, tall) * 0.21;
   if (tall > W * 1.8) r = Math.min(r, tall * 0.1); // a tall person
@@ -1340,6 +1359,22 @@ function wearFit(ch: Character): WearFit {
     tall,
   };
 }
+/** Where things go on a built-in animal, stuffy or little person, an adopted pet, or a teddy or squishy made in the workshop. */
+const toySpotCache = new WeakMap<object, ReturnType<typeof toySpots>>();
+function spotsOf(ch: Character): WearSpots | null {
+  if (ch.ref.kind === 'sample') return SAMPLE_SPOTS[ch.ref.name] ?? null;
+  const e = library.get(ch.ref.id);
+  if (!e?.recipe) return null;
+  if (e.made === 'pet') return PET_SPOTS[(e.recipe as PetRecipe).kind] ?? null;
+  if (e.made === 'bear' || e.made === 'squishy') {
+    let t = toySpotCache.get(e.recipe as object);
+    if (!t) toySpotCache.set(e.recipe as object, (t = toySpots(e.made, e.recipe as BearRecipe | SquishyRecipe)));
+    if (t.w === ch.picture.width && t.h === ch.picture.height) return t.spots; // (the picture really is that teddy)
+  }
+  return null;
+}
+/** Who can wear a glow stick: anyone (people, animals, stuffies, drawings), and the snowman and the gingerbread person too. */
+const canWear = (o: Character) => (isSomeone(o) || nameOf(o) === 'snowman' || nameOf(o) === 'gingerbread') && !glowOf(o);
 /** Where a glow thing goes on someone, and how big. */
 function wornSpot(f: WearFit, shape: GlowShape) {
   const slot = SLOT_OF[shape];
@@ -1391,8 +1426,12 @@ function putOnGlow(who: Character, id: string, quiet = false) {
     wornPictures.set(id, (w = { look, day: Texture.from(look.day), glow: Texture.from(look.glow) }));
   }
   const s = new Sprite(w.day);
-  s.anchor.set(w.look.ax, w.look.ay);
-  const spot = wornSpot(wearFit(who), r.shape);
+  const fit = wearFit(who);
+  const spot = wornSpot(fit, r.shape);
+  // an animal carries a stick or a wand crossways in its mouth, held in the middle
+  const mid = fit.mouth && slot === 'hand' ? w.look.mid : undefined;
+  s.anchor.set(mid?.ax ?? w.look.ax, mid?.ay ?? w.look.ay);
+  s.rotation = mid?.turn ?? 0;
   s.position.set(spot.x, spot.y);
   s.scale.set(spot.size / (w.look.size * w.look.unit));
   wornLayer(who).addChild(s);
@@ -2035,11 +2074,13 @@ app.ticker.add(() => {
   }
 });
 gestures.onDragStart = (ch) => {
+  turnFrom.delete(ch);
   sfx.pickup(voice(ch));
   gallery.hint(true);
 };
 gestures.onDragMove = (ch, x, y) => {
   gallery.highlight(gallery.isOver(x, y));
+  faceTheWay(ch, x);
   if (ch.ref.kind === 'sample' && ch.ref.name === 'hockey-stick') swingStick(ch, x, y);
 };
 gestures.onGrab = (ch) => {

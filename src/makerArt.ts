@@ -533,7 +533,7 @@ function squishyPath(shape: SquishyRecipe['shape']): PathFn {
 }
 
 /** Where the face goes on each shape. */
-const FACE_AT: Record<SquishyRecipe['shape'], [number, number, number]> = {
+export const FACE_AT: Record<SquishyRecipe['shape'], [number, number, number]> = {
   bun: [280, 360, 1],
   cat: [280, 320, 1],
   strawberry: [280, 290, 0.9],
@@ -760,6 +760,24 @@ export function trim(src: HTMLCanvasElement, margin = 10): HTMLCanvasElement {
 }
 
 export type { Ctx, PathFn };
+
+/**
+ * Where renderToy's picture (at scale 1) starts, in the drawing's own units
+ * (it's cropped to the toy), and its size: for putting things on a teddy.
+ */
+export function toyOffset(kind: 'bear' | 'squishy', recipe: BearRecipe | SquishyRecipe): { x: number; y: number; w: number; h: number } {
+  const size = kind === 'bear' ? BEAR_SIZE : SQUISHY_SIZE;
+  const pad = 140; // (as in renderToy)
+  const c = document.createElement('canvas');
+  c.width = size.w;
+  c.height = size.h + pad;
+  const ctx = c.getContext('2d')!;
+  ctx.translate(0, pad);
+  if (kind === 'bear') drawBear(ctx, recipe as BearRecipe, 1);
+  else drawSquishy(ctx, recipe as SquishyRecipe);
+  const b = trimBox(c);
+  return b ? { x: b.x, y: b.y - pad, w: b.w, h: b.h } : { x: 0, y: -pad, w: c.width, h: c.height };
+}
 
 /** The finished toy as a picture, ready to be a character (`scale` < 1 for little ones on shelves). */
 export function renderToy(kind: 'bear' | 'squishy', recipe: BearRecipe | SquishyRecipe, scale = 1): HTMLCanvasElement {

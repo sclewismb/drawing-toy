@@ -380,6 +380,8 @@ export interface WornGlow {
   unit: number;
   /** How big it is (drawing units) for fitting to the wearer: see WORN_FIT. */
   size: number;
+  /** Things held in the hand: their middle (as ax, ay) and how far to turn them to lie flat, for an animal carrying one in its mouth. */
+  mid?: { ax: number; ay: number; turn: number };
 }
 /**
  * How each one fits on someone: which part of them `size` units should
@@ -387,13 +389,13 @@ export interface WornGlow {
  * (glasses), the neck's half width, the arm's half width, or how tall
  * they are (things held in the hand).
  */
-const WORN: Record<GlowShape, { area: { x: number; y: number; w: number; h: number }; at: [number, number]; size: number }> = {
+const WORN: Record<GlowShape, { area: { x: number; y: number; w: number; h: number }; at: [number, number]; size: number; mid?: [number, number, number] }> = {
   headband: { area: GLOW_AREA, at: [200, 340], size: 170 },
   'bunny-ears': { area: GLOW_AREA, at: [200, 340], size: 170 },
   crown: { area: GLOW_AREA, at: [200, 320], size: 135 },
   glasses: { area: GLOW_AREA, at: [200, 215], size: 150 },
-  stick: { area: GLOW_AREA, at: [140, 330], size: 360 },
-  wand: { area: GLOW_AREA, at: [160, 370], size: 330 },
+  stick: { area: GLOW_AREA, at: [140, 330], size: 360, mid: [200, 225, 1.045] },
+  wand: { area: GLOW_AREA, at: [160, 370], size: 330, mid: [178, 300, 1.33] },
   bracelet: { area: { x: -80, y: -30, w: 160, h: 100 }, at: [0, 0], size: 60 },
   necklace: { area: { x: -90, y: -20, w: 180, h: 150 }, at: [0, 0], size: 70 },
 };
@@ -414,5 +416,8 @@ export function renderWorn(r: GlowRecipe, scale = 0.5): WornGlow {
     return cv;
   };
   const day = make('day'), glow = make('glow');
-  return { day, glow, ax: (P + (fit.at[0] - A.x) * scale) / day.width, ay: (P + (fit.at[1] - A.y) * scale) / day.height, unit: scale, size: fit.size };
+  const fx = (x: number) => (P + (x - A.x) * scale) / day.width;
+  const fy = (y: number) => (P + (y - A.y) * scale) / day.height;
+  const mid = fit.mid ? { ax: fx(fit.mid[0]), ay: fy(fit.mid[1]), turn: fit.mid[2] } : undefined;
+  return { day, glow, ax: fx(fit.at[0]), ay: fy(fit.at[1]), unit: scale, size: fit.size, mid };
 }
