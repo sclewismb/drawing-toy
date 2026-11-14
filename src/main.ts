@@ -3,6 +3,7 @@ import { Camera } from './camera';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
 import { createEggs, createHouseEggs, createStreetEggs } from './eggs';
+import type { Wardrobe } from './eggs/common';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { burst, hearts } from './fx';
@@ -1498,7 +1499,7 @@ function setupEggs(id: PlaceId) {
   events.on('dark', (source: string, level: number) => darkFrom.set(source, Math.max(0, Math.min(1, level)))); // lights off, night...: glow sticks glow
   events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
   events.on('adopt', (kind: PetKind) => adopt.open(kind)); // the vet's adoption corner
-  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events });
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events, wardrobe });
 }
 
 // --- Secrets: deeper surprises (see secrets.ts and eggs/secrets.ts) ---
@@ -1550,6 +1551,36 @@ function openWardrobe(id?: string) {
   if (!dressup.open(id)) sfx.nope();
 }
 const isDressable = (ch: Character) => ch.ref.kind === 'photo' && !!(library.get(ch.ref.id)?.recipe as { dress?: unknown } | undefined)?.dress;
+/** The bedroom closets are wardrobes (eggs/wide.ts): walk someone in, or open one, to change clothes. */
+const wardrobe: Wardrobe = {
+  canDress: (ch) => ch instanceof Character && !ch.destroyed && isDressable(ch),
+  open(at, ch, onClose) {
+    const walkedIn = wardrobe.canDress(ch) ? (ch as Character) : undefined;
+    const here = (characters.children as Character[]).filter((c) => wardrobe.canDress(c));
+    const near = walkedIn ?? here.sort((a, b) => Math.abs(a.x - at.x) - Math.abs(b.x - at.x))[0];
+    const id = near?.ref.kind === 'photo' ? near.ref.id : undefined;
+    const show = () =>
+      dressup.open(id, () => {
+        // ...and out they come
+        if (walkedIn && !walkedIn.destroyed) {
+          tween(350, (t) => !walkedIn.destroyed && (walkedIn.alpha = t));
+          wanderers.get(walkedIn)?.rest(1500);
+        }
+        onClose();
+      });
+    if (!walkedIn) return show(); // (nobody to dress at all: the closet's just a closet)
+    // in they go (and stay put in there while they change)
+    sfx.whoosh();
+    wanderers.get(walkedIn)?.rest(1e9);
+    tween(350, (t) => !walkedIn.destroyed && (walkedIn.alpha = 1 - t), () => {
+      if (show()) return;
+      if (!walkedIn.destroyed) walkedIn.alpha = 1;
+      wanderers.get(walkedIn)?.rest(1500);
+      onClose();
+    });
+    return true;
+  },
+};
 
 // --- The workshop's maker: teddies and squishies (see maker.ts) ---
 const maker = setupMaker({
@@ -1694,6 +1725,7 @@ function checkTargets(ch: Character): 'used' | 'kept' | null {
   const box = roomBox(ch);
   for (const l of [...locks].reverse()) {
     if (!l.accepts.includes(name) && !l.accepts.includes('*')) continue;
+    if (l.wants && !l.wants(ch)) continue;
     const a = l.area();
     if (!over(box, a)) continue;
     let keep: boolean | void = false;

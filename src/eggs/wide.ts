@@ -80,9 +80,8 @@ function swingDoor(kit: EggKit, o: DoorOptions) {
       for (const c of layer.removeChildren()) c.destroy({ children: true });
     });
   };
-  hotspot(kit, new Rectangle(o.x - 6, o.y - 6, o.w + 12, o.h + 6), () => {
-    if (busy) return;
-    if (open) return close();
+  const openUp = () => {
+    if (busy || open) return;
     busy = true;
     sfx.zip();
     swing(1, () => {
@@ -90,8 +89,53 @@ function swingDoor(kit: EggKit, o: DoorOptions) {
       busy = false;
       o.onOpen?.(layer);
     });
+  };
+  hotspot(kit, new Rectangle(o.x - 6, o.y - 6, o.w + 12, o.h + 6), () => {
+    if (busy) return;
+    if (open) return close();
+    openUp();
   });
-  return { close, get open() { return open; } };
+  return { close, show: openUp, get open() { return open; } };
+}
+
+/**
+ * The bedroom closets are wardrobes. Open one and, after its surprise, the
+ * dress-up screen opens (for whoever stands nearest). Walk someone who can be
+ * dressed into one and they go in and change. The door shuts again after.
+ */
+function wardrobeCloset(kit: EggKit, cleanups: Cleanups, o: Omit<DoorOptions, 'onOpen'> & { surprise: (layer: Container) => void; wait: number }) {
+  const at = { x: o.x + o.w / 2, y: o.y + o.h };
+  let who: unknown; // who walked in
+  let dressing = false;
+  const dress = () => {
+    if (dressing || !door.open || !kit.wardrobe) return;
+    dressing = true;
+    const ok = kit.wardrobe.open(at, who, () => {
+      dressing = false;
+      later(450, door.close, cleanups);
+    });
+    who = undefined;
+    if (!ok) dressing = false;
+  };
+  const door = swingDoor(kit, {
+    ...o,
+    onOpen(layer) {
+      o.surprise(layer);
+      later(who ? 250 : o.wait, dress, cleanups);
+    },
+  });
+  kit.secrets?.lock({
+    accepts: ['*'],
+    wants: (ch) => !!kit.wardrobe?.canDress(ch),
+    area: () => ({ x: o.x, y: o.y, w: o.w, h: kit.h - o.y }), // (and the floor in front, where people stand)
+    open: (_name, ch) => {
+      if (dressing) return true;
+      who = ch;
+      if (door.open) dress();
+      else door.show();
+      return true;
+    },
+  });
 }
 
 function drawLeaf(g: Graphics, w: number, h: number, dir: 1 | -1, o: DoorOptions) {
@@ -306,13 +350,14 @@ export function bedroomAWide(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const fy = h * 0.74;
 
-  // --- the closet: a teddy pops up and waves ---
+  // --- the closet (a wardrobe): a teddy pops up and waves ---
   const cl = { x: -0.72 * w, y: h * 0.1, w: 0.16 * w, h: fy - h * 0.1 };
-  swingDoor(kit, {
+  wardrobeCloset(kit, cleanups, {
     ...cl,
     hinge: 'left',
     inside: closet([0xe5383b, 0x4ea8ff, 0x52b788, 0xffd166]),
-    onOpen(layer) {
+    wait: 1300,
+    surprise(layer) {
       const bear = new Container();
       const g = new Graphics();
       g.ellipse(0, 40, 30, 32).fill(0xb5835a).stroke({ width: 3, color: INK });
@@ -469,11 +514,12 @@ export function bedroomAWide(kit: EggKit, cleanups: Cleanups) {
   const door = { x: 1.08 * w, y: h * 0.09, w: 0.18 * w, h: fy - h * 0.09 };
   swingDoor(kit, { ...door, hinge: 'right', towel: true, inside: hallway, onOpen: puppyVisit(door) });
   const cl2 = { x: 1.38 * w, y: h * 0.09, w: 0.18 * w, h: fy - h * 0.09 };
-  swingDoor(kit, {
+  wardrobeCloset(kit, cleanups, {
     ...cl2,
     hinge: 'right',
     inside: closet([0x264653, 0x6c757d, 0x2a9d8f, 0xe76f51]),
-    onOpen(layer) {
+    wait: 2000,
+    surprise(layer) {
       // two eyes blink in the dark... then a friendly fuzzy monster pops up
       const eyes = new Graphics();
       const ex = cl2.x + cl2.w / 2, ey = cl2.y + cl2.h * 0.68;
@@ -515,13 +561,14 @@ export function bedroomBWide(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const fy = h * 0.74;
 
-  // --- the double closet: a cat was hiding in there! ---
+  // --- the double closet (a wardrobe): a cat was hiding in there! ---
   const cl = { x: -0.36 * w, y: h * 0.08, w: 0.32 * w, h: fy - h * 0.08 };
-  swingDoor(kit, {
+  wardrobeCloset(kit, cleanups, {
     ...cl,
     hinge: 'both',
     inside: closet([0xff8fb1, 0xc3b1ff, 0x7fdde0, 0xffd166, 0xb07de8]),
-    onOpen(layer) {
+    wait: 1400,
+    surprise(layer) {
       const cat = new Container();
       const g = new Graphics();
       g.poly([-22, -14, -16, -40, -4, -22]).poly([22, -14, 16, -40, 4, -22]).fill(0xf4a261).stroke({ width: 3, color: INK });

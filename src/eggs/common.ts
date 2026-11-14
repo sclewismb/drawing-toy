@@ -34,6 +34,20 @@ export interface EggKit {
   secrets?: SecretsApi;
   /** Surprises say what just happened here, so secrets can listen ("lights", "note"...). */
   events?: Bus;
+  /** Indoors: the dress-up screen, for the bedroom closets. */
+  wardrobe?: Wardrobe;
+}
+
+/** The dress-up screen, as the bedroom closets see it. */
+export interface Wardrobe {
+  /** Can this one change clothes? */
+  canDress(ch: unknown): boolean;
+  /**
+   * Open the dress-up screen: with `ch` (who walked in), or else whoever
+   * stands nearest `at` (room coordinates). `onClose` runs when it shuts.
+   * False if there's nobody to dress.
+   */
+  open(at: { x: number; y: number }, ch: unknown, onClose: () => void): boolean;
 }
 
 /** Tap a drifting cloud and it rains (or snows in winter) down to `groundAt(cloud y)`. */

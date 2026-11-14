@@ -45,6 +45,8 @@ export interface Lock {
   /** The toys it takes ('*' = anyone at all, drawings and made toys too). */
   accepts: string[];
   area: () => { x: number; y: number; w: number; h: number };
+  /** Only these (anything else carries on to the other drop checks). */
+  wants?: (ch: unknown) => boolean;
   /** It's been dropped on (`ch` is the character). Return true to keep the thing (otherwise it's used up). */
   open: (name: string, ch?: unknown) => boolean | void;
 }

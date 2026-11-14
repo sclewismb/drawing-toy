@@ -164,6 +164,12 @@ export function setupDressup(opts: { people: () => Dressable[]; onDone: (id: str
         return b;
       }),
     );
+    // keep whoever's chosen in view (the row scrolls when there are lots of people)
+    const on = peopleEl.querySelector<HTMLElement>('.du-person.on');
+    if (on) {
+      const a = on.getBoundingClientRect(), row = peopleEl.getBoundingClientRect();
+      peopleEl.scrollTo({ left: peopleEl.scrollLeft + a.left - row.left - (row.width - a.width) / 2, behavior: 'smooth' });
+    }
   }
   function renderTabs() {
     const kind = who?.dress.plan ?? 'child';
@@ -313,19 +319,25 @@ export function setupDressup(opts: { people: () => Dressable[]; onDone: (id: str
     opts.onDone(id, o);
   });
 
+  /** Told when the screen shuts (whoever opened it last). */
+  let shut: (() => void) | undefined;
   function close() {
     root.hidden = true;
     cancelAnimationFrame(raf);
+    const then = shut;
+    shut = undefined;
+    then?.();
   }
 
   return {
     get isOpen() {
       return !root.hidden;
     },
-    /** Open it (with this person, or the first one). False if there's nobody to dress. */
-    open(id?: string): boolean {
+    /** Open it (with this person, or the first one). False if there's nobody to dress. `onClose` runs when it shuts. */
+    open(id?: string, onClose?: () => void): boolean {
       people = opts.people();
       if (!people.length) return false;
+      shut = onClose;
       if (root.hidden) {
         root.hidden = false;
         sfx.shelfOpen();
