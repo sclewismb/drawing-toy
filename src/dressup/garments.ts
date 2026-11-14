@@ -4,52 +4,21 @@ import {
   type Ctx, type Plan, type Pt3,
 } from './figure';
 
-/**
- * The dress-up clothes. Each piece draws itself on any of the three body
- * shapes (it's drawn from the shape's measurements), at the right moment:
- *   back:  behind everyone (a cape, the back of a hood)
- *   legs:  trousers, skirts, shorts      feet:  shoes and socks
- *   body:  tops                          waist: a skirt's waistband, over the top
- *   outer: robes, a cape's front         hands: gloves (a colour)
- *   neck:  scarves                       front: after the face (a hood's rim)
- * Original designs only (no logos or anyone's characters).
- */
-export type Slot = 'top' | 'bottom' | 'shoes' | 'costume' | 'neck';
-export interface DrawCtx {
-  skin: string;
-  /** Drawing a picture of the piece on its own (for the choice tiles). */
-  alone?: boolean;
-}
-type Draw = (c: Ctx, P: Plan, d: DrawCtx) => void;
-export interface Garment {
-  id: string;
-  slot: Slot;
-  /** A whole outfit (no top or bottoms under it). */
-  full?: boolean;
-  /** Its own boots: no shoes. */
-  noShoes?: boolean;
-  /** A long top: a skirt's waistband stays hidden under it. */
-  long?: boolean;
-  back?: Draw;
-  legs?: Draw;
-  feet?: Draw;
-  body?: Draw;
-  waist?: Draw;
-  outer?: Draw;
-  hands?: string;
-  neck?: Draw;
-  front?: Draw;
-  /** Its picture on the choice tile, if it isn't drawn by the parts above (bare feet). */
-  tile?: Draw;
-}
-export interface Outfit {
-  top: string;
-  bottom: string;
-  shoes: string;
-  costume?: string;
-  neck?: string;
-}
+import type { Garment, Slot } from './types';
+import { TOPS } from './clothes/tops';
+import { BOTTOMS } from './clothes/bottoms';
+import { DRESSES } from './clothes/dresses';
+import { SHOES } from './clothes/shoes';
+import { COSTUMES } from './clothes/costumes';
+import { HATS } from './clothes/hats';
+import { EXTRAS } from './clothes/extras';
+export type { DrawCtx, Garment, Outfit, Slot } from './types';
 
+/**
+ * The dress-up clothes (see types.ts for how a piece draws itself). The
+ * first ones are here; the rest are in clothes/. Original designs only (no
+ * logos or anyone's characters).
+ */
 const kid = (P: Plan) => P.kind === 'child';
 const between = (a: number, b: number, t: number) => a + (b - a) * t;
 
@@ -711,17 +680,19 @@ const heroSuit: Garment = {
 const scarfOf = (id: string, cols: string[]): Garment => ({ id, slot: 'neck', neck: (c, P) => scarf(c, P, cols) });
 
 export const GARMENTS: Garment[] = [
-  henley, sweatshirt, jersey, fleece, polo, bowTee, footballTop, tank, turtleneck, boatJumper, hoodie, puffer,
-  jeans, leggings, shiny, hockeyPants, camo, shorts, pleated, footballShorts, floral,
+  henley, sweatshirt, jersey, fleece, polo, bowTee, footballTop, tank, turtleneck, boatJumper, hoodie, puffer, ...TOPS,
+  jeans, leggings, shiny, hockeyPants, camo, shorts, pleated, footballShorts, floral, ...BOTTOMS,
+  ...DRESSES,
   trainers('trainers-dark', '#33363d', { stripe: '#9aa3ad' }),
   trainers('trainers-white', '#f1f2f4', { stripe: '#b8c0c8', lace: '#c6ccd2', sole: '#ffffff' }),
   trainers('trainers-black', '#2a2b30', { stripe: '#e9ecef' }),
   trainers('trainers-rainbow', '#c45ab3', { lace: '#2b2b30', sole: '#f4f4f4', inside: rainbow }),
   trainers('trainers-knit', '#2c3140', { lace: '#1a1d26', sole: '#b98a5a', inside: knitLines }),
-  redSocks, sandals, bare,
-  wizardRobe, redCape, koalaOnesie, heroSuit,
-  scarfOf('scarf-blue', ['#2f5fa8', '#e9eef5']), scarfOf('scarf-red', ['#a8232f', '#e8b830']), scarfOf('scarf-green', ['#2e7d4f', '#eef1ec']),
+  redSocks, sandals, bare, ...SHOES,
+  wizardRobe, redCape, koalaOnesie, heroSuit, ...COSTUMES,
+  ...HATS,
+  scarfOf('scarf-blue', ['#2f5fa8', '#e9eef5']), scarfOf('scarf-red', ['#a8232f', '#e8b830']), scarfOf('scarf-green', ['#2e7d4f', '#eef1ec']), ...EXTRAS,
 ];
 export const garment = (id: string | undefined) => (id ? GARMENTS.find((g) => g.id === id) : undefined);
 /** The tabs in the dress-up screen, in order. */
-export const SLOTS: Slot[] = ['top', 'bottom', 'shoes', 'costume', 'neck'];
+export const SLOTS: Slot[] = ['top', 'bottom', 'dress', 'shoes', 'costume', 'hat', 'neck', 'face', 'back'];

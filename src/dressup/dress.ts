@@ -51,12 +51,18 @@ export async function loadLayers(d: DressRecipe): Promise<Layers> {
 /** Which clothes are actually on (a whole-outfit costume replaces the top and bottoms; boots replace shoes). */
 export function wearing(outfit: Outfit) {
   const costume = garment(outfit.costume);
+  const dress = costume?.full ? undefined : garment(outfit.dress);
+  const whole = !!costume?.full || !!dress;
   return {
     costume,
-    top: costume?.full ? undefined : garment(outfit.top),
-    bottom: costume?.full ? undefined : garment(outfit.bottom),
-    shoes: costume?.noShoes ? undefined : garment(outfit.shoes),
+    dress,
+    top: whole ? undefined : garment(outfit.top),
+    bottom: whole ? undefined : garment(outfit.bottom),
+    shoes: costume?.noShoes || dress?.noShoes ? undefined : garment(outfit.shoes),
+    hat: garment(outfit.hat),
     neck: garment(outfit.neck),
+    face: garment(outfit.face),
+    back: garment(outfit.back),
   };
 }
 
@@ -83,24 +89,24 @@ export function drawFull(d: DressRecipe, outfit: Outfit, layers: Layers): HTMLCa
   c.fillStyle = '#000';
   c.fill();
   c.restore();
-  each([w.costume], 'back');
+  each([w.back, w.costume, w.dress], 'back');
   if (layers.back) c.drawImage(layers.back, 0, 0);
   c.save();
   c.translate(0, CANVAS.top);
   drawSkin(c, P, d.skin);
   c.restore();
-  each([w.bottom, w.costume], 'legs');
-  each([w.shoes, w.costume], 'feet');
-  each([w.top, w.costume], 'body');
-  each([w.top?.long ? undefined : w.bottom, w.top], 'waist'); // (a long top hides a skirt's waistband)
-  each([w.top, w.costume], 'outer');
+  each([w.bottom, w.dress, w.costume], 'legs');
+  each([w.shoes, w.dress, w.costume], 'feet');
+  each([w.top, w.dress, w.costume], 'body');
+  each([w.top?.long ? undefined : w.bottom, w.top, w.dress], 'waist'); // (a long top hides a skirt's waistband)
+  each([w.top, w.dress, w.costume, w.back], 'outer');
   c.save();
   c.translate(0, CANVAS.top);
   drawHands(c, P, w.costume?.hands ?? d.skin);
   c.restore();
-  each([w.neck], 'neck');
+  each([w.neck, w.back], 'neck');
   c.drawImage(layers.head, 0, 0);
-  each([w.costume], 'front');
+  each([w.costume, w.dress, w.face, w.hat], 'front');
   return cv;
 }
 

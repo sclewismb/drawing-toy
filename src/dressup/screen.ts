@@ -30,7 +30,7 @@ const CSS = `
 #dressup .du-preview { position: absolute; inset: 0; width: 100%; height: 100%; }
 #dressup .du-panel { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 10px max(16px, env(safe-area-inset-right)) 130px 0; }
 #dressup .du-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
-#dressup .du-tab { width: 64px; height: 64px; border-radius: 50%; border: 4px solid #3a3a3a; background: #fff; padding: 9px; display: grid; place-items: center; transition: transform .15s; }
+#dressup .du-tab { width: 60px; height: 60px; border-radius: 50%; border: 4px solid #3a3a3a; background: #fff; padding: 9px; display: grid; place-items: center; transition: transform .15s; }
 #dressup .du-tab.on { background: #ffd166; transform: scale(1.1); }
 #dressup .du-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 12px; overflow-y: auto; align-content: start; touch-action: pan-y; padding: 4px; }
 #dressup .du-opt { aspect-ratio: 1; border-radius: 20px; border: 4px solid #3a3a3a; background: #fff; padding: 8px; display: grid; place-items: center; }
@@ -167,7 +167,7 @@ export function setupDressup(opts: { people: () => Dressable[]; onDone: (id: str
   }
   function renderTabs() {
     const kind = who?.dress.plan ?? 'child';
-    const ICON: Record<Slot, string> = { top: 'polo', bottom: 'jeans', shoes: 'trainers-rainbow', costume: 'red-cape', neck: 'scarf-red' };
+    const ICON: Record<Slot, string> = { top: 'tee-red', bottom: 'jeans', dress: 'party-dress', shoes: 'trainers-rainbow', costume: 'unicorn-onesie', hat: 'crown', neck: 'scarf-red', face: 'heart-shades', back: 'fairy-wings' };
     tabsEl.replaceChildren(
       ...SLOTS.map((s) => {
         const b = document.createElement('button');
@@ -189,33 +189,34 @@ export function setupDressup(opts: { people: () => Dressable[]; onDone: (id: str
     const kind = who.dress.plan;
     const list = GARMENTS.filter((g) => g.slot === tab);
     const tiles: HTMLButtonElement[] = [];
-    const current = tab === 'top' ? outfit.top : tab === 'bottom' ? outfit.bottom : tab === 'shoes' ? outfit.shoes : tab === 'costume' ? outfit.costume : outfit.neck;
-    if (tab === 'costume' || tab === 'neck') {
+    const current = outfit[tab];
+    const covered = (tab === 'top' || tab === 'bottom') && (!!garment(outfit.costume)?.full || !!outfit.dress);
+    if (tab !== 'top' && tab !== 'bottom' && tab !== 'shoes') {
       const b = document.createElement('button');
       b.className = !current ? 'du-opt on' : 'du-opt';
       b.append(hanger(80));
       b.addEventListener('click', () => {
         sfx.pop(1.2);
-        if (tab === 'costume') outfit.costume = undefined;
-        else outfit.neck = undefined;
+        const slot = tab as Exclude<Slot, 'top' | 'bottom' | 'shoes'>;
+        outfit[slot] = undefined;
         changed();
       });
       tiles.push(b);
     }
     for (const g of list) {
       const b = document.createElement('button');
-      const on = current === g.id && (tab !== 'top' && tab !== 'bottom' ? true : !garment(outfit.costume)?.full);
+      const on = current === g.id && !covered;
       b.className = on ? 'du-opt on' : 'du-opt';
       b.append(fitted(garmentPicture(g, kind), 78));
       b.addEventListener('click', () => {
         sfx.pop(1.2);
-        if (tab === 'top') outfit.top = g.id;
-        else if (tab === 'bottom') outfit.bottom = g.id;
-        else if (tab === 'shoes') outfit.shoes = g.id;
-        else if (tab === 'costume') outfit.costume = g.id;
-        else outfit.neck = g.id;
-        // a top or bottoms instead of a whole-outfit costume
-        if ((tab === 'top' || tab === 'bottom') && garment(outfit.costume)?.full) outfit.costume = undefined;
+        outfit[tab] = g.id;
+        // a top or bottoms instead of a dress or a whole-outfit costume; a dress instead of a whole costume
+        if (tab === 'top' || tab === 'bottom') {
+          outfit.dress = undefined;
+          if (garment(outfit.costume)?.full) outfit.costume = undefined;
+        }
+        if (tab === 'dress' && garment(outfit.costume)?.full) outfit.costume = undefined;
         changed();
       });
       tiles.push(b);
@@ -290,12 +291,17 @@ export function setupDressup(opts: { people: () => Dressable[]; onDone: (id: str
       const list = GARMENTS.filter((g) => g.slot === slot);
       return list[Math.floor(Math.random() * list.length)].id;
     };
+    const maybe = (slot: Slot, chance: number) => (Math.random() < chance ? any(slot) : undefined);
     outfit = {
       top: any('top'),
       bottom: any('bottom'),
       shoes: any('shoes'),
-      costume: Math.random() < 0.25 ? any('costume') : undefined,
-      neck: Math.random() < 0.3 ? any('neck') : undefined,
+      dress: maybe('dress', 0.3),
+      costume: maybe('costume', 0.15),
+      hat: maybe('hat', 0.4),
+      neck: maybe('neck', 0.25),
+      face: maybe('face', 0.2),
+      back: maybe('back', 0.2),
     };
     changed();
   });
