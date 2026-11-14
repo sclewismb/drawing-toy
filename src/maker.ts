@@ -55,6 +55,7 @@ import {
   RAINBOW,
   randomGlow,
   renderGlow,
+  type GlowLook,
   type GlowRecipe,
 } from './glowArt';
 import { sfx } from './sound';
@@ -124,6 +125,14 @@ const CSS = `
   border-radius: 50%; border: 5px solid #3a3a3a; background: #7bd36b; display: grid; place-items: center; box-shadow: 0 6px 0 rgba(0,0,0,.2); }
 #maker .mk-done:active, #maker .mk-btn:active, #maker .mk-big:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,.2); }
 #maker.glow { background: radial-gradient(circle at 30% 40%, #2d2766, #0d0b22 75%); }
+#maker .mk-crack { position: absolute; z-index: 1; left: max(20px, env(safe-area-inset-left)); bottom: 20px; width: 112px; height: 112px; border-radius: 50%;
+  border: 5px solid #3a3a3a; background: #fff; padding: 10px; box-shadow: 0 6px 0 rgba(0,0,0,.2); }
+#maker .mk-crack[hidden] { display: none; }
+#maker .mk-crack canvas { width: 100%; height: 100%; display: block; pointer-events: none; }
+#maker .mk-crack.ready { animation: mk-wiggle 1.6s ease-in-out infinite; }
+#maker .mk-crack.lit { background: #2d2766; box-shadow: 0 6px 0 rgba(0,0,0,.2), 0 0 28px 8px rgba(140,255,77,.5); }
+#maker .mk-crack:active { transform: translateY(3px) scale(0.95); }
+@keyframes mk-wiggle { 0%, 70%, 100% { transform: none; } 76% { transform: rotate(-12deg) scale(1.08); } 84% { transform: rotate(10deg) scale(1.08); } 92% { transform: rotate(-5deg); } }
 #maker.glow .mk-opt:not(.swatch) { background: #1c1940; }
 #maker.glow .mk-opt.on { border-color: #ff4fd8; box-shadow: 0 0 0 5px rgba(255,79,216,.35); }
 @media (orientation: portrait) {
@@ -286,7 +295,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       <span class="gap"></span>
       <button class="mk-btn" data-dice aria-label="Surprise me">${DICE}</button>
     </div>
-    <div class="mk-stage"><canvas class="mk-preview"></canvas></div>
+    <div class="mk-stage"><canvas class="mk-preview"></canvas><button class="mk-crack" aria-label="Crack it" hidden></button></div>
     <div class="mk-panel"><div class="mk-tabs"></div><div class="mk-options"></div></div>
     <button class="mk-done" aria-label="Finished">${TICK}</button>`;
   document.body.append(root);
@@ -298,6 +307,12 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     const c = makeCanvas(56);
     b.append(c);
   }
+  // making a glow stick: the crack button is always there (it only glows once it's cracked)
+  const crackBtn = root.querySelector<HTMLButtonElement>('.mk-crack')!;
+  const crackPic = makeCanvas(84);
+  paint(crackPic, crack);
+  crackBtn.append(crackPic);
+  crackBtn.addEventListener('click', () => snap());
 
   let mode: MakerMode = 'bear';
   let bear = newBear();
@@ -305,6 +320,8 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   let person = newPerson();
   let glow = newGlow();
   let cracked = false; // a glow stick only glows once it's been cracked
+  /** How glow sticks are drawn on the tiles: plain plastic until it's cracked, then glowing. */
+  const lookNow = (): GlowLook => (cracked ? 'glow' : 'day');
   let glowShown = 0;
   let plump = 0; // how stuffed the teddy is (0..1)
   let plumpShown = 0;
@@ -328,7 +345,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   const glowChoice = <K extends keyof GlowRecipe>(key: K, values: readonly GlowRecipe[K][]): Choice[] =>
     values.map((v) => ({
       on: glow[key] === v,
-      draw: (c, size) => fit(c, size, AREA.glow, (cc) => drawGlow(cc, glowWith({ [key]: v } as Partial<GlowRecipe>), 'glow')),
+      draw: (c, size) => fit(c, size, AREA.glow, (cc) => drawGlow(cc, glowWith({ [key]: v } as Partial<GlowRecipe>), lookNow())),
       pick: () => {
         glow = glowWith({ [key]: v } as Partial<GlowRecipe>);
         changed();
@@ -437,11 +454,10 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       { id: 'name', icon: pencil, choices: () => [] },
     ],
     glow: [
-      { id: 'shape', icon: (c, s) => fit(c, s, AREA.glow, (cc) => drawGlow(cc, glow, 'glow')), choices: () => glowChoice('shape', GLOW_SHAPES) },
+      { id: 'shape', icon: (c, s) => fit(c, s, AREA.glow, (cc) => drawGlow(cc, glow, lookNow())), choices: () => glowChoice('shape', GLOW_SHAPES) },
       { id: 'colour', icon: (c, s) => palette(c, s, [GLOW_COLOURS[0], GLOW_COLOURS[3], GLOW_COLOURS[6]]), choices: () => GLOW_COLOURS.map((col, i) => ({ swatch: col, on: glow.colour === i, pick: () => ((glow = glowWith({ colour: i, colour2: glow.colour2 === i ? ONE_COLOUR : glow.colour2 })), changed()) })) },
       { id: 'colour2', icon: (c, s) => palette(c, s, GLOW_RAINBOW.slice(0, 5)), choices: stripeSwatches },
-      { id: 'charm', icon: (c, s) => fit(c, s, AREA.glow, (cc) => drawGlow(cc, { shape: 'wand', colour: 3, colour2: ONE_COLOUR, charm: 'star' }, 'glow')), choices: () => glowChoice('charm', GLOW_CHARMS) },
-      { id: 'crack', icon: crack, choices: () => [] },
+      { id: 'charm', icon: (c, s) => fit(c, s, AREA.glow, (cc) => drawGlow(cc, { shape: 'wand', colour: 3, colour2: ONE_COLOUR, charm: 'star' }, lookNow())), choices: () => glowChoice('charm', GLOW_CHARMS) },
     ],
   };
 
@@ -473,13 +489,13 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
           : b.dataset.mode === 'squishy'
             ? fit(cc, s, AREA.squishy, (x) => drawSquishy(x, squishy))
             : b.dataset.mode === 'glow'
-              ? fit(cc, s, AREA.glow, (x) => drawGlowing(x, glow, 1))
+              ? fit(cc, s, AREA.glow, (x) => drawGlowing(x, glow, cracked ? 1 : 0))
               : fit(cc, s, headArea(), (x) => drawPerson(x, person)),
       );
     }
   }
   function renderOptions() {
-    optionsEl.classList.toggle('stuffing', tab === 'stuff' || tab === 'crack');
+    optionsEl.classList.toggle('stuffing', tab === 'stuff');
     optionsEl.classList.toggle('naming', tab === 'name');
     if (tab === 'name') {
       // a name, typed on the iPad (shown when they're tapped)
@@ -490,21 +506,6 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       input.value = person.name;
       input.addEventListener('input', () => (person = personWith({ name: input.value.slice(0, 20) })));
       optionsEl.replaceChildren(input);
-      return;
-    }
-    if (tab === 'crack') {
-      // crack the glow stick (again and again: it flashes each time)
-      const crackBtn = document.createElement('button');
-      crackBtn.className = 'mk-big';
-      crackBtn.style.background = cracked ? '#2d2766' : '#fff';
-      const cc = makeCanvas(96);
-      paint(cc, crack);
-      crackBtn.append(cc);
-      crackBtn.addEventListener('click', () => {
-        snap();
-        crackBtn.style.background = '#2d2766';
-      });
-      optionsEl.replaceChildren(crackBtn);
       return;
     }
     if (tab === 'stuff') {
@@ -592,12 +593,25 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     }, 700);
   }
 
-  /** Crack the glow stick: snap! and it lights up (with a flash of stars). */
+  /** The crack button: only while making a glow stick; it wiggles until the glow stick's been cracked. */
+  function showCrack() {
+    crackBtn.hidden = mode !== 'glow';
+    crackBtn.classList.toggle('ready', !cracked);
+    crackBtn.classList.toggle('lit', cracked);
+  }
+  /** Crack the glow stick: snap! and it lights up (with a flash of stars). Crack it again for another flash. */
   function snap() {
     if (mode !== 'glow') return;
     sfx.crack();
+    const first = !cracked;
     cracked = true;
     glowShown = Math.max(glowShown, 0.6);
+    if (first) {
+      // now the pictures glow too
+      showCrack();
+      renderTabs();
+      renderOptions();
+    } else glowShown = 1.4; // a bright flash
     pulse = 1;
     const { w, h } = stageBox();
     for (let i = 0; i < 16; i++) {
@@ -624,8 +638,8 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     c.clearRect(0, 0, w, h);
     pulse = Math.max(0, pulse - dt / 500);
     plumpShown += (plump - plumpShown) * Math.min(1, dt / 200);
-    // a cracked glow stick glows (and gently pulses); before that, only a little
-    glowShown += ((cracked ? 0.85 + Math.sin(now * 0.004) * 0.15 : 0.2) - glowShown) * Math.min(1, dt / 300);
+    // a cracked glow stick glows (and gently pulses); before that, not at all
+    glowShown += ((cracked ? 0.85 + Math.sin(now * 0.004) * 0.15 : 0) - glowShown) * Math.min(1, dt / 300);
     // a soft spotlight (a dim purple one for glow sticks)
     const g = c.createRadialGradient(w / 2, h * 0.55, 10, w / 2, h * 0.55, Math.min(w, h) * 0.55);
     g.addColorStop(0, mode === 'glow' ? 'rgba(120,90,255,0.35)' : 'rgba(255,255,255,0.9)');
@@ -691,6 +705,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   function setMode(m: MakerMode) {
     mode = m;
     root.classList.toggle('glow', m === 'glow');
+    showCrack();
     tab = TABS[m][0].id;
     pulse = 1;
     renderTabs();
