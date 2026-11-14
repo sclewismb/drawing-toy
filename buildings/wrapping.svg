@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 280" width="300" height="280">
+  <defs>
+    <pattern id="awning" width="36" height="40" patternUnits="userSpaceOnUse">
+      <rect width="18" height="40" fill="#e03131" />
+      <rect x="18" width="18" height="40" fill="#ffffff" />
+    </pattern>
+  </defs>
+  <g stroke="#3a3a3a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- the shop -->
+    <rect x="34" y="100" width="232" height="176" fill="#fff4e6" />
+    <!-- a snowy roof with a big bow on top -->
+    <path d="M14 106 L150 40 L286 106 Z" fill="#2f7a4f" />
+    <path d="M150 40 L200 64 Q190 74 180 66 Q170 78 158 68 Q146 78 134 68 Q122 76 112 66 Q104 72 100 64 Z" fill="#ffffff" stroke-width="4" />
+    <path d="M14 106 L286 106" stroke="#ffffff" stroke-width="7" />
+    <path d="M146 34 L130 66 L141 61 L147 70 Z" fill="#e03131" stroke-width="4" />
+    <path d="M154 34 L170 66 L159 61 L153 70 Z" fill="#e03131" stroke-width="4" />
+    <path d="M150 33 C120 6 98 22 116 42 C127 52 142 41 150 33 Z" fill="#e03131" stroke-width="5" />
+    <path d="M150 33 C180 6 202 22 184 42 C173 52 158 41 150 33 Z" fill="#e03131" stroke-width="5" />
+    <circle cx="150" cy="34" r="9" fill="#e03131" stroke-width="5" />
+    <!-- the shop window, full of presents -->
+    <rect x="48" y="146" width="124" height="96" fill="#bfe8ff" />
+    <rect x="62" y="198" width="44" height="40" fill="#e03131" stroke-width="3" />
+    <rect x="80" y="198" width="8" height="40" fill="#ffd43b" stroke-width="2" />
+    <rect x="70" y="172" width="30" height="26" fill="#2f9e44" stroke-width="3" />
+    <rect x="81" y="172" width="8" height="26" fill="#ffffff" stroke-width="2" />
+    <rect x="112" y="184" width="46" height="54" fill="#4dabf7" stroke-width="3" />
+    <rect x="131" y="184" width="8" height="54" fill="#ff8fab" stroke-width="2" />
+    <circle cx="85" cy="168" r="6" fill="#ffffff" stroke-width="3" />
+    <circle cx="135" cy="180" r="7" fill="#ff8fab" stroke-width="3" />
+    <rect x="48" y="146" width="124" height="96" fill="none" />
+    <rect x="42" y="240" width="136" height="10" fill="#ffffff" stroke-width="4" />
+    <!-- a striped awning over it -->
+    <path d="M40 124 L180 124 L180 140 Q171 152 162 140 Q153 152 144 140 Q135 152 126 140 Q117 152 108 140 Q99 152 90 140 Q81 152 72 140 Q63 152 54 140 Q47 150 40 140 Z" fill="url(#awning)" stroke-width="5" />
+    <!-- the door, with a wreath -->
+    <rect x="194" y="158" width="58" height="118" fill="#d64550" />
+    <rect x="206" y="170" width="34" height="30" fill="#bfe8ff" stroke-width="4" />
+    <circle cx="223" cy="234" r="13" fill="none" stroke="#2f7a4f" stroke-width="10" />
+    <circle cx="223" cy="234" r="18" fill="none" stroke-width="2.5" />
+    <circle cx="223" cy="234" r="8" fill="none" stroke-width="2.5" />
+    <circle cx="214" cy="226" r="3" fill="#e03131" stroke="none" />
+    <circle cx="232" cy="242" r="3" fill="#e03131" stroke="none" />
+    <circle cx="231" cy="225" r="3" fill="#ffd43b" stroke="none" />
+    <circle cx="244" cy="214" r="4" fill="#ffd43b" stroke="none" />
+  </g>
+</svg>
