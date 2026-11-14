@@ -1,6 +1,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import { burst } from '../fx';
 import { windowView } from '../places';
+import { PALETTE } from '../seasons';
 import { fireWideEggs, parkWideEggs, policeWideEggs, schoolWideEggs } from './townWide';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
@@ -735,7 +736,7 @@ export function kitchenWide(kit: EggKit, cleanups: Cleanups) {
     window: true,
     inside(g, x, y, ww, hh) {
       windowView(g, x, y, ww, hh * 0.7);
-      g.rect(x, y + hh * 0.55, ww, hh * 0.45).fill(kit.season === 'winter' ? 0xf1f5f9 : 0x7bd36b);
+      g.rect(x, y + hh * 0.55, ww, hh * 0.45).fill(PALETTE[kit.season].grass);
       for (let fx = x + 6; fx < x + ww; fx += 16) g.rect(fx, y + hh * 0.45, 10, hh * 0.14).fill(0xc68b59);
       g.rect(x, y + hh * 0.5, ww, 5).fill(0xa47e4b);
     },
@@ -1206,7 +1207,7 @@ export function loungeWide(kit: EggKit, cleanups: Cleanups) {
     window: true,
     inside(g, x, y, ww, hh) {
       windowView(g, x, y, ww, hh * 0.65);
-      g.rect(x, y + hh * 0.6, ww, hh * 0.4).fill(kit.season === 'winter' ? 0xf1f5f9 : 0x7bd36b);
+      g.rect(x, y + hh * 0.6, ww, hh * 0.4).fill(PALETTE[kit.season].grass);
       g.poly([x + ww * 0.35, y + hh, x + ww * 0.65, y + hh, x + ww * 0.55, y + hh * 0.6, x + ww * 0.45, y + hh * 0.6]).fill(0xd6ccc2);
     },
     onOpen() {

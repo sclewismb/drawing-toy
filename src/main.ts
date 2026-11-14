@@ -18,7 +18,7 @@ import { setupGrownUpShare } from './photoShare';
 import { setupHouseSettings, upgradeHouseSettings, type HouseSettings } from './houseSettings';
 import { NO_PLAYERS, PLAYER_IDS, setupPlayers, type PlayerId, type Players } from './players';
 import { HouseView, ROOM_FURNITURE } from './houseView';
-import { BUILTIN, FLOOR, isNight, PLACES, placeById, RESIDENTS, STREET, type PlaceId } from './places';
+import { BUILTIN, FLOOR, isNight, lookOutside, PLACES, placeById, placeTheSun, RESIDENTS, STREET, type PlaceId } from './places';
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
 import { MOTIONS } from './library';
 import { setupMaker, type MakerMode } from './maker';
@@ -226,6 +226,7 @@ function setSeason(s: Season, withSound = true) {
   houseView.layout(app.screen.width, app.screen.height, season);
   setupViewEggs();
   drawBackdrop();
+  if (current) setupEggs(current); // (the surprises and the views out of the windows follow the season too)
   weather.set(s);
   if (withSound) sfx.season(s);
   void storage.setMine('season', s).catch(() => {});
@@ -263,6 +264,7 @@ function sizeRoom(id: PlaceId) {
 }
 
 function drawBackdrop() {
+  lookOutside(season); // (the windows show the season; the one sun goes in once the surprises are drawn too: setupEggs)
   backdrop.clear();
   if (current) {
     const place = placeById(current)!;
@@ -1522,6 +1524,7 @@ function setupEggs(id: PlaceId) {
   events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
   events.on('adopt', (kind: PetKind) => adopt.open(kind)); // the vet's adoption corner
   eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events, wardrobe, gifts: giftWrap });
+  placeTheSun(panel); // one sun (or moon) for all the windows and doors here
 }
 
 // --- Secrets: deeper surprises (see secrets.ts and eggs/secrets.ts) ---

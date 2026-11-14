@@ -281,8 +281,8 @@ function floorAndWall(g: Graphics, w: number, h: number, wall: number, floor: nu
 }
 
 function windowWithSky(g: Graphics, x: number, y: number, ww: number, wh: number) {
-  g.roundRect(x, y, ww, wh, 10).fill(0xbfe8ff).stroke({ width: 8, color: INK });
-  g.circle(x + ww * 0.7, y + wh * 0.35, Math.min(ww, wh) * 0.14).fill(0xffe066);
+  windowView(g, x, y, ww, wh);
+  g.roundRect(x, y, ww, wh, 10).stroke({ width: 8, color: INK });
   g.moveTo(x + ww / 2, y).lineTo(x + ww / 2, y + wh).moveTo(x, y + wh / 2).lineTo(x + ww, y + wh / 2).stroke({ width: 6, color: INK });
 }
 
@@ -307,21 +307,61 @@ export function isNight(now = new Date()) {
   return h >= 19 || h < 7;
 }
 
+/**
+ * What's outside the windows of the place being drawn. Every window and
+ * door that looks out (windowView) shows the season, and the place has just
+ * one sun (or moon, at night): once all its windows are drawn it goes in the
+ * biggest window of the main view, and in any other window right in front
+ * of the same spot (a blind's view over the window behind it).
+ */
+const outside: { season: Season; windows: { g: Graphics; x: number; y: number; ww: number; wh: number }[] } = { season: 'spring', windows: [] };
+const NIGHT_SKY = 0x1d2b53;
+
+/** A place is about to be drawn (its picture, then its surprises), in this season. */
+export function lookOutside(season: Season) {
+  outside.season = season;
+  outside.windows = [];
+}
+
+/** All the place's windows are drawn: the one sun (or moon) goes in. `panel` = the width of the main view. */
+export function placeTheSun(panel: number) {
+  const wins = outside.windows.filter((w) => !w.g.destroyed);
+  outside.windows = [];
+  if (!wins.length) return;
+  const inView = wins.filter((w) => w.x + w.ww / 2 > 0 && w.x + w.ww / 2 < panel);
+  const best = (inView.length ? inView : wins).reduce((a, b) => (b.ww * b.wh > a.ww * a.wh ? b : a));
+  const night = isNight();
+  const pal = PALETTE[outside.season];
+  const r = Math.min(best.ww, best.wh) * (night ? 0.12 : 0.1 * pal.sunSize);
+  const sx = best.x + best.ww * 0.72, sy = best.y + best.wh * 0.27;
+  for (const w of wins) {
+    if (sx - r < w.x - 1 || sx + r > w.x + w.ww + 1 || sy - r < w.y - 1 || sy + r > w.y + w.wh + 1) continue; // not looking at that bit of sky
+    if (night) w.g.circle(sx, sy, r).fill(0xfff3c4).circle(sx + r * 0.35, sy - r * 0.25, r * 0.85).fill(NIGHT_SKY); // a crescent moon
+    else w.g.circle(sx, sy, r).fill(pal.sun);
+  }
+}
+
+/** Mix two colours (0 = all a, 1 = all b). */
+function blend(a: number, b: number, t: number) {
+  const ch = (s: number) => Math.round(((a >> s) & 255) * (1 - t) + ((b >> s) & 255) * t) << s;
+  return ch(16) | ch(8) | ch(0);
+}
+
+/** The view out of a window or an open door: day or night by the real clock, in the season's colours. */
 export function windowView(g: Graphics, x: number, y: number, ww: number, wh: number) {
-  if (isNight()) {
-    g.rect(x, y, ww, wh).fill(0x1d2b53);
-    g.circle(x + ww * 0.7, y + wh * 0.3, Math.min(ww, wh) * 0.12).fill(0xfff3c4);
-    g.circle(x + ww * 0.74, y + wh * 0.27, Math.min(ww, wh) * 0.1).fill(0x1d2b53); // crescent
-    const rnd = seeded(3);
+  const night = isNight();
+  const season = outside.season;
+  const pal = PALETTE[season];
+  const rnd = seeded(3);
+  g.rect(x, y, ww, wh).fill(night ? NIGHT_SKY : pal.sky);
+  if (night) {
     for (let i = 0; i < 12; i++) g.circle(x + rnd() * ww, y + rnd() * wh * 0.7, 1.5 + rnd() * 1.5).fill(0xffffff);
   } else {
-    g.rect(x, y, ww, wh).fill(0xbfe8ff);
-    g.circle(x + ww * 0.75, y + wh * 0.25, Math.min(ww, wh) * 0.1).fill(0xffe066);
     const r = Math.min(ww, wh) * 0.07;
-    g.circle(x + ww * 0.25, y + wh * 0.3, r).circle(x + ww * 0.25 + r, y + wh * 0.3 - r * 0.4, r * 1.2).circle(x + ww * 0.25 + r * 2, y + wh * 0.3, r).fill(0xffffff);
+    g.circle(x + ww * 0.25, y + wh * 0.3, r).circle(x + ww * 0.25 + r, y + wh * 0.3 - r * 0.4, r * 1.2).circle(x + ww * 0.25 + r * 2, y + wh * 0.3, r).fill(pal.cloud);
   }
-  // hills, kept inside the window
-  const hill = (cx: number, rx: number, ry: number, color: number) => {
+  // hills, kept inside the window (green, autumn orange or snowy; darker at night)
+  const hill = (cx: number, rx: number, ry: number, color: number, dots?: number[]) => {
     const pts: number[] = [];
     for (let i = 0; i <= 24; i++) {
       const px = x + (ww * i) / 24;
@@ -329,10 +369,21 @@ export function windowView(g: Graphics, x: number, y: number, ww: number, wh: nu
       pts.push(px, y + wh - (Math.abs(k) < 1 ? ry * Math.sqrt(1 - k * k) : 0));
     }
     pts.push(x + ww, y + wh, x, y + wh);
-    g.poly(pts).fill(color);
+    g.poly(pts).fill(night ? blend(color, 0x0b1430, 0.6) : color);
+    // blossom in spring, fallen leaves in autumn
+    if (dots && !night) {
+      for (let i = 0; i < 7; i++) {
+        const px = cx + (rnd() - 0.5) * rx * 1.2, k = (px - cx) / rx;
+        if (px < x + 3 || px > x + ww - 3 || Math.abs(k) >= 0.9) continue;
+        g.circle(px, y + wh - ry * Math.sqrt(1 - k * k) * rnd() * 0.8 - 2, Math.max(1.5, Math.min(ww, wh) * 0.02)).fill(dots[i % dots.length]);
+      }
+    }
   };
-  hill(x + ww * 0.3, ww * 0.6, wh * 0.25, isNight() ? 0x1f4d3a : 0x7bd36b);
-  hill(x + ww * 0.85, ww * 0.4, wh * 0.18, isNight() ? 0x17402f : 0x5cb85c);
+  hill(x + ww * 0.3, ww * 0.6, wh * 0.25, season === 'winter' ? 0xf4f8fc : pal.hillBack, pal.dots);
+  hill(x + ww * 0.85, ww * 0.4, wh * 0.18, season === 'winter' ? 0xe3ecf5 : pal.hillFront, pal.dots);
+  // snow falling past the window
+  if (season === 'winter') for (let i = 0; i < 10; i++) g.circle(x + 3 + rnd() * (ww - 6), y + 3 + rnd() * wh * 0.75, 1.5 + rnd() * 1.5).fill({ color: 0xffffff, alpha: night ? 0.9 : 0.95 });
+  outside.windows.push({ g, x, y, ww, wh });
 }
 
 /** A small seeded random generator, so decorations land in the same place every time. */
