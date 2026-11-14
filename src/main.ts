@@ -1,4 +1,5 @@
 import { Application, Container, Graphics, Matrix, Sprite, Text, Texture, Ticker } from 'pixi.js';
+import './pixiFixes'; // (before anything is drawn)
 import { Camera } from './camera';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
