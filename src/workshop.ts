@@ -7,9 +7,11 @@ import { INK, seeded } from './places';
  *   left:   the teddy corner: pegboard of floppy unstuffed teddies, the stuffing machine
  *   middle: display shelves of finished teddies, a big window, the maker table
  *   right:  the squishy bar: a counter, jars of squishies, the squishy machine
+ *   far right: the glow stick den, a dark corner behind a curtain: a rack of
+ *           glowing bracelets, the glow machine on the glow bar, a light switch
  * Everything that moves or opens the maker is in eggs/workshop.ts.
  */
-export const WORKSHOP = { left: 0.6, right: 0.6, floor: 0.74 };
+export const WORKSHOP = { left: 0.6, right: 1.2, floor: 0.74 };
 
 /** Where things are (shared with the surprises). */
 export function workshopLayout(w: number, h: number) {
@@ -27,6 +29,14 @@ export function workshopLayout(w: number, h: number) {
     jars: { x0: 1.08 * w, x1: 1.5 * w, rows: [0.17, 0.33].map((f) => h * f) },
     gumball: { x: 1.36 * w, y: h * 0.42 },
     heartBox: { x: 0.79 * w, y: fy + h * 0.06 },
+    glow: {
+      x0: 1.62 * w,
+      counter: { x0: 1.74 * w, x1: 2.12 * w, top: h * 0.56 },
+      rail: { x0: 1.72 * w, x1: 2.14 * w, y: h * 0.15 },
+      machine: { x: 1.98 * w, base: h * 0.56 },
+      sign: { x: 1.84 * w, y: h * 0.42 },
+      lightSwitch: { x: 1.66 * w, y: h * 0.42 },
+    },
   };
 }
 
@@ -44,6 +54,11 @@ export function drawWorkshop(g: Graphics, w: number, h: number) {
       else g.moveTo(x, y + 4).bezierCurveTo(x - 9, y - 2, x - 4, y - 9, x, y - 4).bezierCurveTo(x + 4, y - 9, x + 9, y - 2, x, y + 4).fill(0xffd6e5);
     }
   }
+  // --- far right: the glow stick den, a dark corner with tiny stars on the walls ---
+  const gd = L.glow;
+  const stars = seeded(41);
+  g.rect(gd.x0, 0, x1 - gd.x0, fy).fill(0x1e1b3a);
+  for (let i = 0; i < 70; i++) g.circle(gd.x0 + stars() * (x1 - gd.x0), stars() * (fy - 20), 1 + stars() * 2).fill({ color: 0xffffff, alpha: 0.2 + stars() * 0.4 });
   const flags = [0xff8fab, 0xffd166, 0x9bd0ff, 0xa8e6cf, 0xc8b6ff];
   for (let x = x0, i = 0; x < x1; x += 0.2 * w, i++) {
     g.moveTo(x, h * 0.04).quadraticCurveTo(x + 0.1 * w, h * 0.09, x + 0.2 * w, h * 0.04).stroke({ width: 3, color: INK });
@@ -117,6 +132,27 @@ export function drawWorkshop(g: Graphics, w: number, h: number) {
   for (let x = ct.x0 - 20, i = 0; x < ct.x1 + 20; x += 40, i++) {
     g.moveTo(x, h * 0.06).lineTo(x + 40, h * 0.06).lineTo(x + 40, h * 0.12).quadraticCurveTo(x + 20, h * 0.15, x, h * 0.12).closePath().fill(i % 2 ? 0xffffff : 0xff8fab).stroke({ width: 2, color: INK });
   }
+  // --- the glow stick den: a curtain pulled back, the rail, the glow bar, a starry rug ---
+  g.ellipse(1.93 * w, fy + (h - fy) * 0.55, 0.2 * w, (h - fy) * 0.3).fill(0x3a2f6b).stroke({ width: 3, color: INK });
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    g.star(1.93 * w + Math.cos(a) * 0.13 * w, fy + (h - fy) * 0.55 + Math.sin(a) * (h - fy) * 0.18, 5, 7, 3).fill(0xffe94d);
+  }
+  const ct2 = gd.counter;
+  g.rect(ct2.x0, ct2.top, ct2.x1 - ct2.x0, fy - ct2.top + 6).fill(0x2b2650).stroke({ width: 4, color: INK });
+  const neon = [0xff4fd8, 0xffe94d, 0x3dfcff, 0x8cff4d, 0xff9f1c, 0xb45cff];
+  for (let x = ct2.x0 + 18, i = 0; x < ct2.x1 - 20; x += 36, i++) g.roundRect(x, ct2.top + 14, 12, fy - ct2.top - 22, 6).fill({ color: neon[i % neon.length], alpha: 0.85 });
+  g.roundRect(ct2.x0 - 14, ct2.top - 18, ct2.x1 - ct2.x0 + 28, 22, 8).fill(0x8a5cf6).stroke({ width: 4, color: INK });
+  const rl = gd.rail;
+  g.rect(rl.x0, rl.y - 4, rl.x1 - rl.x0, 8).fill(0xced4da).stroke({ width: 2.5, color: INK });
+  for (const x of [rl.x0, rl.x1]) g.rect(x - 5, rl.y - 4, 10, 26).fill(0xadb5bd).stroke({ width: 2.5, color: INK });
+  // the curtain, pulled back to the side
+  const cx0 = gd.x0 - 0.03 * w, cw = 0.07 * w;
+  g.moveTo(cx0, 0).lineTo(cx0 + cw, 0).quadraticCurveTo(cx0 + cw * 0.35, fy * 0.45, cx0 + cw * 0.75, fy).lineTo(cx0, fy).closePath().fill(0x7b2cbf).stroke({ width: 3, color: INK });
+  for (const k of [0.3, 0.55]) g.moveTo(cx0 + cw * k, 6).quadraticCurveTo(cx0 + cw * k * 0.5, fy * 0.5, cx0 + cw * k * 0.9, fy - 4).stroke({ width: 2.5, color: 0x5a189a });
+  g.roundRect(cx0 + cw * 0.15, fy * 0.47, cw * 0.55, 14, 7).fill(0xffd166).stroke({ width: 2.5, color: INK }); // its tie-back
+  g.rect(gd.x0 - 0.04 * w, 0, x1 - gd.x0 + 0.04 * w, 12).fill(0x5a189a).stroke({ width: 2.5, color: INK }); // the curtain rail
+
   // the heart box on the floor (opens: see eggs)
   const hb = L.heartBox;
   g.roundRect(hb.x - 40, hb.y - 34, 80, 40, 8).fill(0xff4d6d).stroke({ width: 3, color: INK });

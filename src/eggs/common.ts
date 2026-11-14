@@ -198,6 +198,7 @@ export function roomLights(kit: EggKit, onLevel: (level: number) => void = () =>
         level = from + (to - from) * t;
         draw();
         onLevel(level);
+        kit.events?.emit('dark', 'lights', level / darkness); // glow sticks glow
       });
     },
   };

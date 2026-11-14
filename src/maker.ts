@@ -44,17 +44,31 @@ import {
   TOPS,
   type PersonRecipe,
 } from './personArt';
+import {
+  drawGlow,
+  GLOW_CHARMS,
+  GLOW_COLOURS,
+  GLOW_RAINBOW,
+  GLOW_SHAPES,
+  newGlow,
+  ONE_COLOUR,
+  RAINBOW,
+  randomGlow,
+  renderGlow,
+  type GlowRecipe,
+} from './glowArt';
 import { sfx } from './sound';
 
 /**
  * The workshop's maker: a full-screen page of pictures (no words) for
- * making a teddy or a squishy. A big preview, picture tabs (animal, colour,
- * pattern, eyes, mouth, tummy, extras, stuffing), and option tiles that each
- * show the toy with that choice. The dice makes a surprise one; the green
- * tick finishes it (stuffed, with a heart inside) and it goes to the toy box.
+ * making a teddy, a squishy, a person or a glow stick. A big preview, picture
+ * tabs (animal, colour, pattern, eyes, mouth, tummy, extras, stuffing), and
+ * option tiles that each show the toy with that choice. The dice makes a
+ * surprise one; the green tick finishes it (stuffed, with a heart inside; a
+ * glow stick gets cracked so it glows) and it goes to the toy box.
  */
-export type MakerMode = 'bear' | 'squishy' | 'person';
-export type MakerRecipe = BearRecipe | SquishyRecipe | PersonRecipe;
+export type MakerMode = 'bear' | 'squishy' | 'person' | 'glow';
+export type MakerRecipe = BearRecipe | SquishyRecipe | PersonRecipe | GlowRecipe;
 type Ctx = CanvasRenderingContext2D;
 type Area = { x: number; y: number; w: number; h: number };
 
@@ -62,6 +76,7 @@ const AREA: Record<MakerMode, Area> = {
   bear: { x: -10, y: -150, w: 620, h: 860 },
   squishy: { x: 0, y: -10, w: 560, h: 520 },
   person: { x: -40, y: 0, w: 380, h: 650 },
+  glow: { x: -20, y: -40, w: 440, h: 510 },
 };
 const HEAD: Area = { x: 100, y: -20, w: 400, h: 420 };
 const EYES_AT: Area = { x: 190, y: 160, w: 220, h: 150 };
@@ -108,6 +123,9 @@ const CSS = `
 #maker .mk-done { position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); width: 104px; height: 104px;
   border-radius: 50%; border: 5px solid #3a3a3a; background: #7bd36b; display: grid; place-items: center; box-shadow: 0 6px 0 rgba(0,0,0,.2); }
 #maker .mk-done:active, #maker .mk-btn:active, #maker .mk-big:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,.2); }
+#maker.glow { background: radial-gradient(circle at 30% 40%, #2d2766, #0d0b22 75%); }
+#maker.glow .mk-opt:not(.swatch) { background: #1c1940; }
+#maker.glow .mk-opt.on { border-color: #ff4fd8; box-shadow: 0 0 0 5px rgba(255,79,216,.35); }
 @media (orientation: portrait) {
   #maker { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 0.95fr) minmax(0, 1fr); }
   #maker .mk-panel { padding: 0 max(16px, env(safe-area-inset-right)) 130px max(16px, env(safe-area-inset-left)); }
@@ -191,6 +209,37 @@ function pedal(c: Ctx, size: number) {
   fluffAndHeart(c, size * 0.7);
 }
 
+/** A glow stick snapping: the crack button. */
+function crack(c: Ctx, size: number) {
+  const s = size / 100;
+  c.save();
+  c.translate(50 * s, 52 * s);
+  c.rotate(-0.7);
+  for (const [w, col] of [[22, '#3a3a3a'], [15, '#8cff4d']] as const) {
+    c.beginPath();
+    c.moveTo(-34 * s, 6 * s);
+    c.lineTo(-4 * s, 0);
+    c.moveTo(4 * s, 0);
+    c.lineTo(34 * s, 6 * s);
+    c.lineWidth = w * s;
+    c.lineCap = 'round';
+    c.strokeStyle = col;
+    c.stroke();
+  }
+  c.restore();
+  // the snap: a little burst
+  c.strokeStyle = '#ffd43b';
+  c.lineWidth = 5 * s;
+  c.lineCap = 'round';
+  for (let i = 0; i < 7; i++) {
+    const a = -Math.PI / 2 + (i - 3) * 0.45;
+    c.beginPath();
+    c.moveTo(50 * s + Math.cos(a) * 14 * s, 44 * s + Math.sin(a) * 14 * s);
+    c.lineTo(50 * s + Math.cos(a) * 30 * s, 44 * s + Math.sin(a) * 30 * s);
+    c.stroke();
+  }
+}
+
 function pencil(c: Ctx, size: number) {
   const s = size / 100;
   c.save();
@@ -233,6 +282,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       <button class="mk-btn" data-mode="bear" aria-label="Teddy"></button>
       <button class="mk-btn" data-mode="squishy" aria-label="Squishy"></button>
       <button class="mk-btn" data-mode="person" aria-label="A person"></button>
+      <button class="mk-btn" data-mode="glow" aria-label="A glow stick"></button>
       <span class="gap"></span>
       <button class="mk-btn" data-dice aria-label="Surprise me">${DICE}</button>
     </div>
@@ -253,6 +303,9 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   let bear = newBear();
   let squishy = newSquishy();
   let person = newPerson();
+  let glow = newGlow();
+  let cracked = false; // a glow stick only glows once it's been cracked
+  let glowShown = 0;
   let plump = 0; // how stuffed the teddy is (0..1)
   let plumpShown = 0;
   let tab = 'animal';
@@ -261,7 +314,39 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   let finishT = 0;
   const particles: { x: number; y: number; vx: number; vy: number; life: number; kind: 'fluff' | 'heart' | 'star'; tx?: number; ty?: number }[] = [];
 
-  const drawToy = (c: Ctx, p = 1) => (mode === 'bear' ? drawBear(c, bear, p) : mode === 'squishy' ? drawSquishy(c, squishy) : drawPerson(c, person));
+  const drawToy = (c: Ctx, p = 1) => (mode === 'bear' ? drawBear(c, bear, p) : mode === 'squishy' ? drawSquishy(c, squishy) : mode === 'glow' ? drawGlowing(c, glow, glowShown) : drawPerson(c, person));
+  /** A glow stick: by day, with its glow on top (all of it once it's cracked). */
+  function drawGlowing(c: Ctx, r: GlowRecipe, amount = 1) {
+    drawGlow(c, r, 'day');
+    if (amount <= 0.01) return;
+    c.save();
+    c.globalAlpha *= Math.min(1, amount);
+    drawGlow(c, r, 'glow');
+    c.restore();
+  }
+  const glowWith = (patch: Partial<GlowRecipe>) => ({ ...glow, ...patch });
+  const glowChoice = <K extends keyof GlowRecipe>(key: K, values: readonly GlowRecipe[K][]): Choice[] =>
+    values.map((v) => ({
+      on: glow[key] === v,
+      draw: (c, size) => fit(c, size, AREA.glow, (cc) => drawGlow(cc, glowWith({ [key]: v } as Partial<GlowRecipe>), 'glow')),
+      pick: () => {
+        glow = glowWith({ [key]: v } as Partial<GlowRecipe>);
+        changed();
+      },
+    }));
+  /** The second colour's swatches: all one colour, stripes of each colour, or a rainbow. */
+  const stripeSwatches = (): Choice[] => {
+    const main = GLOW_COLOURS[glow.colour] ?? GLOW_COLOURS[0];
+    return [
+      { swatch: main, on: glow.colour2 === ONE_COLOUR, pick: () => ((glow = glowWith({ colour2: ONE_COLOUR })), changed()) },
+      ...GLOW_COLOURS.map((col, i) => ({
+        swatch: `repeating-linear-gradient(45deg, ${main} 0 14px, ${col} 14px 28px)`,
+        on: glow.colour2 === i,
+        pick: () => ((glow = glowWith({ colour2: i })), changed()),
+      })).filter((_, i) => i !== glow.colour),
+      { swatch: `linear-gradient(90deg, ${GLOW_RAINBOW.join(', ')})`, on: glow.colour2 === RAINBOW, pick: () => ((glow = glowWith({ colour2: RAINBOW })), changed()) },
+    ];
+  };
   const personWith = (patch: Partial<PersonRecipe>) => ({ ...person, ...patch });
   const headArea = (): Area => {
     const b = bodyOf(person.age, person.build);
@@ -351,6 +436,13 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       { id: 'extra', icon: (c, s) => fit(c, s, AREA.person, (cc) => drawPerson(cc, personWith({ extra: 'balloon' }))), choices: () => personChoice('extra', PERSON_EXTRAS, () => AREA.person) },
       { id: 'name', icon: pencil, choices: () => [] },
     ],
+    glow: [
+      { id: 'shape', icon: (c, s) => fit(c, s, AREA.glow, (cc) => drawGlow(cc, glow, 'glow')), choices: () => glowChoice('shape', GLOW_SHAPES) },
+      { id: 'colour', icon: (c, s) => palette(c, s, [GLOW_COLOURS[0], GLOW_COLOURS[3], GLOW_COLOURS[6]]), choices: () => GLOW_COLOURS.map((col, i) => ({ swatch: col, on: glow.colour === i, pick: () => ((glow = glowWith({ colour: i, colour2: glow.colour2 === i ? ONE_COLOUR : glow.colour2 })), changed()) })) },
+      { id: 'colour2', icon: (c, s) => palette(c, s, GLOW_RAINBOW.slice(0, 5)), choices: stripeSwatches },
+      { id: 'charm', icon: (c, s) => fit(c, s, AREA.glow, (cc) => drawGlow(cc, { shape: 'wand', colour: 3, colour2: ONE_COLOUR, charm: 'star' }, 'glow')), choices: () => glowChoice('charm', GLOW_CHARMS) },
+      { id: 'crack', icon: crack, choices: () => [] },
+    ],
   };
 
   // --- drawing the page ---
@@ -380,12 +472,14 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
           ? fit(cc, s, HEAD, (x) => drawBear(x, bear, 1))
           : b.dataset.mode === 'squishy'
             ? fit(cc, s, AREA.squishy, (x) => drawSquishy(x, squishy))
-            : fit(cc, s, headArea(), (x) => drawPerson(x, person)),
+            : b.dataset.mode === 'glow'
+              ? fit(cc, s, AREA.glow, (x) => drawGlowing(x, glow, 1))
+              : fit(cc, s, headArea(), (x) => drawPerson(x, person)),
       );
     }
   }
   function renderOptions() {
-    optionsEl.classList.toggle('stuffing', tab === 'stuff');
+    optionsEl.classList.toggle('stuffing', tab === 'stuff' || tab === 'crack');
     optionsEl.classList.toggle('naming', tab === 'name');
     if (tab === 'name') {
       // a name, typed on the iPad (shown when they're tapped)
@@ -396,6 +490,21 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       input.value = person.name;
       input.addEventListener('input', () => (person = personWith({ name: input.value.slice(0, 20) })));
       optionsEl.replaceChildren(input);
+      return;
+    }
+    if (tab === 'crack') {
+      // crack the glow stick (again and again: it flashes each time)
+      const crackBtn = document.createElement('button');
+      crackBtn.className = 'mk-big';
+      crackBtn.style.background = cracked ? '#2d2766' : '#fff';
+      const cc = makeCanvas(96);
+      paint(cc, crack);
+      crackBtn.append(cc);
+      crackBtn.addEventListener('click', () => {
+        snap();
+        crackBtn.style.background = '#2d2766';
+      });
+      optionsEl.replaceChildren(crackBtn);
       return;
     }
     if (tab === 'stuff') {
@@ -442,7 +551,8 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
         }
         b.addEventListener('click', () => {
           ch.pick();
-          (mode === 'squishy' ? sfx.squish : sfx.pop)(1.2);
+          if (mode === 'glow') sfx.tinkle();
+          else (mode === 'squishy' ? sfx.squish : sfx.pop)(1.2);
         });
         return b;
       }),
@@ -482,6 +592,20 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     }, 700);
   }
 
+  /** Crack the glow stick: snap! and it lights up (with a flash of stars). */
+  function snap() {
+    if (mode !== 'glow') return;
+    sfx.crack();
+    cracked = true;
+    glowShown = Math.max(glowShown, 0.6);
+    pulse = 1;
+    const { w, h } = stageBox();
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      particles.push({ x: w / 2, y: h * 0.5, vx: Math.cos(a) * 0.3, vy: Math.sin(a) * 0.3 - 0.1, life: 0, kind: 'star' });
+    }
+  }
+
   // --- the preview, animated ---
   let raf = 0;
   let last = 0;
@@ -500,10 +624,12 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     c.clearRect(0, 0, w, h);
     pulse = Math.max(0, pulse - dt / 500);
     plumpShown += (plump - plumpShown) * Math.min(1, dt / 200);
-    // a soft spotlight
+    // a cracked glow stick glows (and gently pulses); before that, only a little
+    glowShown += ((cracked ? 0.85 + Math.sin(now * 0.004) * 0.15 : 0.2) - glowShown) * Math.min(1, dt / 300);
+    // a soft spotlight (a dim purple one for glow sticks)
     const g = c.createRadialGradient(w / 2, h * 0.55, 10, w / 2, h * 0.55, Math.min(w, h) * 0.55);
-    g.addColorStop(0, 'rgba(255,255,255,0.9)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
+    g.addColorStop(0, mode === 'glow' ? 'rgba(120,90,255,0.35)' : 'rgba(255,255,255,0.9)');
+    g.addColorStop(1, mode === 'glow' ? 'rgba(120,90,255,0)' : 'rgba(255,255,255,0)');
     c.fillStyle = g;
     c.fillRect(0, 0, w, h);
     // the toy, with a wiggle when it changes (and a spin into its box when finished)
@@ -564,6 +690,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   // --- buttons ---
   function setMode(m: MakerMode) {
     mode = m;
+    root.classList.toggle('glow', m === 'glow');
     tab = TABS[m][0].id;
     pulse = 1;
     renderTabs();
@@ -580,6 +707,7 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
     sfx.boing(1.2);
     if (mode === 'bear') bear = { ...randomBear(), heart: bear.heart };
     else if (mode === 'squishy') squishy = randomSquishy();
+    else if (mode === 'glow') glow = randomGlow();
     else person = { ...randomPerson(), name: person.name };
     changed();
   });
@@ -590,10 +718,15 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
   root.querySelector('.mk-done')!.addEventListener('click', () => {
     if (finishing) return;
     // not stuffed yet? stuff it all the way first (and a heart, of course)
-    const wait = mode === 'bear' && plump < 1 ? 900 : 0;
+    let wait = mode === 'bear' && plump < 1 ? 900 : 0;
     if (wait) {
       while (plump < 1) stuff();
       if (!bear.heart) addHeart();
+    }
+    // a glow stick that hasn't been cracked yet: crack it first, so it glows
+    if (mode === 'glow' && !cracked) {
+      snap();
+      wait = 700;
     }
     setTimeout(() => {
       finishing = true;
@@ -606,8 +739,11 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       }
       setTimeout(() => {
         const kind = mode;
-        const recipe: MakerRecipe = mode === 'bear' ? { ...bear, heart: true } : mode === 'squishy' ? { ...squishy } : { ...person, name: person.name.trim() };
-        const picture = kind === 'person' ? renderPerson(recipe as PersonRecipe) : renderToy(kind, recipe as BearRecipe | SquishyRecipe);
+        const recipe: MakerRecipe = mode === 'bear' ? { ...bear, heart: true } : mode === 'squishy' ? { ...squishy } : mode === 'glow' ? { ...glow } : { ...person, name: person.name.trim() };
+        const picture =
+          kind === 'person' ? renderPerson(recipe as PersonRecipe)
+          : kind === 'glow' ? renderGlow(recipe as GlowRecipe).picture
+          : renderToy(kind, recipe as BearRecipe | SquishyRecipe);
         close();
         opts.onDone(kind, picture, recipe);
       }, 950);
@@ -630,6 +766,9 @@ export function setupMaker(opts: { onDone: (kind: MakerMode, picture: HTMLCanvas
       bear = newBear();
       squishy = newSquishy();
       person = newPerson();
+      glow = newGlow();
+      cracked = false;
+      glowShown = 0;
       plump = plumpShown = 0;
       particles.length = 0;
       finishing = false;

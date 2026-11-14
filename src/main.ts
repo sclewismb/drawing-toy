@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Sprite, Text, Texture, Ticker } from 'pixi.js';
+import { Application, Container, Graphics, Matrix, Sprite, Text, Texture, Ticker } from 'pixi.js';
 import { Camera } from './camera';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
@@ -15,14 +15,15 @@ import { setupGrownUpShare } from './photoShare';
 import { setupHouseSettings, upgradeHouseSettings, type HouseSettings } from './houseSettings';
 import { NO_PLAYERS, PLAYER_IDS, setupPlayers, type PlayerId, type Players } from './players';
 import { HouseView, ROOM_FURNITURE } from './houseView';
-import { BUILTIN, FLOOR, PLACES, placeById, RESIDENTS, STREET, type PlaceId } from './places';
+import { BUILTIN, FLOOR, isNight, PLACES, placeById, RESIDENTS, STREET, type PlaceId } from './places';
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
 import { MOTIONS } from './library';
 import { setupMaker, type MakerMode } from './maker';
 import { setupAdopt } from './adopt';
 import type { PetKind, PetRecipe } from './petArt';
 import { PETS } from './pets';
-import type { PersonRecipe } from './personArt';
+import { bodyOf, personOffset, type PersonRecipe } from './personArt';
+import { renderGlow, renderWorn, SLOT_OF, type GlowRecipe, type GlowShape, type GlowSlot, type WornGlow } from './glowArt';
 import type { CritterKind } from './critters';
 import { MoveButton } from './moveButton';
 import { feetOf, furnitureSurface, Physics, SHELVES, type Surface, type World } from './physics';
@@ -304,6 +305,7 @@ async function saveNow() {
       rotation: ch.rotation,
       facing: ch.facing < 0 ? -1 : 1,
       ...(wearing.get(ch) ? { wearing: wearing.get(ch)!.name } : {}),
+      ...(worn.get(ch)?.size ? { glow: [...worn.get(ch)!.values()].map((w) => w.id) } : {}),
     });
   }
   try {
@@ -842,6 +844,10 @@ function stuffStocking(thing: Character, stocking: Character) {
 /** Drop one thing onto another: does something happen? */
 function interact(ch: Character): 'used' | 'kept' | null {
   const name = nameOf(ch);
+  if (glowOf(ch)) {
+    const who = underneath(ch, (o) => isSomeone(o) && !glowOf(o), 0.5);
+    if (who) return (wearGlow(ch, who), 'used');
+  }
   if (name === 'present') {
     const who = underneath(ch, isSomeone);
     if (who) return (unwrap(ch, who), 'used');
@@ -1133,6 +1139,7 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
     ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1)
     : made === 'squishy' ? 0.5
     : made === 'bear' ? 0.7
+    : made === 'glow' ? 0.45
     : petKind ? (PETS[petKind]?.size ?? 0.5)
     : personAge ? (PEOPLE[personAge]?.size ?? 0.85)
     : 1;
@@ -1142,6 +1149,10 @@ function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada 
     ch.reactions = SQUISH_REACTIONS;
     ch.surprises = false;
   } else if (made === 'bear') ch.reactions = BEAR_REACTIONS;
+  else if (made === 'glow') {
+    const r = library.get((ref as { id: string }).id)?.recipe as GlowRecipe | undefined;
+    if (r) startGlowing(ch, r);
+  }
   ch.position.set(at.x, at.y);
   if (at.scale) ch.scale.set(at.scale);
   if (at.rotation) ch.rotation = at.rotation;
@@ -1185,6 +1196,239 @@ const eggsUnder = new Container(); // on the walls and furniture, behind charact
 const eggsOver = new Container(); // darkness, glows, things flying, in front of characters
 room.addChildAt(eggsUnder, room.getChildIndex(characters));
 room.addChildAt(eggsOver, room.getChildIndex(characters) + 1);
+
+// --- Glow sticks (made in the workshop): they glow in the dark ---
+// The glow is drawn on its own layer above the darkness (eggsOver), following
+// each glow stick, and what people are wearing, about. How much it shows:
+// how dark it is here (surprises say so with a 'dark' event: the lights
+// going off, the night, a disco), or a flash when one is tapped (cracked).
+const glowLayer = new Container();
+glowLayer.eventMode = 'none';
+room.addChildAt(glowLayer, room.getChildIndex(eggsOver) + 1);
+interface Glower {
+  src: Sprite;
+  holder: Container;
+  boost: number;
+}
+const glowers = new Set<Glower>();
+/** How dark each thing in this place has made it (0..1). */
+const darkFrom = new Map<string, number>();
+let darkShown = 0;
+/** At night (by the real clock) they glow even with the lights on. */
+const darkness = () => Math.max(isNight() ? 0.6 : 0, ...darkFrom.values());
+/** Show a glowing twin of `src` (a picture the same size, or bigger round the middle: it's lined up by its anchor). */
+function addGlower(src: Sprite, glow: Texture, scale = 1): Glower {
+  const holder = new Container();
+  const s = new Sprite(glow);
+  s.anchor.copyFrom(src.anchor);
+  s.scale.set(scale);
+  holder.addChild(s);
+  holder.visible = false;
+  glowLayer.addChild(holder);
+  const g = { src, holder, boost: 0 };
+  glowers.add(g);
+  return g;
+}
+const glowM = new Matrix();
+const layerM = new Matrix();
+const showing = (c: Container) => {
+  for (let p: Container | null = c; p; p = p.parent) if (!p.visible) return false;
+  return true;
+};
+app.ticker.add((t) => {
+  darkShown += (darkness() - darkShown) * Math.min(1, t.deltaMS / 300);
+  if (!glowers.size) return;
+  glowLayer.getGlobalTransform(layerM, false).invert();
+  for (const g of glowers) {
+    if (g.src.destroyed) {
+      glowers.delete(g);
+      g.holder.destroy({ children: true });
+      continue;
+    }
+    g.boost = Math.max(0, g.boost - t.deltaMS / 1800);
+    const a = Math.min(1, darkShown + g.boost);
+    g.holder.visible = a > 0.01 && showing(g.src);
+    if (!g.holder.visible) continue;
+    g.holder.alpha = a * g.src.getGlobalAlpha(false);
+    g.holder.setFromMatrix(g.src.getGlobalTransform(glowM, false).prepend(layerM));
+  }
+}, undefined, -10);
+
+/** A glow stick made in the workshop (its recipe), if this character is one. */
+function glowOf(ch: Character): GlowRecipe | null {
+  if (ch.ref.kind !== 'photo') return null;
+  const e = library.get(ch.ref.id);
+  return e?.made === 'glow' && e.recipe ? (e.recipe as GlowRecipe) : null;
+}
+/** Glowing twins of glow sticks (by drawing id), and how wide their own picture was drawn. */
+const itemGlows = new Map<string, { tex: Texture; w: number }>();
+const glowOfChar = new WeakMap<Character, Glower>();
+function startGlowing(ch: Character, r: GlowRecipe) {
+  const id = (ch.ref as { id: string }).id;
+  let it = itemGlows.get(id);
+  if (!it) {
+    const { picture, glow } = renderGlow(r);
+    itemGlows.set(id, (it = { tex: Texture.from(glow), w: picture.width }));
+  }
+  glowOfChar.set(ch, addGlower(ch.sprite, it.tex, ch.picture.width / it.w));
+}
+
+/** Where someone's head, eyes, neck, wrist and hand are, in their fx container (the picture's middle is 0, 0). */
+interface WearFit {
+  head: { x: number; y: number; r: number };
+  eyes: { x: number; y: number; gap: number };
+  neck: { x: number; y: number; half: number };
+  wrist: { x: number; y: number; half: number };
+  hand: { x: number; y: number };
+  tall: number;
+}
+const personOffsets = new WeakMap<object, { x: number; y: number; w: number; h: number }>();
+const pictureTops = new WeakMap<HTMLCanvasElement, number>();
+/** The top of a picture's middle (where a head usually is), in picture pixels. */
+function topOf(pic: HTMLCanvasElement) {
+  let top = pictureTops.get(pic);
+  if (top === undefined) {
+    top = 0;
+    const x0 = Math.floor(pic.width * 0.35), cw = Math.max(1, Math.ceil(pic.width * 0.3));
+    const data = pic.getContext('2d', { willReadFrequently: true })?.getImageData(x0, 0, cw, pic.height).data;
+    if (data) {
+      find: for (let y = 0; y < pic.height; y++) {
+        for (let x = 0; x < cw; x++) {
+          if (data[(y * cw + x) * 4 + 3] > 40) {
+            top = y;
+            break find;
+          }
+        }
+      }
+    }
+    pictureTops.set(pic, top);
+  }
+  return top;
+}
+function wearFit(ch: Character): WearFit {
+  const k = Math.abs(ch.sprite.scale.y);
+  const W = ch.picture.width * k, H = ch.picture.height * k;
+  const person = personOf(ch);
+  let off = person ? personOffsets.get(person) : undefined;
+  if (person && !off) personOffsets.set(person, (off = personOffset(person)));
+  if (person && off && off.w === ch.picture.width && off.h === ch.picture.height) {
+    // made in the maker: we know just where everything is
+    const o = off;
+    const b = bodyOf(person.age, person.build);
+    const at = (x: number, y: number) => ({ x: (x - o.x) * k - W / 2, y: (y - o.y) * k - H / 2 });
+    const armLen = b.hip - b.shoulder + 26;
+    const armW = person.build === 'big' ? 34 : person.build === 'slim' ? 27 : 30;
+    return {
+      head: { ...at(150, b.headY), r: b.headR * k },
+      eyes: { ...at(150, b.headY + b.headR * 0.02), gap: b.headR * 0.76 * k },
+      neck: { ...at(150, b.shoulder - 6), half: 34 * k },
+      wrist: { ...at(150 - (b.half + 14), b.shoulder + armLen - 8), half: (armW / 2 + 2) * k },
+      hand: at(150 + b.half + 14, b.shoulder + armLen + 6),
+      tall: (612 - b.headY + b.headR) * k,
+    };
+  }
+  // anyone else: a good guess from the picture (its top in the middle is the top of the head)
+  const top = -H / 2 + topOf(ch.picture) * k, tall = H / 2 - top;
+  let r = Math.min(W, tall) * 0.21;
+  if (tall > W * 1.8) r = Math.min(r, tall * 0.1); // a tall person
+  return {
+    head: { x: 0, y: top + r * 1.05, r },
+    eyes: { x: 0, y: top + r * 1.1, gap: r * 0.78 },
+    neck: { x: 0, y: top + r * 2.15, half: r * 0.6 },
+    wrist: { x: -W * 0.36, y: top + tall * 0.56, half: r * 0.3 },
+    hand: { x: W * 0.37, y: top + tall * 0.58 },
+    tall,
+  };
+}
+/** Where a glow thing goes on someone, and how big. */
+function wornSpot(f: WearFit, shape: GlowShape) {
+  const slot = SLOT_OF[shape];
+  if (slot === 'head') return shape === 'crown' ? { x: f.head.x, y: f.head.y - f.head.r * 0.62, size: f.head.r * 0.75 } : { x: f.head.x, y: f.head.y, size: f.head.r * 1.12 };
+  if (slot === 'eyes') return { x: f.eyes.x, y: f.eyes.y, size: f.eyes.gap * 1.05 };
+  if (slot === 'neck') return { x: f.neck.x, y: f.neck.y, size: f.neck.half };
+  if (slot === 'wrist') return { x: f.wrist.x, y: f.wrist.y, size: f.wrist.half * 1.25 };
+  return { x: f.hand.x, y: f.hand.y, size: f.tall * (shape === 'wand' ? 0.32 : 0.3) };
+}
+/** Glow things someone's wearing: one on each spot (head, eyes, neck, wrist, hand). */
+const worn = new WeakMap<Character, Map<GlowSlot, { id: string; sprite: Sprite; glower: Glower }>>();
+/** What they're wearing sits on a layer that follows their picture as it bobs and hops along (walkers move the picture itself). */
+const wornLayers = new Map<Character, Container>();
+function wornLayer(who: Character) {
+  let layer = wornLayers.get(who);
+  if (!layer || layer.destroyed) {
+    layer = new Container();
+    who.fx.addChild(layer);
+    wornLayers.set(who, layer);
+  }
+  return layer;
+}
+app.ticker.add(() => {
+  for (const [ch, layer] of wornLayers) {
+    if (ch.destroyed || layer.destroyed) wornLayers.delete(ch);
+    else {
+      layer.position.copyFrom(ch.sprite.position);
+      layer.rotation = ch.sprite.rotation;
+    }
+  }
+}, undefined, -5);
+const wornPictures = new Map<string, { look: WornGlow; day: Texture; glow: Texture }>();
+function putOnGlow(who: Character, id: string, quiet = false) {
+  const r = library.get(id)?.recipe as GlowRecipe | undefined;
+  if (!r || who.destroyed) return;
+  const slot = SLOT_OF[r.shape];
+  let mine = worn.get(who);
+  if (!mine) worn.set(who, (mine = new Map()));
+  // already wearing something there? that one comes off (and it's a toy again)
+  const old = mine.get(slot);
+  if (old) {
+    mine.delete(slot);
+    if (quiet) old.sprite.destroy();
+    else dropWorn(old);
+  }
+  let w = wornPictures.get(id);
+  if (!w) {
+    const look = renderWorn(r);
+    wornPictures.set(id, (w = { look, day: Texture.from(look.day), glow: Texture.from(look.glow) }));
+  }
+  const s = new Sprite(w.day);
+  s.anchor.set(w.look.ax, w.look.ay);
+  const spot = wornSpot(wearFit(who), r.shape);
+  s.position.set(spot.x, spot.y);
+  s.scale.set(spot.size / (w.look.size * w.look.unit));
+  wornLayer(who).addChild(s);
+  const glower = addGlower(s, w.glow);
+  if (!quiet) glower.boost = 1;
+  mine.set(slot, { id, sprite: s, glower });
+}
+/** Off it comes: it's a toy again. */
+function dropWorn(item: { id: string; sprite: Sprite }) {
+  const g = item.sprite.getGlobalPosition();
+  item.sprite.destroy();
+  if (!current) return;
+  const place = current;
+  void pictureFor({ kind: 'photo', id: item.id }).then((pic) => {
+    if (!pic || current !== place) return;
+    const ch = addCharacter(pic, { kind: 'photo', id: item.id }, toRoom(g.x, g.y));
+    letGo(ch, (Math.random() - 0.5) * 0.6, -0.5);
+  });
+}
+/** Shaken hard: everything they're wearing falls off. */
+function glowOff(who: Character) {
+  const mine = worn.get(who);
+  if (!mine?.size) return;
+  for (const item of mine.values()) dropWorn(item);
+  mine.clear();
+  saveSoon();
+}
+/** Drop a glow thing onto someone: they put it on. */
+function wearGlow(ch: Character, who: Character) {
+  const r = glowOf(ch)!;
+  sfx.crack();
+  putOnGlow(who, (ch.ref as { id: string }).id);
+  const spot = wornSpot(wearFit(who), r.shape);
+  const p = characters.toLocal(wornLayer(who).toGlobal({ x: spot.x, y: spot.y }));
+  gobble(ch, p, 250);
+}
 let eggsCleanup: (() => void) | null = null;
 
 function teardownEggs() {
@@ -1200,6 +1444,8 @@ function setupEggs(id: PlaceId) {
   teardownEggs();
   const { x0, x1 } = roomEdges(id, panel);
   events = new Bus();
+  darkFrom.clear();
+  events.on('dark', (source: string, level: number) => darkFrom.set(source, Math.max(0, Math.min(1, level)))); // lights off, night...: glow sticks glow
   events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
   events.on('adopt', (kind: PetKind) => adopt.open(kind)); // the vet's adoption corner
   eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events });
@@ -1489,6 +1735,7 @@ async function showPlace(id: PlaceId) {
       if (!pic) continue; // e.g. a drawing that was deleted
       const ch = addCharacter(pic, ref, { x: item.x * W, y: item.y * H, scale: item.scale, rotation: item.rotation, facing: item.facing });
       if (item.wearing && BUILTIN[item.wearing]) putOnHat(ch, item.wearing);
+      for (const id of item.glow ?? []) putOnGlow(ch, id, true);
     }
   } else {
     for (const s of place.start) {
@@ -1725,7 +1972,12 @@ gestures.onTap = (ch) => {
   brain?.rest(1600); // stop for a moment
   // the animals and people answer in their own voice; drawings make their usual sounds
   if (brain && ch.ref.kind === 'sample') brain.kind.voice();
+  else if (glowOfChar.has(ch)) sfx.crack();
   else sfx[SOUND_FOR[name]](voice(ch));
+  // a glow stick flashes bright when it's tapped (cracked), and so does everything someone's wearing
+  const glowing = glowOfChar.get(ch);
+  if (glowing) glowing.boost = 1.3;
+  for (const w of worn.get(ch)?.values() ?? []) w.glower.boost = 1;
   if (name === 'super') {
     const p = ch.getGlobalPosition();
     burst(sparkles, p.x, p.y, 20, 220);
@@ -1819,6 +2071,7 @@ gestures.onDrop = (ch, x, y, vx, vy) => {
 };
 gestures.onShake = (ch) => {
   hatOff(ch);
+  glowOff(ch);
   ch.react('dizzy');
   sfx.dizzy(voice(ch));
 };
@@ -1987,6 +2240,14 @@ if (import.meta.env.DEV) {
     eggsOver,
     secrets: () => ({ found, locks, events, checkTargets }),
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
+    maker, putOnGlow, glowers, interact, wearFit,
+    /** Put a saved drawing (or something made in the app) into the room at a screen point. */
+    addPhoto: async (id: string, x = app.screen.width / 2, y = app.screen.height * 0.75) => {
+      const pic = await pictureFor({ kind: 'photo', id });
+      return pic ? addCharacter(pic, { kind: 'photo', id }, toRoom(x, y)) : null;
+    },
+    /** Make it dark here (0..1) for testing the glow sticks. */
+    dark: (v: number) => darkFrom.set('dev', v),
     /** Put a toy into the room at a screen point (for testing). */
     addToy: async (name: string, x = app.screen.width / 2, y = app.screen.height * 0.75) => {
       const pic = await pictureFor({ kind: 'sample', name });

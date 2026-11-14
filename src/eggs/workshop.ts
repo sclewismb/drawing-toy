@@ -1,10 +1,11 @@
 import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
-import { hearts } from '../fx';
+import { burst, hearts } from '../fx';
+import { randomGlow, renderGlow, type GlowRecipe, type GlowShape } from '../glowArt';
 import { randomBear, randomSquishy, renderToy } from '../makerArt';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
 import { workshopLayout } from '../workshop';
-import { everyFrame, glow, hotspot, INK, later, oneAtATime, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
+import { everyFrame, glow, hotspot, INK, later, lightSwitch, oneAtATime, rand, roomLights, tappable, tumble, type Cleanups, type EggKit } from './common';
 
 /**
  * Surprises in the teddy and squishy workshop:
@@ -15,12 +16,14 @@ import { everyFrame, glow, hotspot, INK, later, oneAtATime, rand, tappable, tumb
  *  - jars of squishies: tap one and it squishes
  *  - floppy unstuffed teddies on the pegboard: they flap
  *  - the heart box: hearts float out
- * The maker itself opens via kit.events ('make', 'bear' | 'squishy'), see main.ts.
+ *  - the glow stick den: see glowDen below
+ * The maker itself opens via kit.events ('make', 'bear' | 'squishy' | 'glow'), see main.ts.
  */
 export function workshop(kit: EggKit, cleanups: Cleanups) {
   const { w, h } = kit;
   const L = workshopLayout(w, h);
-  const make = (what: 'bear' | 'squishy') => kit.events?.emit('make', what);
+  const make = (what: 'bear' | 'squishy' | 'glow') => kit.events?.emit('make', what);
+  glowDen(kit, cleanups, make);
 
   // --- finished teddies on the display shelves (new ones every visit) ---
   const toySprite = (pic: HTMLCanvasElement, height: number) => {
@@ -213,4 +216,137 @@ export function workshop(kit: EggKit, cleanups: Cleanups) {
     hearts(kit.sparkles, hb.x, hb.y - 40, 9);
     later(1200, done, cleanups);
   }));
+}
+
+/**
+ * The glow stick den (far right): it's dark in here. A light switch for the
+ * whole shop (lights off and every glow stick glows), glowing things hanging
+ * on a rail (tap: it swings and turns into another), the glow machine on the
+ * glow bar (tap: crack! and the glow stick maker opens) and a neon heart.
+ * They're all on the layer in front of the darkness, so they always glow.
+ */
+function glowDen(kit: EggKit, cleanups: Cleanups, make: (what: 'glow') => void) {
+  const { w, h } = kit;
+  const gd = workshopLayout(w, h).glow;
+  const lights = roomLights(kit);
+  lightSwitch(kit, gd.lightSwitch.x, gd.lightSwitch.y, lights);
+  const textures: Texture[] = [];
+  cleanups.push(() => textures.forEach((t) => t.destroy(true)));
+
+  // --- glowing bracelets, necklaces, headbands... on the rail ---
+  const rl = gd.rail;
+  const kinds: GlowShape[] = ['bracelet', 'headband', 'necklace', 'glasses', 'bunny-ears', 'crown', 'bracelet'];
+  const n = 5;
+  const scale = h * 0.00026;
+  for (let i = 0; i < n; i++) {
+    const x = rl.x0 + ((rl.x1 - rl.x0) * (i + 0.5)) / n;
+    const holder = new Container();
+    holder.position.set(x, rl.y);
+    holder.addChild(new Graphics().moveTo(0, 0).lineTo(0, 12).stroke({ width: 3, color: 0xced4da }));
+    const item = new Sprite();
+    item.anchor.set(0.5);
+    holder.addChild(item);
+    let k = i;
+    const show = () => {
+      const r: GlowRecipe = { ...randomGlow(), shape: kinds[k++ % kinds.length] };
+      const { picture, glow } = renderGlow(r, scale);
+      const t = Texture.from(glow);
+      textures.push(t);
+      item.texture = t;
+      item.y = 10 + picture.height / 2;
+    };
+    show();
+    kit.over.addChild(holder);
+    tappable(holder, oneAtATime((done) => {
+      sfx.crack();
+      burst(kit.sparkles, x, rl.y + h * 0.08, 8, 60);
+      tween(900, (t) => (holder.rotation = Math.sin(t * Math.PI * 4) * 0.35 * (1 - t)), () => {
+        holder.rotation = 0;
+        done();
+      });
+      later(250, show, cleanups);
+    }), new Rectangle(-h * 0.06, 0, h * 0.12, h * 0.15));
+  }
+
+  // --- the glow machine: a jar full of glowing glow sticks on a purple box with a big button ---
+  const m = gd.machine;
+  const R = h * 0.07;
+  const machine = new Container();
+  machine.position.set(m.x, m.base);
+  const box = new Graphics();
+  box.roundRect(-R, -R * 3.3, R * 2, R * 2.3, R * 0.4).fill({ color: 0xbfe8ff, alpha: 0.18 }).stroke({ width: 4, color: INK });
+  box.roundRect(-R * 0.75, -R * 3.55, R * 1.5, R * 0.3, 6).fill(0x8a5cf6).stroke({ width: 3, color: INK });
+  box.roundRect(-R * 1.25, -R * 1.05, R * 2.5, R * 1.05, 10).fill(0x8a5cf6).stroke({ width: 4, color: INK });
+  box.rect(R * 0.45, -R * 0.45, R * 0.6, R * 0.22).fill(0x1e1b3a); // where a glow stick comes out
+  const sticks = new Graphics();
+  const neon = [0xff4fd8, 0xffe94d, 0x3dfcff, 0x8cff4d, 0xff9f1c, 0xb45cff, 0xff4d6d];
+  const drawSticks = (flash: number) => {
+    sticks.clear();
+    for (let i = 0; i < 11; i++) {
+      const cx = -R * 0.6 + ((i * 37) % 11) / 10 * R * 1.2, cy = -R * (1.35 + ((i * 53) % 7) / 7 * 1.6), a = ((i * 71) % 10) / 10 * Math.PI;
+      const dx = Math.cos(a) * R * 0.35, dy = Math.sin(a) * R * 0.35, col = neon[i % neon.length];
+      sticks.moveTo(cx - dx, cy - dy).lineTo(cx + dx, cy + dy).stroke({ width: 14 + flash * 10, color: col, alpha: 0.25 + flash * 0.25, cap: 'round' });
+      sticks.moveTo(cx - dx, cy - dy).lineTo(cx + dx, cy + dy).stroke({ width: 7, color: col, cap: 'round' });
+      sticks.moveTo(cx - dx, cy - dy).lineTo(cx + dx, cy + dy).stroke({ width: 2.5, color: 0xffffff, cap: 'round' });
+    }
+  };
+  drawSticks(0);
+  const button = new Graphics().circle(0, 0, R * 0.28).fill(0xff4fd8).stroke({ width: 3, color: INK });
+  button.circle(-R * 0.08, -R * 0.08, R * 0.08).fill({ color: 0xffffff, alpha: 0.7 });
+  button.position.set(-R * 0.45, -R * 0.52);
+  machine.addChild(box, sticks, button);
+  kit.over.addChild(machine);
+  tappable(machine, oneAtATime((done) => {
+    sfx.crack();
+    tween(250, (t) => button.scale.set(1 - 0.25 * Math.sin(t * Math.PI)));
+    tween(900, (t) => {
+      drawSticks(Math.sin(t * Math.PI));
+      machine.rotation = Math.sin(t * Math.PI * 6) * 0.04 * (1 - t);
+    }, () => {
+      drawSticks(0);
+      machine.rotation = 0;
+    });
+    // out pops a glow stick
+    const pop = new Graphics().moveTo(-12, 0).lineTo(12, 0).stroke({ width: 12, color: 0x8cff4d, alpha: 0.4, cap: 'round' }).moveTo(-12, 0).lineTo(12, 0).stroke({ width: 6, color: 0x8cff4d, cap: 'round' });
+    pop.position.set(m.x + R * 0.75, m.base - R * 0.34);
+    kit.over.addChild(pop);
+    tween(700, (t) => {
+      pop.x = m.x + R * 0.75 + t * R * 1.2;
+      pop.y = m.base - R * 0.34 - Math.sin(t * Math.PI) * R * 1.2 + t * R * 0.3;
+      pop.rotation = t * 6;
+    }, () => pop.destroy());
+    later(250, () => burst(kit.sparkles, m.x, m.base - R * 2.2, 12, 90), cleanups);
+    later(900, () => {
+      make('glow');
+      done();
+    }, cleanups);
+  }), new Rectangle(-R * 1.3, -R * 3.6, R * 2.6, R * 3.6));
+
+  // --- a neon heart on the wall: tap and it flickers into a new colour ---
+  const s = gd.sign, hs = h * 0.065;
+  const heart = new Graphics();
+  let ci = 0;
+  const drawHeart = (on: number) => {
+    heart.clear();
+    const col = neon[ci % neon.length];
+    const path = () => heart.moveTo(0, hs * 0.35).bezierCurveTo(-hs * 1.1, -hs * 0.3, -hs * 0.5, -hs * 1.05, 0, -hs * 0.45).bezierCurveTo(hs * 0.5, -hs * 1.05, hs * 1.1, -hs * 0.3, 0, hs * 0.35).closePath();
+    for (const [lw, a] of [[22, 0.12], [14, 0.25], [8, 1]] as const) path().stroke({ width: lw, color: col, alpha: a * on, join: 'round' });
+    path().stroke({ width: 2.5, color: 0xffffff, alpha: on, join: 'round' });
+  };
+  drawHeart(1);
+  heart.position.set(s.x, s.y);
+  kit.over.addChild(heart);
+  tappable(heart, oneAtATime((done) => {
+    sfx.tinkle();
+    let t = 0;
+    const flicker = [0, 1, 0, 1, 0.3, 1];
+    const step = () => {
+      if (heart.destroyed) return;
+      if (t === 3) ci++;
+      drawHeart(flicker[t]);
+      if (++t < flicker.length) later(90, step, cleanups);
+      else done();
+    };
+    step();
+  }), new Rectangle(-hs * 1.2, -hs * 1.1, hs * 2.4, hs * 1.7));
 }

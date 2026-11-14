@@ -410,6 +410,12 @@ export const sfx = {
     for (let i = 0; i < 5; i++) tone({ type: 'triangle', from: rand(2600, 4200), to: rand(2000, 3000), dur: 0.12, vol: 0.06, delay: i * 0.05 });
     hiss({ dur: 0.1, vol: 0.08, from: 6000, to: 4000, q: 2 });
   },
+  /** A glow stick cracking: a sharp snap, then a shimmer as it lights up. */
+  crack() {
+    hiss({ dur: 0.05, vol: 0.3, from: 4200, to: 2500, q: 2.5 });
+    tone({ type: 'square', from: 900, to: 300, dur: 0.05, vol: 0.12, filter: { type: 'bandpass', freq: 1800, q: 2 } });
+    [784, 988, 1319, 1568, 1976].forEach((f, i) => tone({ type: 'sine', from: f, to: f * 1.02, dur: 0.35, vol: 0.05, delay: 0.12 + i * 0.06, wobbleRate: 9, wobbleDepth: 12 }));
+  },
   /** Back out to the street. */
   zoomOut() {
     hiss({ dur: 0.3, vol: 0.18, from: 2200, to: 500, q: 1.2 });

@@ -9,7 +9,7 @@ export interface LibraryEntry {
   png: Blob;
   /** Whose drawing it is (none = from before there were players: everyone's). */
   owner?: string;
-  /** Made in the app: a teddy, a squishy, an adopted pet or a person (none = a photo of a drawing). */
+  /** Made in the app: a teddy, a squishy, an adopted pet, a person or a glow stick (none = a photo of a drawing). */
   made?: MadeKind;
   /** The maker's choices. */
   recipe?: unknown;

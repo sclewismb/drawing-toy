@@ -545,7 +545,7 @@ export function park(kit: EggKit, cleanups: Cleanups) {
     if (isNight) sfx.twinkle();
     else sfx.chirp();
     const from = dark;
-    tween(800, (t) => ((dark = from + ((isNight ? 1 : 0) - from) * t), drawNight()));
+    tween(800, (t) => ((dark = from + ((isNight ? 1 : 0) - from) * t), drawNight(), kit.events?.emit('dark', 'night', dark)));
   });
 
   // --- the drifting clouds rain (or snow) when tapped ---

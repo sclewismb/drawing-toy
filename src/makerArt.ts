@@ -111,7 +111,7 @@ export function heartPath(c: Ctx, x: number, y: number, s: number) {
   c.bezierCurveTo(x + s * 0.5, y - s * 1.05, x + s * 1.1, y - s * 0.3, x, y + s * 0.35);
   c.closePath();
 }
-function starPath(c: Ctx, x: number, y: number, r: number, points = 5, inner = 0.48) {
+export function starPath(c: Ctx, x: number, y: number, r: number, points = 5, inner = 0.48) {
   for (let i = 0; i <= points * 2; i++) {
     const a = -Math.PI / 2 + (i * Math.PI) / points;
     const rr = i % 2 ? r * inner : r;
@@ -724,8 +724,8 @@ function drawFace(c: Ctx, face: SquishyRecipe['face'], x: number, y: number, k: 
 // ---------------------------------------------------------------------------
 // The finished picture
 // ---------------------------------------------------------------------------
-/** Crop a picture to just the drawn part (plus a little margin). */
-export function trim(src: HTMLCanvasElement, margin = 10): HTMLCanvasElement {
+/** Where trim() crops a picture to: just the drawn part (plus a little margin). */
+export function trimBox(src: HTMLCanvasElement, margin = 10): { x: number; y: number; w: number; h: number } | null {
   const ctx = src.getContext('2d', { willReadFrequently: true })!;
   const { width: w, height: h } = src;
   const data = ctx.getImageData(0, 0, w, h).data;
@@ -740,15 +740,22 @@ export function trim(src: HTMLCanvasElement, margin = 10): HTMLCanvasElement {
       }
     }
   }
-  if (x1 < 0) return src;
+  if (x1 < 0) return null;
   x0 = Math.max(0, x0 - margin);
   y0 = Math.max(0, y0 - margin);
   x1 = Math.min(w - 1, x1 + margin);
   y1 = Math.min(h - 1, y1 + margin);
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+/** Crop a picture to just the drawn part (plus a little margin). */
+export function trim(src: HTMLCanvasElement, margin = 10): HTMLCanvasElement {
+  const b = trimBox(src, margin);
+  if (!b) return src;
   const out = document.createElement('canvas');
-  out.width = x1 - x0 + 1;
-  out.height = y1 - y0 + 1;
-  out.getContext('2d')!.drawImage(src, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+  out.width = b.w;
+  out.height = b.h;
+  out.getContext('2d')!.drawImage(src, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h);
   return out;
 }
 

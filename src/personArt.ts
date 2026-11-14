@@ -1,4 +1,4 @@
-import { circle, ellipse, fillPath, part, shade, trim, type Ctx } from './makerArt';
+import { circle, ellipse, fillPath, part, shade, trim, trimBox, type Ctx } from './makerArt';
 
 /**
  * People, made in the maker (so the family can be in the world, made on the
@@ -696,6 +696,24 @@ export function drawPerson(c: Ctx, r: PersonRecipe) {
 }
 
 /** The person as a picture, ready to be a character. */
+/**
+ * Where renderPerson's picture (at scale 1) starts, in the drawing's own
+ * units: a point (x, y) on the person is at (x - offset.x, y - offset.y) in
+ * the picture (it's cropped to the person). Also the picture's size, to
+ * check a saved picture really is that drawing. For putting things on them.
+ */
+export function personOffset(r: PersonRecipe): { x: number; y: number; w: number; h: number } {
+  const pad = 80;
+  const c = document.createElement('canvas');
+  c.width = PERSON_AREA.w + pad;
+  c.height = PERSON_AREA.h;
+  const ctx = c.getContext('2d')!;
+  ctx.translate(pad / 2, 0);
+  drawPerson(ctx, r);
+  const b = trimBox(c);
+  return b ? { x: b.x - pad / 2, y: b.y, w: b.w, h: b.h } : { x: -pad / 2, y: 0, w: c.width, h: c.height };
+}
+
 export function renderPerson(r: PersonRecipe, scale = 1): HTMLCanvasElement {
   const pad = 80;
   const c = document.createElement('canvas');

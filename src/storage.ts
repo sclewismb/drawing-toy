@@ -13,7 +13,7 @@ const DB_NAME = 'drawing-toy';
 const DB_VERSION = 1;
 
 /** Things made in the app rather than photographed: teddies, squishies, adopted pets, people. */
-export type MadeKind = 'bear' | 'squishy' | 'pet' | 'person';
+export type MadeKind = 'bear' | 'squishy' | 'pet' | 'person' | 'glow';
 
 export interface StoredCharacter {
   id: string;
@@ -35,6 +35,8 @@ export type SceneItem = ({ kind: 'photo'; id: string } | { kind: 'sample'; name:
   facing: 1 | -1;
   /** A hat they're wearing (dropped onto their head). */
   wearing?: string;
+  /** Glow sticks they're wearing (drawing ids of glow sticks made in the workshop). */
+  glow?: string[];
 };
 
 export interface SavedScene {

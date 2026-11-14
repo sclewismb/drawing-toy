@@ -131,6 +131,7 @@ export const SHELVES: Partial<Record<PlaceId, [x0: number, x1: number, y: number
   workshop: [
     [0.33, 0.67, 0.58], // the maker table
     [1.06, 1.52, 0.53], // the squishy bar
+    [1.74, 2.12, 0.54], // the glow bar
     [0.03, 0.3, 0.2], // display shelves
     [0.03, 0.3, 0.36],
     [0.03, 0.3, 0.52],

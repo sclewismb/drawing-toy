@@ -34,7 +34,7 @@ export function setupGallery(opts: {
   let open = false;
   /** The tab showing (kept while the app is open). */
   let tab: string | null = null;
-  const LABELS: Record<string, string> = { here: 'Here', drawings: 'Drawings', made: 'Teddies and squishies', pets: 'My pets', people: 'People', animals: 'Friends', toys: 'Toys', go: 'Things that go', home: 'Furniture', food: 'Food', outside: 'Outside', treasure: 'Treasures' };
+  const LABELS: Record<string, string> = { here: 'Here', drawings: 'Drawings', made: 'Teddies and squishies', glow: 'Glow sticks', pets: 'My pets', people: 'People', animals: 'Friends', toys: 'Toys', go: 'Things that go', home: 'Furniture', food: 'Food', outside: 'Outside', treasure: 'Treasures' };
 
   function render() {
     thumbUrls.forEach((u) => URL.revokeObjectURL(u));
@@ -44,11 +44,12 @@ export function setupGallery(opts: {
       .map((s) => ({ id: s.id as string, icon: s.icon, tiles: () => s.items.map((it) => makeTile({ kind: 'sample', name: it.name }, it.url, false)) }));
     // The drawings (newest first) get their own tab, second, with the newest
     // one as its picture; then what was made in the app: teddies and
-    // squishies, adopted pets, people. Each tab's picture is its newest one.
+    // squishies, glow sticks, adopted pets, people. Each tab's picture is its newest one.
     const mine = [...opts.library.mine()].reverse();
     const own: { id: string; entries: typeof mine }[] = [
       { id: 'drawings', entries: mine.filter((e) => !e.made) },
       { id: 'made', entries: mine.filter((e) => e.made === 'bear' || e.made === 'squishy') },
+      { id: 'glow', entries: mine.filter((e) => e.made === 'glow') },
       { id: 'pets', entries: mine.filter((e) => e.made === 'pet') },
       { id: 'people', entries: mine.filter((e) => e.made === 'person') },
     ];

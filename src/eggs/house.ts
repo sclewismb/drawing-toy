@@ -285,6 +285,7 @@ export function lounge(kit: EggKit, cleanups: Cleanups) {
     later(1500, () => sfx.tune([659, 784, 988, 784, 1047, 988, 784, 659]), cleanups);
     tween(3200, (t) => {
       party.clear().rect(roomSpan(kit).x, 0, roomSpan(kit).w, h).fill({ color: 0x0b1026, alpha: 0.35 * Math.sin(t * Math.PI) });
+      kit.events?.emit('dark', 'disco', 0.8 * Math.sin(t * Math.PI)); // glow sticks glow at a disco
       spotColours.forEach((c, i) => {
         const a = t * Math.PI * 4 + (i * Math.PI * 2) / spotColours.length;
         const x = w * 0.5 + Math.cos(a) * w * 0.32;
@@ -294,6 +295,7 @@ export function lounge(kit: EggKit, cleanups: Cleanups) {
       light.tint = spotColours[Math.floor(t * 20) % spotColours.length];
     }, () => {
       party.clear();
+      kit.events?.emit('dark', 'disco', 0);
       light.tint = 0xffffff;
       done();
     });

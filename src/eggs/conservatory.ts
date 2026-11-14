@@ -440,6 +440,7 @@ export function conservatory(kit: EggKit, cleanups: Cleanups) {
     }
     night.visible = true;
     dusk += (want - dusk) * Math.min(1, dt / 600);
+    kit.events?.emit('dark', 'dusk', dusk); // glow sticks glow
     night.clear().rect(span.x, 0, span.w, h).fill({ color: 0x1b1f4b, alpha: 0.5 * dusk });
     lights.clear();
     for (const b of bugs) {
