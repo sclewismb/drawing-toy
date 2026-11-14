@@ -1359,13 +1359,18 @@ function wearFit(ch: Character): WearFit {
     tall,
   };
 }
-/** Where things go on a built-in animal, stuffy or little person, an adopted pet, or a teddy or squishy made in the workshop. */
+/**
+ * Where things go on a built-in animal, stuffy or little person, an adopted
+ * pet, a teddy or squishy made in the workshop, or a hand-drawn person whose
+ * recipe says where (a `spots` field, fractions of the picture: see wearSpots.ts).
+ */
 const toySpotCache = new WeakMap<object, ReturnType<typeof toySpots>>();
 function spotsOf(ch: Character): WearSpots | null {
   if (ch.ref.kind === 'sample') return SAMPLE_SPOTS[ch.ref.name] ?? null;
   const e = library.get(ch.ref.id);
   if (!e?.recipe) return null;
   if (e.made === 'pet') return PET_SPOTS[(e.recipe as PetRecipe).kind] ?? null;
+  if (e.made === 'person') return (e.recipe as { spots?: WearSpots }).spots ?? null;
   if (e.made === 'bear' || e.made === 'squishy') {
     let t = toySpotCache.get(e.recipe as object);
     if (!t) toySpotCache.set(e.recipe as object, (t = toySpots(e.made, e.recipe as BearRecipe | SquishyRecipe)));
