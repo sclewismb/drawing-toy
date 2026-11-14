@@ -127,6 +127,22 @@ export class Library {
     return entry;
   }
 
+  /** Change a saved drawing's picture and recipe (a person in a new outfit). */
+  async update(id: string, picture: HTMLCanvasElement, recipe: unknown) {
+    const entry = this.get(id);
+    if (!entry) return;
+    const png = await new Promise<Blob>((resolve) => picture.toBlob((b) => resolve(b!), 'image/png'));
+    entry.png = png;
+    entry.recipe = recipe;
+    this.pictures.set(id, Promise.resolve(picture));
+    try {
+      await storage.addCharacter({ id, createdAt: entry.createdAt, owner: entry.owner, made: entry.made, recipe, png: await png.arrayBuffer() });
+    } catch (err) {
+      console.warn('Could not save character', err);
+    }
+    this.onChange();
+  }
+
   async remove(id: string) {
     const i = this.entries.findIndex((e) => e.id === id);
     if (i >= 0) this.entries.splice(i, 1);

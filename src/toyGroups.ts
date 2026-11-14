@@ -15,7 +15,7 @@ const GROUP: Record<string, GroupId> = {};
 const put = (g: GroupId, names: string[]) => names.forEach((n) => (GROUP[n] = g));
 put('animals', ['monster', 'cat', 'robot', ...Object.keys(CRITTERS)]);
 put('go', ['fire-engine', 'police-car', 'ride-car', 'race-car', 'bicycle', 'scooter', 'digger', 'dump-truck', 'wheelbarrow', 'skateboard']);
-put('home', ['dog-bed', 'dog-bowl', 'bed', 'bed-tiedye', 'daybed', 'sofa', 'couch', 'armchair', 'fridge', 'table', 'stool', 'school-desk', 'lamp', 'piano', 'fishbowl', 'bookshelf', 'potted-plant']);
+put('home', ['wardrobe', 'dog-bed', 'dog-bowl', 'bed', 'bed-tiedye', 'daybed', 'sofa', 'couch', 'armchair', 'fridge', 'table', 'stool', 'school-desk', 'lamp', 'piano', 'fishbowl', 'bookshelf', 'potted-plant']);
 put('food', ['birthday-cake', 'candy-floss', 'pizza', 'burger', 'ice-cream', 'apple', 'cupcake', 'watermelon', 'banana', 'carrot', 'fish', 'bone']);
 put('outside', ['basketball-hoop', 'dog-house', 'bench', 'slide', 'trampoline', 'flower', 'hydrant', 'cone', 'helmet', 'police-hat', 'tent', 'snowman', 'soccer-goal', 'watering-can', 'butterfly-net', 'sand-bucket']);
 put('xmas', ['xmas-tree', 'present', 'stocking', 'candy-cane', 'gingerbread', 'reindeer']); // the reindeer moves here from the animals

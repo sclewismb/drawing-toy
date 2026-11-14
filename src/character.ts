@@ -68,7 +68,7 @@ export class Character extends Container implements Reactable {
   readonly restY: number;
   readonly size: number;
   /** The cut-out drawing itself (transparent background). */
-  readonly picture: HTMLCanvasElement;
+  picture: HTMLCanvasElement;
   /** What this is, for saving: one of the photo characters, or a sample. */
   ref: { kind: 'photo'; id: string } | { kind: 'sample'; name: string } = { kind: 'sample', name: '' };
   private lastReaction: ReactionName | null = null;
@@ -119,6 +119,15 @@ export class Character extends Container implements Reactable {
     this.interactiveChildren = false;
     this.hitArea = { contains: (x: number, y: number) => this.touches(x, y) };
     this.cursor = 'grab';
+  }
+
+  /** A new picture, the same size (a person in a new outfit): it changes in place. */
+  setPicture(picture: HTMLCanvasElement) {
+    this.picture = picture;
+    this.picW = picture.width;
+    this.picH = picture.height;
+    this.sprite.texture = Texture.from(picture);
+    this.touchMap = TouchMap.fromCanvas(picture);
   }
 
   /** Is the point (in this character's own coordinates) on the drawing? */

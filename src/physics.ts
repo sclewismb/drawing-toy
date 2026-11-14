@@ -55,6 +55,7 @@ export const FURNITURE: Record<string, { top: number; bounce?: number }> = {
   'dog-house': { top: 0.06 },
   piano: { top: 0.14 },
   bookshelf: { top: 0.03 },
+  wardrobe: { top: 0.1 },
   'dump-truck': { top: 0.22 },
   'pirate-ship': { top: 0.66 },
 };

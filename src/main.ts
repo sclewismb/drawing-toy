@@ -18,6 +18,8 @@ import { BUILTIN, FLOOR, isNight, PLACES, placeById, RESIDENTS, STREET, type Pla
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
 import { MOTIONS } from './library';
 import { setupMaker, type MakerMode } from './maker';
+import { dressSpots, renderDressed, type DressRecipe } from './dressup/dress';
+import { setupDressup } from './dressup/screen';
 import { setupAdopt } from './adopt';
 import type { PetKind, PetRecipe } from './petArt';
 import type { BearRecipe, SquishyRecipe } from './makerArt';
@@ -837,6 +839,7 @@ function stuffStocking(thing: Character, stocking: Character) {
 /** Drop one thing onto another: does something happen? */
 function interact(ch: Character): 'used' | 'kept' | null {
   const name = nameOf(ch);
+  if (isDressable(ch) && underneath(ch, (o) => nameOf(o) === 'wardrobe', 0.6)) return (openWardrobe((ch.ref as { id: string }).id), 'kept');
   if (glowOf(ch)) {
     const who = underneath(ch, canWear, 0.5);
     if (who) return (wearGlow(ch, who), 'used');
@@ -1370,7 +1373,10 @@ function spotsOf(ch: Character): WearSpots | null {
   const e = library.get(ch.ref.id);
   if (!e?.recipe) return null;
   if (e.made === 'pet') return PET_SPOTS[(e.recipe as PetRecipe).kind] ?? null;
-  if (e.made === 'person') return (e.recipe as { spots?: WearSpots }).spots ?? null;
+  if (e.made === 'person') {
+    const dress = (e.recipe as { dress?: DressRecipe }).dress;
+    return dress ? dressSpots(dress) : ((e.recipe as { spots?: WearSpots }).spots ?? null);
+  }
   if (e.made === 'bear' || e.made === 'squishy') {
     let t = toySpotCache.get(e.recipe as object);
     if (!t) toySpotCache.set(e.recipe as object, (t = toySpots(e.made, e.recipe as BearRecipe | SquishyRecipe)));
@@ -1514,6 +1520,36 @@ const adopt = setupAdopt({
     setTimeout(() => !ch.destroyed && nameBubble(ch, recipe.name), 900);
   },
 });
+
+// --- Dress-up (the wardrobe): people who can be dressed change their clothes (see dressup/) ---
+const dressup = setupDressup({
+  people: () =>
+    library
+      .mine()
+      .filter((e) => e.made === 'person' && (e.recipe as { dress?: DressRecipe } | undefined)?.dress)
+      .map((e) => ({ id: e.id, name: (e.recipe as { name?: string }).name ?? '', dress: (e.recipe as { dress: DressRecipe }).dress })),
+  async onDone(id, outfit) {
+    const e = library.get(id);
+    const recipe = e?.recipe as { dress?: DressRecipe } | undefined;
+    if (!e || !recipe?.dress) return;
+    const next = { ...recipe, dress: { ...recipe.dress, outfit } };
+    const picture = await renderDressed(next.dress);
+    await library.update(id, picture, next);
+    // everyone here who's them changes too, with a twirl
+    for (const ch of characters.children as Character[]) {
+      if (ch.destroyed || ch.ref.kind !== 'photo' || ch.ref.id !== id) continue;
+      ch.setPicture(picture);
+      ch.react('spin');
+      const g = ch.getGlobalPosition();
+      burst(sparkles, g.x, g.y, 14, 120);
+    }
+  },
+});
+/** Open the wardrobe (with this person, if they can be dressed). */
+function openWardrobe(id?: string) {
+  if (!dressup.open(id)) sfx.nope();
+}
+const isDressable = (ch: Character) => ch.ref.kind === 'photo' && !!(library.get(ch.ref.id)?.recipe as { dress?: unknown } | undefined)?.dress;
 
 // --- The workshop's maker: teddies and squishies (see maker.ts) ---
 const maker = setupMaker({
@@ -2035,6 +2071,7 @@ gestures.onTap = (ch) => {
   if (ch.ref.kind === 'sample' && ch.ref.name === 'xmas-tree') twinkleTree(ch);
   if (ch.ref.kind === 'sample' && ch.ref.name === 'gingerbread') runAway(ch);
   if (ch.ref.kind === 'sample' && ch.ref.name === 'stocking') sfx.sleighBells();
+  if (ch.ref.kind === 'sample' && ch.ref.name === 'wardrobe') return void setTimeout(() => openWardrobe(), 250);
   if (isDog(ch) && restingOn.get(ch)?.ref.kind === 'sample' && (restingOn.get(ch)!.ref as { name: string }).name === 'dog-bed') snooze(ch);
   // an adopted pet: its name pops up above it
   const pet = petOf(ch);
@@ -2286,7 +2323,7 @@ if (import.meta.env.DEV) {
     eggsOver,
     secrets: () => ({ found, locks, events, checkTargets }),
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
-    maker, putOnGlow, glowers, interact, wearFit,
+    maker, putOnGlow, glowers, interact, wearFit, dressup,
     /** Put a saved drawing (or something made in the app) into the room at a screen point. */
     addPhoto: async (id: string, x = app.screen.width / 2, y = app.screen.height * 0.75) => {
       const pic = await pictureFor({ kind: 'photo', id });

@@ -93,6 +93,7 @@ export const BUILTIN: Record<string, { url: string; size: number }> = {
   piano: { url: 'props/piano.svg', size: 1.3 },
   fishbowl: { url: 'props/fishbowl.svg', size: 0.55 },
   bookshelf: { url: 'props/bookshelf.svg', size: 1.3 },
+  wardrobe: { url: 'props/wardrobe.svg', size: 1.35 },
   // the kids' own favourite stuffies (also their pictures on the "who's playing?" screen)
   koala: { url: 'props/koala.svg', size: 0.6 },
   'red-panda': { url: 'props/red-panda.svg', size: 0.6 },
@@ -365,7 +366,7 @@ export const PLACES: PlaceDef[] = [
     // First bedroom (its name is set on the iPad): geometric painted wall, daybed.
     id: 'bedroom-a',
     parent: 'house',
-    toys: ['koala', 'daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse', 'dinosaur', 'rocket', 'castle', 'building-blocks', 'drum', 'bookshelf', 'present', 'stocking', 'candy-cane', 'gingerbread'],
+    toys: ['wardrobe', 'koala', 'daybed', 'ball', 'books', 'teddy', 'toy-train', 'rocking-horse', 'dinosaur', 'rocket', 'castle', 'building-blocks', 'drum', 'bookshelf', 'present', 'stocking', 'candy-cane', 'gingerbread'],
     start: [
       { name: 'daybed', x: 0.66, y: 0.79 },
       { name: 'koala', x: 0.6, y: 0.66 }, // sitting on the bed
@@ -411,7 +412,7 @@ export const PLACES: PlaceDef[] = [
     // Second bedroom (its name is set on the iPad): turquoise wall, butterflies, tie-dye bed.
     id: 'bedroom-b',
     parent: 'house',
-    toys: ['red-panda', 'bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant', 'lamp', 'bookshelf', 'fishbowl', 'magnifier', 'present', 'stocking', 'candy-cane', 'gingerbread'],
+    toys: ['wardrobe', 'red-panda', 'bed-tiedye', 'flower', 'books', 'ball', 'teddy', 'guitar', 'potted-plant', 'lamp', 'bookshelf', 'fishbowl', 'magnifier', 'present', 'stocking', 'candy-cane', 'gingerbread'],
     start: [
       { name: 'bed-tiedye', x: 0.48, y: 0.78 },
       { name: 'red-panda', x: 0.44, y: 0.66 }, // on the bed
@@ -469,7 +470,7 @@ export const PLACES: PlaceDef[] = [
     // Lounge room: grey walls, big window with blinds, TV, pictures, grey couch.
     id: 'lounge',
     parent: 'house',
-    toys: ['couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant', 'piano', 'lamp', 'fishbowl', 'dog-bed', 'dog-bowl', 'squeaky-bone', 'xmas-tree', 'present', 'stocking', 'candy-cane', 'gingerbread', 'reindeer'],
+    toys: ['wardrobe', 'couch', 'armchair', 'trampoline', 'ball', 'guitar', 'potted-plant', 'piano', 'lamp', 'fishbowl', 'dog-bed', 'dog-bowl', 'squeaky-bone', 'xmas-tree', 'present', 'stocking', 'candy-cane', 'gingerbread', 'reindeer'],
     start: [
       { name: 'couch', x: 0.68, y: 0.7 },
       { name: 'armchair', x: 0.16, y: 0.76 },
