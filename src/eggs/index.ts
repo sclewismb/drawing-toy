@@ -4,6 +4,7 @@ import { backyard } from './backyard';
 import { bedroomA, bedroomB } from './bedrooms';
 import { conservatory } from './conservatory';
 import { workshop } from './workshop';
+import { wrapShop } from './wrapShop';
 import { adoption } from './adoption';
 import { arena } from './arena';
 import { pigs } from './pigs';
@@ -47,10 +48,11 @@ const PLACE_EGGS: Record<PlaceId, (kit: EggKit, cleanups: Cleanups) => void> = {
   workshop,
   arena,
   pigs,
+  wrapping: wrapShop,
 };
 
 /** Places with a ceiling (they get a garland of lights at Christmas). */
-const INDOORS = new Set(['bedroom-a', 'bedroom-b', 'lounge', 'kitchen', 'fire', 'police', 'school', 'vet', 'restaurant', 'toyshop', 'ninja', 'workshop']);
+const INDOORS = new Set(['bedroom-a', 'bedroom-b', 'lounge', 'kitchen', 'fire', 'police', 'school', 'vet', 'restaurant', 'toyshop', 'ninja', 'workshop', 'wrapping']);
 
 const run = (build: (cleanups: Cleanups) => void) => {
   const cleanups: Cleanups = [];

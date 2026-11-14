@@ -48,7 +48,11 @@ const SPOTS: Record<string, { fx: number; side: 'above' | 'below'; size?: number
   workshop: { fx: 0.445, side: 'below', size: 0.42, base: 0.975 },
   arena: { fx: 1.8, side: 'above', size: 1.45 },
   pigs: { fx: 1.885, side: 'below' },
+  // the Christmas wrapping shop: winter only, beside the bus stop (where the flower beds are the rest of the year)
+  wrapping: { fx: 1.623, side: 'below', size: 0.78 },
 };
+/** Only on the map in winter. */
+const WINTER_ONLY = new Set<string>(['wrapping']);
 /** The cross streets between the blocks (the first one goes up into the tunnel). */
 const CROSS = [0.18, 0.4, 0.62, 0.84, 1.06, 1.28, 1.5, 1.72];
 /** How long the map is (in B). */
@@ -420,8 +424,8 @@ export class StreetView extends Container {
       g.circle(x + 64.5, top + 2, 15).fill(0xffffff).stroke({ width: 3, color: INK });
       g.roundRect(x + 55, top - 5, 19, 12, 3).fill(0xe5383b);
       g.circle(x + 59, top + 8, 2.5).circle(x + 70, top + 8, 2.5).fill(INK);
-      // flower beds
-      for (const [dx, col] of [[0.045, 0xff8fb1], [0.085, 0xffd166]] as const) {
+      // flower beds (in winter the wrapping shop is here instead)
+      for (const [dx, col] of winter ? [] : ([[0.045, 0xff8fb1], [0.085, 0xffd166]] as const)) {
         const fx2 = x + B * dx, fy2 = top + h * (dx > 0.05 ? 0.26 : 0.18);
         g.ellipse(fx2, fy2, 40, 14).fill(0x8d5524).stroke({ width: 2, color: INK });
         for (let k = -2; k <= 2; k++) g.circle(fx2 + k * 14, fy2 - 6 - (k % 2 ? 4 : 0), 6).fill(col).stroke({ width: 1.5, color: INK });
@@ -431,6 +435,8 @@ export class StreetView extends Container {
     // --- the buildings, one each side of the road in every block ---
     const placed: StreetGeom['buildings'] = {};
     for (const b of this.buildings) {
+      b.holder.visible = winter || !WINTER_ONLY.has(b.id);
+      if (!b.holder.visible) continue;
       const spot = SPOTS[b.id] ?? { fx: 0.5, side: 'above' };
       const size = spot.size ?? 1;
       const tex = b.sprite.texture;

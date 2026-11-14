@@ -7,6 +7,7 @@ import { fireWide, parkWide, policeWide, schoolWide, TOWN_WIDE } from './townWid
 import { drawZoo, drawZooFar, ZOO } from './zoo';
 import { CONSERVATORY, drawConservatory } from './conservatory';
 import { drawWorkshop, WORKSHOP } from './workshop';
+import { drawWrapShop, WRAPSHOP } from './wrapShop';
 import { drawAdoption } from './adoption';
 import { ARENA, drawArena } from './arena';
 import { drawPigCottage, PIGS } from './pigs';
@@ -61,6 +62,7 @@ export const WIDE: Partial<Record<PlaceId, WideRoom>> = {
   workshop: { left: WORKSHOP.left, right: WORKSHOP.right, draw: drawWorkshop },
   arena: { left: ARENA.left, right: ARENA.right, draw: drawArena },
   pigs: { left: PIGS.left, right: PIGS.right, draw: drawPigCottage },
+  wrapping: { left: WRAPSHOP.left, right: WRAPSHOP.right, draw: drawWrapShop },
 };
 
 /** Wall and carpet across a stretch of a bedroom. */

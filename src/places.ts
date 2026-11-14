@@ -149,6 +149,7 @@ export const FLOOR: Record<PlaceId, number> = {
   workshop: 0.74,
   arena: 0.62,
   pigs: 0.7,
+  wrapping: 0.74,
 };
 
 /**
@@ -189,6 +190,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
     { name: 'grownup', x: -0.1, y: 0.84 },
   ],
   workshop: [{ name: 'grownup', x: 1.3, y: 0.86 }],
+  wrapping: [{ name: 'grandma', x: 0.22, y: 0.86 }],
   pigs: [
     { name: 'pig', x: 0.3, y: 0.86 },
     { name: 'piglet', x: 0.7, y: 0.9 },
@@ -220,7 +222,7 @@ export const RESIDENTS: Record<PlaceId, { name: string; x: number; y: number }[]
   ],
 };
 
-export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | 'workshop' | 'arena' | 'pigs' | RoomId;
+export type PlaceId = 'fire' | 'police' | 'school' | 'park' | 'backyard' | 'fair' | 'vet' | 'restaurant' | 'toyshop' | 'zoo' | 'ninja' | 'niagara' | 'conservatory' | 'workshop' | 'arena' | 'pigs' | 'wrapping' | RoomId;
 /** Rooms inside the family house. Their names are set on the iPad, not here. */
 export type RoomId = 'bedroom-a' | 'bedroom-b' | 'lounge' | 'kitchen';
 export const ROOMS: RoomId[] = ['bedroom-a', 'bedroom-b', 'lounge', 'kitchen'];
@@ -248,6 +250,7 @@ export const STREET: {
   { id: 'workshop', building: 'buildings/workshop.svg' },
   { id: 'arena', building: 'buildings/arena.svg' },
   { id: 'pigs', building: 'buildings/pigs.svg' },
+  { id: 'wrapping', building: 'buildings/wrapping.svg' }, // winter only (see street.ts)
 ];
 
 export interface PlaceDef {
@@ -793,6 +796,17 @@ PLACES.push(
     start: [
       { name: 'puck', x: 0.5, y: 0.84 },
       { name: 'hockey-stick', x: 0.42, y: 0.8 },
+    ],
+    drawBackdrop: allDrawnElsewhere,
+  },
+  // the Christmas wrapping shop, on the map in winter (drawn in wrapShop.ts): wrap anything up for the tree
+  {
+    id: 'wrapping',
+    toys: ['present', 'xmas-tree', 'stocking', 'candy-cane', 'gingerbread', 'teddy', 'ball', 'rocket', 'dinosaur', 'toy-train', 'drum'],
+    start: [
+      { name: 'teddy', x: 0.37, y: 0.52 },
+      { name: 'rocket', x: 0.2, y: 0.88 },
+      { name: 'dinosaur', x: 0.72, y: 0.9 },
     ],
     drawBackdrop: allDrawnElsewhere,
   },

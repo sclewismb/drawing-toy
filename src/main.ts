@@ -3,7 +3,9 @@ import { Camera } from './camera';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
 import { createEggs, createHouseEggs, createStreetEggs } from './eggs';
-import type { Wardrobe } from './eggs/common';
+import type { GiftWrap, Wardrobe } from './eggs/common';
+import { paperColours, renderGift, ribbonColour, type WrapRecipe } from './giftArt';
+import { setupWrapping } from './wrapping';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { burst, hearts } from './fx';
@@ -34,7 +36,7 @@ import { feetOf, furnitureSurface, Physics, SHELVES, type Surface, type World } 
 import { BEAR_REACTIONS, SOUND_FOR, SQUISH_REACTIONS } from './reactions';
 import { Bus, FOOD_FOR, TREASURES, type Lock, type SecretsApi } from './secrets';
 import { audioState, setMuted, sfx, unlockAudio } from './sound';
-import { storage, type SceneItem } from './storage';
+import { storage, type Gift, type SceneItem, type Thing } from './storage';
 import { SEASONS, Weather, type Season } from './seasons';
 import { Sky } from './sky';
 import { StreetView } from './street';
@@ -301,22 +303,25 @@ async function saveNow() {
   for (const ch of characters.children as Character[]) {
     if (ch.destroyed || ch.eventMode === 'none') continue; // being put away
     if (ch.ref.kind === 'photo' && !ch.ref.id) continue; // still being saved
-    items.push({
-      ...ch.ref,
-      x: ch.x / panel,
-      y: ch.y / roomH,
-      scale: ch.scale.x,
-      rotation: ch.rotation,
-      facing: ch.facing < 0 ? -1 : 1,
-      ...(wearing.get(ch) ? { wearing: wearing.get(ch)!.name } : {}),
-      ...(worn.get(ch)?.size ? { glow: [...worn.get(ch)!.values()].map((w) => w.id) } : {}),
-    });
+    items.push({ ...itemOf(ch), x: ch.x / panel, y: ch.y / roomH });
   }
   try {
     await storage.saveScene(place, { version: 1, items, scroll: camera.x / panel, residents: true });
   } catch (err) {
     console.warn('Could not save the scene', err);
   }
+}
+/** Everything about a character except where it is (for saving it, or wrapping it up). */
+function itemOf(ch: Character): Thing {
+  return {
+    ...ch.ref,
+    scale: ch.scale.x,
+    rotation: ch.rotation,
+    facing: ch.facing < 0 ? -1 : 1,
+    ...(wearing.get(ch) ? { wearing: wearing.get(ch)!.name } : {}),
+    ...(worn.get(ch)?.size ? { glow: [...worn.get(ch)!.values()].map((w) => w.id) } : {}),
+    ...(gifts.get(ch) ? { gift: gifts.get(ch) } : {}),
+  };
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') void saveNow().then(saveChalk);
@@ -564,6 +569,8 @@ function underneath(ch: Character, test: (o: Character) => boolean, slack = 0.45
   return (characters.children as Character[]).filter((o) => o !== ch && !o.destroyed && o.eventMode !== 'none' && test(o)).reverse().find((o) => over(box, roomBox(o), slack));
 }
 
+/** Presents wrapped at the wrapping shop: how each is wrapped, and what's inside. */
+const gifts = new WeakMap<Character, Gift>();
 /** Hats people are wearing. */
 const wearing = new WeakMap<Character, { name: string; sprite: Sprite }>();
 function putOnHat(who: Character, name: string) {
@@ -725,12 +732,13 @@ const STOCKING_STUFFERS = new Set(['candy-cane', 'gingerbread', 'present', 'boun
  */
 function unwrap(present: Character, who?: Character) {
   const at = { x: present.x, y: present.y };
+  const gift = gifts.get(present);
   sfx.zip();
   setTimeout(() => sfx.tada(), 380);
-  const cols = [0xe5383b, 0xff4d6d, 0xffd166, 0x7bd36b, 0x4ea8ff];
+  const cols: (string | number)[] = gift ? paperColours(gift.wrap.paper) : [0xe5383b, 0xff4d6d, 0xffd166, 0x7bd36b, 0x4ea8ff];
   for (let i = 0; i < 20; i++) {
     const bit = new Graphics();
-    if (i % 5 === 4) bit.moveTo(-10, 0).quadraticCurveTo(0, -10, 10, 0).stroke({ width: 5, color: 0xffd166 }); // ribbon
+    if (i % 5 === 4) bit.moveTo(-10, 0).quadraticCurveTo(0, -10, 10, 0).stroke({ width: 5, color: gift ? ribbonColour(gift.wrap.ribbon) : 0xffd166 }); // ribbon
     else bit.rect(-8, -6, 16, 12).fill(cols[i % cols.length]).stroke({ width: 1.5, color: 0x3a3a3a });
     bit.position.set(at.x, at.y);
     roomSparkles.addChild(bit);
@@ -748,9 +756,18 @@ function unwrap(present: Character, who?: Character) {
     who.react('super');
     setTimeout(() => sfx.yippee(voice(who)), 300);
   }
+  const place = current;
+  // a present from the wrapping shop: out comes whatever was wrapped up in it
+  if (gift) {
+    void placeItem(gift.inside, { x: at.x, y: at.y - 30 }, { tada: true, gift: true }).then((ch) => {
+      if (!ch || current !== place) return;
+      setTimeout(() => letGo(ch), 650);
+      saveSoon();
+    });
+    return;
+  }
   const pool = SURPRISES.filter((n) => BUILTIN[n]);
   const toy = pool[Math.floor(Math.random() * pool.length)];
-  const place = current;
   void pictureFor({ kind: 'sample', name: toy }).then((pic) => {
     if (!pic || current !== place) return;
     const ch = addCharacter(pic, { kind: 'sample', name: toy }, { x: at.x, y: at.y - 30 }, true);
@@ -849,7 +866,7 @@ function interact(ch: Character): 'used' | 'kept' | null {
     const who = underneath(ch, isSomeone);
     if (who) return (unwrap(ch, who), 'used');
   }
-  if (STOCKING_STUFFERS.has(name)) {
+  if (STOCKING_STUFFERS.has(name) && !gifts.has(ch)) {
     const stocking = underneath(ch, (o) => nameOf(o) === 'stocking', 0.6);
     if (stocking) return (stuffStocking(ch, stocking), 'used');
   }
@@ -1137,20 +1154,24 @@ interface Placement {
   facing?: 1 | -1;
 }
 
-function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada = false) {
-  // made in the workshop: squishies are small and squish, teddies hug
+/** How big something starts (a fraction of the starting size). */
+function sizeFor(ref: Ref) {
   const made = ref.kind === 'photo' ? library.get(ref.id)?.made : undefined;
   const petKind = made === 'pet' ? (library.get((ref as { id: string }).id)?.recipe as PetRecipe | undefined)?.kind : undefined;
   const personAge = made === 'person' ? (library.get((ref as { id: string }).id)?.recipe as PersonRecipe | undefined)?.age : undefined;
-  const size =
-    ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1)
+  return ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1)
     : made === 'squishy' ? 0.5
     : made === 'bear' ? 0.7
     : made === 'glow' ? 0.45
     : petKind ? (PETS[petKind]?.size ?? 0.5)
     : personAge ? (PEOPLE[personAge]?.size ?? 0.85)
     : 1;
-  const ch = new Character(picture, startSize() * size);
+}
+
+function addCharacter(picture: HTMLCanvasElement, ref: Ref, at: Placement, tada = false) {
+  // made in the workshop: squishies are small and squish, teddies hug
+  const made = ref.kind === 'photo' ? library.get(ref.id)?.made : undefined;
+  const ch = new Character(picture, startSize() * sizeFor(ref));
   ch.ref = ref;
   if (made === 'squishy') {
     ch.reactions = SQUISH_REACTIONS;
@@ -1499,7 +1520,7 @@ function setupEggs(id: PlaceId) {
   events.on('dark', (source: string, level: number) => darkFrom.set(source, Math.max(0, Math.min(1, level)))); // lights off, night...: glow sticks glow
   events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
   events.on('adopt', (kind: PetKind) => adopt.open(kind)); // the vet's adoption corner
-  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events, wardrobe });
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events, wardrobe, gifts: giftWrap });
 }
 
 // --- Secrets: deeper surprises (see secrets.ts and eggs/secrets.ts) ---
@@ -1577,6 +1598,182 @@ const wardrobe: Wardrobe = {
       if (!walkedIn.destroyed) walkedIn.alpha = 1;
       wanderers.get(walkedIn)?.rest(1500);
       onClose();
+    });
+    return true;
+  },
+};
+
+// --- The Christmas wrapping shop (see wrapping.ts, giftArt.ts, eggs/wrapShop.ts) ---
+// Wrap anything up; the present goes under the lounge's Christmas tree (of
+// whoever's on its tag) and comes back out when it's unwrapped.
+const wrapScreen = setupWrapping();
+/** The players' pictures (their stuffies), for the tags on presents. */
+let faces: Record<string, HTMLCanvasElement> = {};
+const facesReady: Promise<Record<string, HTMLCanvasElement>> = Promise.all([svgPicture(builtinUrl('koala')), svgPicture(builtinUrl('red-panda'))])
+  .then(([a, b]) => (faces = { a, b }))
+  .catch(() => faces);
+
+/**
+ * Put a saved thing into the room at `at` (room coordinates): a toy, a
+ * drawing, something made in the app, or a wrapped present (with what's
+ * inside it), wearing its hat and glow sticks. `gift` = it's just been
+ * unwrapped: a drawing from the other player's toy box becomes ours too,
+ * and if it's gone altogether a surprise toy comes out instead.
+ */
+async function placeItem(item: Thing, at: { x: number; y: number }, opts: { tada?: boolean; gift?: boolean } = {}) {
+  let ref: Ref = item.kind === 'sample' ? { kind: 'sample', name: item.name } : { kind: 'photo', id: item.id };
+  let pic: HTMLCanvasElement | null;
+  if (item.gift) pic = renderGift(item.gift.wrap, (await facesReady)[item.gift.wrap.for ?? '']);
+  else pic = await pictureFor(ref).catch(() => null);
+  if (!pic && opts.gift && ref.kind === 'photo') {
+    const e = library.get(ref.id);
+    const theirs = e ? await library.picture(e.id) : null;
+    if (e && theirs) {
+      const copy = await library.add(theirs, e.made ? { kind: e.made, recipe: e.recipe, shared: e.made === 'person' } : undefined);
+      ref = { kind: 'photo', id: copy.id };
+      pic = theirs;
+    }
+  }
+  if (!pic) {
+    if (!opts.gift) return null;
+    const pool = SURPRISES.filter((n) => BUILTIN[n]);
+    ref = { kind: 'sample', name: pool[Math.floor(Math.random() * pool.length)] };
+    pic = await pictureFor(ref);
+    if (!pic) return null;
+    item = { ...ref, scale: 1, rotation: 0, facing: 1 };
+  }
+  const ch = addCharacter(pic, ref, { x: at.x, y: at.y, scale: item.scale, rotation: item.rotation, facing: item.facing }, opts.tada);
+  if (opts.tada && item.scale && Math.abs(item.scale - 1) > 0.01) {
+    const s = item.scale;
+    setTimeout(() => tween(250, (t) => !ch.destroyed && ch.scale.set(1 + (s - 1) * t)), 620); // (popping in leaves it at 1)
+  }
+  if (item.wearing && BUILTIN[item.wearing]) putOnHat(ch, item.wearing);
+  for (const id of item.glow ?? []) putOnGlow(ch, id, true);
+  if (item.gift) gifts.set(ch, item.gift);
+  return ch;
+}
+
+/** How big a present is: about the size of what's inside. */
+function giftScale(gift: Gift) {
+  const inside: Ref = gift.inside.kind === 'sample' ? { kind: 'sample', name: gift.inside.name } : { kind: 'photo', id: gift.inside.id };
+  const k = (sizeFor(inside) / (BUILTIN.present?.size ?? 0.42)) * 0.8 * Math.sqrt(gift.inside.scale || 1);
+  return Math.max(0.8, Math.min(1.7, k));
+}
+
+/** Presents on their way to a Christmas tree (kept until they've arrived and been saved). */
+interface Delivery { id: string; to: string; gift: Gift }
+const loadDeliveries = async () => (await storage.getSetting<Delivery[]>('gift-deliveries').catch(() => undefined)) ?? [];
+async function sendGift(gift: Gift) {
+  const list = await loadDeliveries();
+  list.push({ id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, to: gift.wrap.for ?? player ?? 'a', gift });
+  await storage.setSetting('gift-deliveries', list).catch(() => {});
+}
+/** Under the lounge's tree (x across the room's main view, feet down the screen). */
+const UNDER_TREE: [number, number][] = [[0.84, 0.82], [0.97, 0.83], [0.9, 0.88], [0.77, 0.87], [1.04, 0.88], [0.86, 0.94], [0.98, 0.94], [0.72, 0.93], [1.1, 0.84], [0.8, 0.98], [0.93, 0.99], [1.06, 0.97]];
+/** This player's presents arrive under the lounge's tree, with a jingle. Returns their delivery ids. */
+async function deliverGifts(): Promise<string[] | null> {
+  const mine = (await loadDeliveries()).filter((d) => d.to === player);
+  if (!mine.length) return null;
+  const W = panel, H = roomH;
+  const already = (characters.children as Character[]).filter((c) => gifts.has(c) && c.x > 0.65 * W && c.x < 1.15 * W).length;
+  const arrived: { ch: Character; s: number }[] = [];
+  for (const [i, d] of mine.entries()) {
+    const n = already + i;
+    const [fx, fy] = UNDER_TREE[n % UNDER_TREE.length];
+    const jitter = n >= UNDER_TREE.length ? (Math.random() - 0.5) * 0.08 : 0;
+    const ch = await placeItem({ kind: 'sample', name: 'present', scale: giftScale(d.gift), rotation: 0, facing: 1, gift: d.gift }, { x: (fx + jitter) * W, y: fy * H });
+    if (!ch) continue;
+    ch.y = fy * H - (ch.size * ch.scale.y) / 2;
+    ch.visible = false;
+    arrived.push({ ch, s: ch.scale.x });
+  }
+  setTimeout(() => {
+    sfx.sleighBells();
+    arrived.forEach(({ ch, s }, i) => setTimeout(() => {
+      if (ch.destroyed) return;
+      ch.visible = true;
+      ch.scale.set(0.01);
+      tween(500, (t) => !ch.destroyed && ch.scale.set(Math.max(0.01, s * ease.outBack(t))));
+      burst(roomSparkles, ch.x, ch.y, 10, 80);
+    }, i * 220));
+  }, 900);
+  return mine.map((d) => d.id);
+}
+async function forgetDeliveries(ids: string[]) {
+  const gone = new Set(ids);
+  await storage.setSetting('gift-deliveries', (await loadDeliveries()).filter((d) => !gone.has(d.id))).catch(() => {});
+}
+
+const giftWrap: GiftWrap = {
+  canWrap: (ch) => ch instanceof Character && !ch.destroyed && ch.eventMode !== 'none',
+  nearest(at, reach) {
+    let best: Character | undefined, bestD = reach;
+    for (const c of characters.children as Character[]) {
+      if (!giftWrap.canWrap(c) || gestures.isHeld(c)) continue;
+      const d = Math.hypot(c.x - at.x, c.y - at.y) * (wanderers.has(c) ? 1.6 : 1); // things before people and animals
+      if (d < bestD) (best = c), (bestD = d);
+    }
+    return best;
+  },
+  wrap(chU, box, done) {
+    if (!giftWrap.canWrap(chU) || wrapScreen.isOpen) return false;
+    const ch = chU as Character;
+    const item = itemOf(ch);
+    const picture = ch.picture;
+    gestures.release(ch);
+    physics.stop(ch);
+    restingOn.delete(ch);
+    ch.eventMode = 'none'; // in the box: not saved here, can't be picked up
+    const brain = wanderers.get(ch);
+    brain?.rest(1e9);
+    const from = { x: ch.x, y: ch.y, s: ch.scale.x };
+    sfx.whoosh();
+    // taken back out: it hops out beside the box
+    const back = () => {
+      if (ch.destroyed) return;
+      ch.alpha = 1;
+      ch.eventMode = 'static';
+      brain?.rest(1500);
+      const to = { x: box.x + (Math.random() < 0.5 ? -1 : 1) * roomH * 0.15, y: box.y - roomH * 0.05 };
+      tween(400, (t) => {
+        if (ch.destroyed) return;
+        ch.x = box.x + (to.x - box.x) * t;
+        ch.y = box.y + (to.y - box.y) * t - Math.sin(t * Math.PI) * roomH * 0.1;
+        ch.scale.set(from.s * (0.4 + 0.6 * t));
+      }, () => {
+        if (ch.destroyed) return;
+        ch.scale.set(from.s);
+        letGo(ch);
+        saveSoon();
+      });
+    };
+    tween(450, (t) => {
+      if (ch.destroyed) return;
+      const e = ease.inOutSine(t);
+      ch.x = from.x + (box.x - from.x) * e;
+      ch.y = from.y + (box.y - from.y) * e - Math.sin(t * Math.PI) * roomH * 0.12;
+      ch.scale.set(from.s * (1 - 0.6 * e));
+      ch.alpha = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
+    }, () => {
+      const opened = wrapScreen.open({ picture, me: player ?? 'a', faces }, (wrap: WrapRecipe | null) => {
+        if (!wrap) {
+          back();
+          return done(null);
+        }
+        // wrapped! it's inside the present now, and the present's off to the tree
+        const gift: Gift = { wrap, inside: item };
+        if (!ch.destroyed) {
+          characters.removeChild(ch);
+          ch.destroy({ children: true });
+        }
+        saveSoon();
+        void sendGift(gift);
+        done(renderGift(wrap, faces[wrap.for ?? '']));
+      });
+      if (!opened) {
+        back();
+        done(null);
+      }
     });
     return true;
   },
@@ -1841,14 +2038,8 @@ async function showPlace(id: PlaceId) {
   camera.hold();
   camera.set(saved?.scroll !== undefined ? saved.scroll * W : (W - app.screen.width) / 2);
   if (saved) {
-    for (const item of saved.items) {
-      const ref: Ref = item.kind === 'sample' ? { kind: 'sample', name: item.name } : { kind: 'photo', id: item.id };
-      const pic = await pictureFor(ref).catch(() => null);
-      if (!pic) continue; // e.g. a drawing that was deleted
-      const ch = addCharacter(pic, ref, { x: item.x * W, y: item.y * H, scale: item.scale, rotation: item.rotation, facing: item.facing });
-      if (item.wearing && BUILTIN[item.wearing]) putOnHat(ch, item.wearing);
-      for (const id of item.glow ?? []) putOnGlow(ch, id, true);
-    }
+    // (a drawing that was deleted, or taken out of this toy box, is skipped)
+    for (const item of saved.items) await placeItem(item, { x: item.x * W, y: item.y * H }).catch(() => null);
   } else {
     for (const s of place.start) {
       const pic = await svgPicture(builtinUrl(s.name));
@@ -1864,6 +2055,8 @@ async function showPlace(id: PlaceId) {
       addCharacter(pic, { kind: 'sample', name: s.name }, { x: s.x * W, y: s.y * H });
     }
   }
+  // Presents wrapped at the wrapping shop arrive under the lounge's Christmas tree.
+  const delivered = id === 'lounge' ? await deliverGifts() : null;
   // what's sitting on which furniture (so it rides along when that's moved)
   for (const ch of characters.children as Character[]) {
     const feet = feetOf(ch);
@@ -1873,7 +2066,7 @@ async function showPlace(id: PlaceId) {
     }
   }
   restoring = false;
-  if (!saved || newcomers) void saveNow();
+  if (!saved || newcomers || delivered) void saveNow().then(() => void (delivered && forgetDeliveries(delivered)));
 }
 
 /** Show one screen (street, house or a place) and the right buttons for it. */
@@ -2339,7 +2532,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     if (!hadOldVersion) return;
     let calm = 0;
     const tryReload = async () => {
-      const busy = gestures.busy || switching || dressup.isOpen || maker.isOpen || adopt.isOpen;
+      const busy = gestures.busy || switching || dressup.isOpen || maker.isOpen || adopt.isOpen || wrapScreen.isOpen;
       calm = busy ? 0 : calm + 1;
       if (calm < 4) return void setTimeout(tryReload, 500); // two quiet seconds (so new clothes or a new toy finish saving)
       await saveNow();
@@ -2359,7 +2552,7 @@ if (import.meta.env.DEV) {
     eggsOver,
     secrets: () => ({ found, locks, events, checkTargets }),
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
-    maker, putOnGlow, glowers, interact, wearFit, dressup,
+    maker, putOnGlow, glowers, interact, wearFit, dressup, wrapScreen, giftWrap,
     /** Put a saved drawing (or something made in the app) into the room at a screen point. */
     addPhoto: async (id: string, x = app.screen.width / 2, y = app.screen.height * 0.75) => {
       const pic = await pictureFor({ kind: 'photo', id });

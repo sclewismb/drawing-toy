@@ -129,6 +129,15 @@ export const SHELVES: Partial<Record<PlaceId, [x0: number, x1: number, y: number
   niagara: [
     [1.04, 1.76, 0.36], // the bridge
   ],
+  wrapping: [
+    [0.27, 0.73, 0.58], // the wrapping counter
+    [0.04, 0.24, 0.2], // shelves of presents
+    [0.04, 0.24, 0.36],
+    [0.04, 0.24, 0.52],
+    [0.76, 0.96, 0.2],
+    [0.76, 0.96, 0.36],
+    [0.76, 0.96, 0.52],
+  ],
   workshop: [
     [0.33, 0.67, 0.58], // the maker table
     [1.06, 1.52, 0.53], // the squishy bar

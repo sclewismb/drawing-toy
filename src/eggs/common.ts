@@ -36,6 +36,23 @@ export interface EggKit {
   events?: Bus;
   /** Indoors: the dress-up screen, for the bedroom closets. */
   wardrobe?: Wardrobe;
+  /** The Christmas wrapping shop's counter: wrapping things up as presents. */
+  gifts?: GiftWrap;
+}
+
+/** Wrapping things up as presents, as the wrapping shop's counter sees it (see main.ts). */
+export interface GiftWrap {
+  /**
+   * Wrap this one up: it hops into the box at `box` (room coordinates) and
+   * the wrapping screen opens. When it shuts, `done` gets the wrapped
+   * present's picture (it's off to the Christmas tree), or null if it was
+   * taken back out. False if it can't be wrapped just now.
+   */
+  wrap(ch: unknown, box: { x: number; y: number }, done: (present: HTMLCanvasElement | null) => void): boolean;
+  /** The thing nearest `at` (room coordinates) that could be wrapped, no further than `reach`. */
+  nearest(at: { x: number; y: number }, reach: number): unknown;
+  /** Could this be wrapped? */
+  canWrap(ch: unknown): boolean;
 }
 
 /** The dress-up screen, as the bedroom closets see it. */

@@ -9,6 +9,8 @@
  * older iPad Safari versions handled unreliably.
  */
 
+import type { WrapRecipe } from './giftArt';
+
 const DB_NAME = 'drawing-toy';
 const DB_VERSION = 1;
 
@@ -37,7 +39,17 @@ export type SceneItem = ({ kind: 'photo'; id: string } | { kind: 'sample'; name:
   wearing?: string;
   /** Glow sticks they're wearing (drawing ids of glow sticks made in the workshop). */
   glow?: string[];
+  /** A present wrapped at the Christmas wrapping shop (it's saved as a 'present'): how it's wrapped, and what's inside. */
+  gift?: Gift;
 };
+
+/** A wrapped present: the wrapping, and the thing inside (just as it was, even another present). */
+export interface Gift {
+  wrap: WrapRecipe;
+  inside: Thing;
+}
+/** A saved thing without where it is (a toy, a drawing, a present...). */
+export type Thing = SceneItem extends infer T ? (T extends unknown ? Omit<T, 'x' | 'y'> : never) : never;
 
 export interface SavedScene {
   version: 1;

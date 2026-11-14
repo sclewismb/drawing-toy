@@ -410,6 +410,22 @@ export const sfx = {
     for (let i = 0; i < 5; i++) tone({ type: 'triangle', from: rand(2600, 4200), to: rand(2000, 3000), dur: 0.12, vol: 0.06, delay: i * 0.05 });
     hiss({ dur: 0.1, vol: 0.08, from: 6000, to: 4000, q: 2 });
   },
+  /** Wrapping paper: a crinkly rustle. */
+  crinkle() {
+    for (let i = 0; i < 6; i++) hiss({ dur: 0.05 + Math.random() * 0.05, vol: 0.12, from: rand(2500, 5000), to: rand(1500, 3000), q: 1.2, delay: i * 0.06 + Math.random() * 0.03 });
+  },
+  /** Scissors: snip snip. */
+  snip() {
+    for (const d of [0, 0.22]) {
+      hiss({ dur: 0.05, vol: 0.22, from: 5000, to: 3000, q: 2, delay: d });
+      tone({ type: 'square', from: 1500, to: 900, dur: 0.03, vol: 0.06, delay: d + 0.02, filter: { type: 'highpass', freq: 800 } });
+    }
+  },
+  /** Shaking a present: what's inside rattles. */
+  rattle() {
+    for (let i = 0; i < 6; i++) tone({ type: 'triangle', from: rand(500, 900), to: rand(300, 500), dur: 0.05, vol: 0.12, delay: i * 0.09 });
+    hiss({ dur: 0.5, vol: 0.05, from: 1800, to: 1200, q: 1 });
+  },
   /** A glow stick cracking: a sharp snap, then a shimmer as it lights up. */
   crack() {
     hiss({ dur: 0.05, vol: 0.3, from: 4200, to: 2500, q: 2.5 });
