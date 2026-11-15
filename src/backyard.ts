@@ -2,6 +2,7 @@ import type { Graphics } from 'pixi.js';
 import { INK, seeded } from './places';
 import { PALETTE, type Season } from './seasons';
 import type { SkyDef } from './sky';
+import { edgeHighlight, floorShadow, glint, gradient, lightPool, litLawn, shadeBox, sunWash } from './roomLook';
 
 /**
  * The back garden (drawn after the family's panorama photo, without any
@@ -74,13 +75,15 @@ export function drawBackyard(g: Graphics, w: number, h: number, season: Season) 
 
   // (the sky, clouds and the spruces along the back are behind this: see backyardSky)
 
-  // the back fence
+  // (lit and textured: see roomLook.ts; the sun is up and to the right)
+  // the back fence, lit from above, shadowed at its foot
   g.rect(x0, hz - h * 0.07, x1 - x0, h * 0.075).fill(0xb08968);
   for (let x = x0; x < x1; x += 22) g.moveTo(x, hz - h * 0.07).lineTo(x, hz);
   g.stroke({ width: 2, color: 0x8d6e4f });
+  g.rect(x0, hz - h * 0.07, x1 - x0, h * 0.075).fill(gradient('down', [[0, 'rgba(255,240,210,0.18)'], [0.6, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.16)']]));
   g.rect(x0, hz - h * 0.07, x1 - x0, 5).fill(0x8d6e4f);
 
-  // the lawn (white in winter), with mowing stripes
+  // the lawn (white in winter), with mowing stripes, blades of grass (or snow), and the fence's shadow
   g.rect(x0, hz, x1 - x0, h - hz).fill(pal.grass);
   if (!winter) {
     for (let i = 0; i < 6; i++) {
@@ -88,6 +91,10 @@ export function drawBackyard(g: Graphics, w: number, h: number, season: Season) 
       if (i % 2) g.rect(x0, y, x1 - x0, (h - hz) / 6).fill({ color: 0x000000, alpha: 0.035 });
     }
   }
+  litLawn(g, x0, x1, hz, h, winter);
+  g.rect(x0, hz, x1 - x0, h * 0.03).fill(gradient('down', [[0, 'rgba(0,30,0,0.16)'], [1, 'rgba(0,0,0,0)']]));
+  // warm sunlight on the lawn, nearest the sun
+  lightPool(g, w * 0.84, h * 0.82, w * 0.7, h * 0.3, '255,244,200', 0.16);
 
   // far off: a trampoline and a little swing set (tap them: see eggs)
   g.ellipse(w * 0.16, hz + h * 0.04, w * 0.05, h * 0.012).fill(0x2b2d42).stroke({ width: 2, color: 0x4ea8ff });
@@ -96,16 +103,23 @@ export function drawBackyard(g: Graphics, w: number, h: number, season: Season) 
 
   // the sandbox at the foot of the big spruce
   const sx = w * 0.3, sy = h * 0.64, sw = w * 0.14, sh = h * 0.07;
+  floorShadow(g, sx - sw * 0.05, sx + sw * 1.05, sy + sh, 14);
   g.poly([sx + sw * 0.1, sy, sx + sw, sy, sx + sw * 0.92, sy + sh, sx, sy + sh]).fill(0xc68b59).stroke({ width: 3, color: INK });
   g.poly([sx + sw * 0.16, sy + 6, sx + sw * 0.94, sy + 6, sx + sw * 0.88, sy + sh - 8, sx + sw * 0.08, sy + sh - 8]).fill(winter ? 0xf1f5f9 : 0xf4d79b);
+  g.poly([sx + sw * 0.16, sy + 6, sx + sw * 0.94, sy + 6, sx + sw * 0.88, sy + sh - 8, sx + sw * 0.08, sy + sh - 8]).fill(gradient('down', [[0, 'rgba(0,0,0,0.16)'], [0.5, 'rgba(0,0,0,0)'], [1, 'rgba(255,255,255,0.1)']]));
 
   // the big spruce in the middle (its swing and bird feeder are surprises)
   const bx = w * 0.55;
+  // its shadow falls on the lawn, away from the sun
+  g.ellipse(bx - w * 0.06, h * 0.665, w * 0.2, h * 0.035).fill({ color: 0x000000, alpha: 0.12 });
   g.rect(bx - 12, h * 0.3, 24, h * 0.36).fill(0x6b4226).stroke({ width: 3, color: INK });
+  shadeBox(g, bx - 12, h * 0.3, 24, h * 0.36);
   for (let i = 0; i < 6; i++) {
     const y = h * (0.5 - i * 0.085);
     const ww = w * (0.36 - i * 0.05);
     g.poly([bx - ww / 2, y, bx, y - h * 0.16, bx + ww / 2, y]).fill(i % 2 ? treeGreen : treeDark).stroke({ width: 3, color: INK });
+    g.poly([bx - ww / 2 + 3, y - 2, bx, y - h * 0.16 + 4, bx - 2, y - 2]).fill({ color: 0x001a10, alpha: 0.16 }); // the shady side
+    g.poly([bx + 4, y - h * 0.04, bx + 2, y - h * 0.15, bx + ww * 0.3, y - h * 0.05]).fill({ color: 0xfff6c8, alpha: 0.14 }); // sunlight on the needles
     if (winter) g.ellipse(bx, y - h * 0.14, ww * 0.16, 6).fill(0xffffff);
   }
   g.moveTo(bx + 8, h * 0.47).lineTo(w * 0.66, h * 0.43).stroke({ width: 7, color: 0x6b4226, cap: 'round' }); // the swing's branch
@@ -113,17 +127,23 @@ export function drawBackyard(g: Graphics, w: number, h: number, season: Season) 
   // the putting green
   const px = w * 0.62, py = h * 0.8;
   g.poly([px, py, px + w * 0.2, py - h * 0.02, px + w * 0.23, py + h * 0.12, px + w * 0.03, py + h * 0.15]).fill(0x52b788).stroke({ width: 3, color: 0x2d6a4f });
+  lightPool(g, px + w * 0.12, py + h * 0.05, w * 0.12, h * 0.07, '255,255,230', 0.22); // a sheen on the short grass
   g.ellipse(px + w * 0.17, py + h * 0.02, 10, 5).fill(0x1f1f1f);
 
   // --- left: the side of the house, a downpipe with a black hose, a planter of sand toys ---
   const hx = -0.75 * w, hw = 0.14 * w, hb = h * 0.88;
+  floorShadow(g, hx, hx + hw + w * 0.04, hb, 18);
   g.rect(hx, 0, hw, hb).fill(0xf4f1ea).stroke({ width: 3, color: INK });
   for (let y = h * 0.08; y < hb - h * 0.2; y += 16) g.moveTo(hx, y).lineTo(hx + hw, y);
   g.stroke({ width: 1.5, color: 0xd6d1c4 });
+  sunWash(g, hx, 0, hw, hb, 'right');
+  g.rect(hx, h * 0.06, hw, h * 0.05).fill(gradient('down', [[0, 'rgba(0,0,0,0.22)'], [1, 'rgba(0,0,0,0)']])); // under the eave
   g.rect(hx, hb - h * 0.2, hw, h * 0.2).fill(0xbdb5a6).stroke({ width: 3, color: INK }); // concrete base
   g.poly([hx, 0, hx + hw + 30, 0, hx + hw + 30, h * 0.05, hx, h * 0.07]).fill(0x2b2d42); // eave
   g.rect(hx + hw * 0.2, h * 0.16, hw * 0.55, h * 0.26).fill(0xffffff).stroke({ width: 4, color: 0x1f1f1f }); // window frame
+  glint(g, hx + hw * 0.2 + 3, h * 0.16 + 3, hw * 0.55 - 6, h * 0.26 - 6, 0.5);
   g.rect(hx + hw - 10, h * 0.06, 10, h * 0.66).fill(0xdee2e6).stroke({ width: 2, color: INK }); // downpipe
+  g.rect(hx + hw - 7, h * 0.07, 2.5, h * 0.64).fill({ color: 0xffffff, alpha: 0.8 });
   g.moveTo(hx + hw - 5, h * 0.72).bezierCurveTo(hx + hw + 20, h * 0.78, hx + hw + 60, h * 0.72, hx + hw + w * 0.12, h * 0.76).stroke({ width: 9, color: 0x1f1f1f, cap: 'round' });
 
   // --- right: side fence, gazebo with a picnic table, barbecue, patio, outdoor TV room ---
@@ -131,36 +151,51 @@ export function drawBackyard(g: Graphics, w: number, h: number, season: Season) 
   g.poly([w * 1.08, hz + h * 0.06, x1, hz + h * 0.06, x1, h, w * 1.0, h]).fill(winter ? 0xe9eef3 : 0xcfd4da);
   for (let x = w * 1.12; x < x1; x += w * 0.09) g.moveTo(x, hz + h * 0.06).lineTo(x - w * 0.04, h);
   g.stroke({ width: 2, color: 0xb8bec5 });
+  g.poly([w * 1.08, hz + h * 0.06, x1, hz + h * 0.06, x1, h, w * 1.0, h]).fill(gradient('down', [[0, 'rgba(0,0,0,0.12)'], [0.4, 'rgba(255,255,255,0.06)'], [1, 'rgba(0,0,0,0.1)']]));
   // the tall wooden side fence
   g.rect(w * 1.0, hz - h * 0.16, w * 0.62, h * 0.18).fill(0xc08b5c).stroke({ width: 3, color: INK });
   for (let x = w * 1.0; x < w * 1.62; x += 14) g.moveTo(x, hz - h * 0.16).lineTo(x, hz + h * 0.02);
   g.stroke({ width: 1.5, color: 0x9c6b42 });
+  g.rect(w * 1.0, hz - h * 0.16, w * 0.62, h * 0.18).fill(gradient('down', [[0, 'rgba(255,240,210,0.16)'], [0.6, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.16)']]));
+  g.rect(w * 1.02, hz + h * 0.02, w * 0.6, h * 0.025).fill(gradient('down', [[0, 'rgba(0,0,0,0.14)'], [1, 'rgba(0,0,0,0)']]));
   // the gazebo: dark roof on four posts, picnic table and benches
   const gx = w * 1.1, gw = w * 0.3, gy = h * 0.3;
   for (const fx of [0.04, 0.96]) g.rect(gx + gw * fx - 6, gy + h * 0.08, 12, h * 0.4).fill(0x2b2d42).stroke({ width: 2, color: INK });
   g.poly([gx - 20, gy + h * 0.09, gx + gw * 0.25, gy, gx + gw * 0.75, gy, gx + gw + 20, gy + h * 0.09]).fill(0x3d405b).stroke({ width: 3, color: INK });
   g.poly([gx + gw * 0.3, gy, gx + gw * 0.4, gy - h * 0.05, gx + gw * 0.6, gy - h * 0.05, gx + gw * 0.7, gy]).fill(0x2b2d42).stroke({ width: 3, color: INK });
   g.rect(gx - 20, gy + h * 0.09, gw + 40, 8).fill(0x2b2d42);
+  g.poly([gx - 20, gy + h * 0.09, gx + gw * 0.25, gy, gx + gw * 0.75, gy, gx + gw + 20, gy + h * 0.09]).fill(gradient('down', [[0, 'rgba(255,255,255,0.12)'], [1, 'rgba(0,0,0,0.1)']]));
   const ty = h * 0.66;
+  // the shade under the gazebo's roof
+  floorShadow(g, gx - w * 0.02, gx + gw + w * 0.02, ty + h * 0.1, 30);
   g.rect(gx + gw * 0.12, ty, gw * 0.76, 14).fill(0x3a3a3a).stroke({ width: 2, color: INK }); // table top
+  edgeHighlight(g, gx + gw * 0.12, ty, gw * 0.76);
   g.moveTo(gx + gw * 0.2, ty + 14).lineTo(gx + gw * 0.28, ty + h * 0.1).moveTo(gx + gw * 0.8, ty + 14).lineTo(gx + gw * 0.72, ty + h * 0.1).stroke({ width: 6, color: 0x3a3a3a });
   g.rect(gx + gw * 0.08, ty + h * 0.08, gw * 0.84, 10).fill(0x3a3a3a).stroke({ width: 2, color: INK }); // bench
   // blue outdoor rug, a low table and two chairs under covers
+  floorShadow(g, w * 1.47, w * 1.77, h * 0.89, 12);
   g.roundRect(w * 1.48, h * 0.76, w * 0.28, h * 0.13, 6).fill(0x4a90b8).stroke({ width: 3, color: 0x2f6f95 });
+  g.roundRect(w * 1.48, h * 0.76, w * 0.28, h * 0.13, 6).fill(gradient('down', [[0, 'rgba(255,255,255,0.12)'], [1, 'rgba(0,0,0,0.1)']]));
   for (let i = 0; i < 6; i++) g.circle(w * (1.51 + i * 0.045), h * 0.825, 7).stroke({ width: 2, color: 0xbfe3f5 });
   g.rect(w * 1.56, h * 0.74, w * 0.12, h * 0.05).fill(0x3a3a3a).stroke({ width: 2, color: INK });
   // the brick TV room at the back of the patio
   const rx = w * 1.62, rw = w * 0.25, ry = h * 0.32;
+  floorShadow(g, rx - w * 0.01, rx + rw + w * 0.01, ry + h * 0.36, 16);
   g.rect(rx, ry, rw, h * 0.36).fill(0xb9a99a).stroke({ width: 3, color: INK });
   for (let y = ry + 10; y < ry + h * 0.36; y += 10) g.moveTo(rx, y).lineTo(rx + rw, y);
   g.stroke({ width: 1, color: 0x9c8b7c });
+  sunWash(g, rx, ry, rw, h * 0.36, 'left');
+  g.rect(rx, ry, rw, h * 0.04).fill(gradient('down', [[0, 'rgba(0,0,0,0.24)'], [1, 'rgba(0,0,0,0)']])); // under its roof
   g.poly([rx - 20, ry, rx + rw * 0.2, ry - h * 0.07, rx + rw * 0.8, ry - h * 0.07, rx + rw + 20, ry]).fill(0x3d405b).stroke({ width: 3, color: INK });
   g.rect(rx + rw * 0.08, ry + h * 0.08, rw * 0.2, h * 0.28).fill(0xffffff).stroke({ width: 3, color: INK }); // door
   g.circle(rx + rw * 0.25, ry + h * 0.23, 4).fill(INK);
   g.rect(rx + rw * 0.36, ry + h * 0.26, rw * 0.6, h * 0.12).fill(0xd4a373).stroke({ width: 3, color: INK }); // wooden counter
+  shadeBox(g, rx + rw * 0.36, ry + h * 0.26, rw * 0.6, h * 0.12);
+  edgeHighlight(g, rx + rw * 0.36, ry + h * 0.26, rw * 0.6);
   // the house wall at the far right, with the hose reel on it
   g.rect(w * 1.88, 0, x1 - w * 1.88, h * 0.9).fill(0xf4f1ea).stroke({ width: 3, color: INK });
   for (let y = h * 0.06; y < h * 0.72; y += 16) g.moveTo(w * 1.88, y).lineTo(x1, y);
   g.stroke({ width: 1.5, color: 0xd6d1c4 });
+  sunWash(g, w * 1.88, 0, x1 - w * 1.88, h * 0.9, 'left');
   g.rect(w * 1.88, h * 0.72, x1 - w * 1.88, h * 0.18).fill(0xbdb5a6).stroke({ width: 3, color: INK });
 }

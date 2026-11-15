@@ -1,4 +1,4 @@
-import type { Graphics } from 'pixi.js';
+import { Graphics } from 'pixi.js';
 import { drawClockFace } from './clock';
 import { backyardSky } from './backyard';
 import { fairSky } from './fair';
@@ -10,7 +10,7 @@ import { CRITTERS } from './critters';
 import { TREASURES } from './secrets';
 import type { SkyDef } from './sky';
 import { hillDots, PALETTE, type Season } from './seasons';
-import { edgeHighlight, floorShadow, fluffyRug, glint, gradient, hangShadow, lightPool, litCarpet, litWall, shadeBox, skirting, softCorner } from './roomLook';
+import { edgeHighlight, floorShadow, fluffyRect, fluffyRug, glint, gradient, hangShadow, lightPool, litCarpet, litWall, litWoodFloor, shadeBox, skirting, softCorner } from './roomLook';
 
 /**
  * Built-in pictures: the sample characters and every place's toys.
@@ -315,7 +315,14 @@ export function isNight(now = new Date()) {
  * biggest window of the main view, and in any other window right in front
  * of the same spot (a blind's view over the window behind it).
  */
-const outside: { season: Season; windows: { g: Graphics; x: number; y: number; ww: number; wh: number }[] } = { season: 'spring', windows: [] };
+export interface WindowSpot {
+  g: Graphics;
+  x: number;
+  y: number;
+  ww: number;
+  wh: number;
+}
+const outside: { season: Season; windows: WindowSpot[] } = { season: 'spring', windows: [] };
 const NIGHT_SKY = 0x1d2b53;
 
 /** A place is about to be drawn (its picture, then its surprises), in this season. */
@@ -324,11 +331,15 @@ export function lookOutside(season: Season) {
   outside.windows = [];
 }
 
-/** All the place's windows are drawn: the one sun (or moon) goes in. `panel` = the width of the main view. */
-export function placeTheSun(panel: number) {
+/**
+ * All the place's windows are drawn: the one sun (or moon) goes in. `panel` =
+ * the width of the main view. Gives back the windows, and where the sun is
+ * (for their night-time views: see nightWindow).
+ */
+export function placeTheSun(panel: number): { wins: WindowSpot[]; sun: { x: number; y: number; r: number } | null } {
   const wins = outside.windows.filter((w) => !w.g.destroyed);
   outside.windows = [];
-  if (!wins.length) return;
+  if (!wins.length) return { wins, sun: null };
   const inView = wins.filter((w) => w.x + w.ww / 2 > 0 && w.x + w.ww / 2 < panel);
   const best = (inView.length ? inView : wins).reduce((a, b) => (b.ww * b.wh > a.ww * a.wh ? b : a));
   const night = isNight();
@@ -340,6 +351,24 @@ export function placeTheSun(panel: number) {
     if (night) w.g.circle(sx, sy, r).fill(0xfff3c4).circle(sx + r * 0.35, sy - r * 0.25, r * 0.85).fill(NIGHT_SKY); // a crescent moon
     else w.g.circle(sx, sy, r).fill(pal.sun);
   }
+  return { wins, sun: { x: sx, y: sy, r: Math.min(best.ww, best.wh) * 0.12 } };
+}
+
+/**
+ * The same window at night, to lay over it when the room's lights go off in
+ * the daytime: night sky and stars, darker hills, and the moon where the sun
+ * was. (A little inside the window, so its frame still shows.)
+ */
+export function nightWindow(win: WindowSpot, sun: { x: number; y: number; r: number } | null) {
+  const g = new Graphics();
+  const x = win.x + 3, y = win.y + 3, ww = win.ww - 6, wh = win.wh - 6;
+  drawView(g, x, y, ww, wh, true);
+  if (sun && sun.x - sun.r >= x && sun.x + sun.r <= x + ww && sun.y - sun.r >= y && sun.y + sun.r <= y + wh) {
+    g.circle(sun.x, sun.y, sun.r).fill(0xfff3c4).circle(sun.x + sun.r * 0.35, sun.y - sun.r * 0.25, sun.r * 0.85).fill(NIGHT_SKY);
+  }
+  g.rect(x, y, ww, 10).fill(gradient('down', [[0, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]));
+  glint(g, x, y, ww, wh, 0.06);
+  return g;
 }
 
 /** Mix two colours (0 = all a, 1 = all b). */
@@ -350,7 +379,11 @@ function blend(a: number, b: number, t: number) {
 
 /** The view out of a window or an open door: day or night by the real clock, in the season's colours. */
 export function windowView(g: Graphics, x: number, y: number, ww: number, wh: number) {
-  const night = isNight();
+  drawView(g, x, y, ww, wh, isNight());
+  outside.windows.push({ g, x, y, ww, wh });
+}
+
+function drawView(g: Graphics, x: number, y: number, ww: number, wh: number, night: boolean) {
   const season = outside.season;
   const pal = PALETTE[season];
   const rnd = seeded(3);
@@ -384,7 +417,6 @@ export function windowView(g: Graphics, x: number, y: number, ww: number, wh: nu
   hill(x + ww * 0.85, ww * 0.4, wh * 0.18, season === 'winter' ? 0xe3ecf5 : pal.hillFront, pal.dots);
   // snow falling past the window
   if (season === 'winter') for (let i = 0; i < 10; i++) g.circle(x + 3 + rnd() * (ww - 6), y + 3 + rnd() * wh * 0.75, 1.5 + rnd() * 1.5).fill({ color: 0xffffff, alpha: night ? 0.9 : 0.95 });
-  outside.windows.push({ g, x, y, ww, wh });
 }
 
 /** A small seeded random generator, so decorations land in the same place every time. */
@@ -393,11 +425,10 @@ export function seeded(seed: number) {
   return () => ((s = (s * 9301 + 49297) % 233280) / 233280);
 }
 
+/** The house's dark wooden floor (lit, with planks and grain: see roomLook.ts) and its skirting board. */
 export function darkWoodFloor(g: Graphics, w: number, h: number, top: number) {
-  g.rect(0, h * top, w, h * (1 - top)).fill(0x3b2620);
-  for (let y = h * top + 24; y < h; y += 30) g.moveTo(0, y).lineTo(w, y);
-  g.stroke({ width: 2, color: 0x2a1b17 });
-  g.rect(0, h * top - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+  litWoodFloor(g, 0, w, h * top, h, 0x3b2620);
+  skirting(g, 0, w, h * top);
 }
 
 export function blinds(g: Graphics, x: number, y: number, ww: number, wh: number, frame: number) {
@@ -576,46 +607,66 @@ export const PLACES: PlaceDef[] = [
       { name: 'trampoline', x: 0.44, y: 0.88 },
     ],
     drawBackdrop(g, w, h) {
+      // (lit and textured: see roomLook.ts; the sunbeam comes with the blinds, in eggs/common.ts)
       const floor = 0.72;
+      const night = isNight();
       g.rect(0, 0, w, h * floor).fill(0xe9ecef);
+      litWall(g, 0, w, h * floor);
       darkWoodFloor(g, w, h, floor);
       // shaggy rug
+      const fluff = fluffyRect(g, w * 0.26, h * 0.78, w * 0.6, h * 0.17, 10);
       g.roundRect(w * 0.26, h * 0.78, w * 0.6, h * 0.17, 10).fill(0xd6ccc2);
+      fluff();
       const rnd = seeded(5);
       for (let i = 0; i < 120; i++) {
         const x = w * (0.27 + rnd() * 0.58), y = h * (0.79 + rnd() * 0.15);
         g.moveTo(x, y).lineTo(x + 3, y + 6);
       }
       g.stroke({ width: 2, color: 0xbdb2a7 });
-      // big window with blinds on the right
+      // big window with blinds on the right, glowing
+      lightPool(g, w * 0.82, h * 0.3, w * 0.28, h * 0.32, night ? '170,190,240' : '255,250,235', night ? 0.16 : 0.3);
       blinds(g, w * 0.66, h * 0.1, w * 0.32, h * 0.4, 0xffffff);
       g.moveTo(w * 0.82, h * 0.1).lineTo(w * 0.82, h * 0.5).stroke({ width: 6, color: 0xffffff });
       // a big picture of a black-and-white dog
+      hangShadow(g, w * 0.02, h * 0.08, w * 0.11, h * 0.42, 9);
       frame(g, w * 0.02, h * 0.08, w * 0.11, h * 0.42);
       const cx = w * 0.075, cy = h * 0.28, r = Math.min(w * 0.04, h * 0.08);
       g.circle(cx, cy, r).fill(0xffffff).stroke({ width: 3, color: INK });
       g.ellipse(cx - r * 0.8, cy - r * 0.6, r * 0.45, r * 0.7).ellipse(cx + r * 0.8, cy - r * 0.6, r * 0.45, r * 0.7).fill(0x1f1f1f);
       g.poly([cx - r * 0.6, cy - r * 0.9, cx - r * 0.1, cy - r * 0.9, cx - r * 0.15, cy + r * 0.2, cx - r * 0.7, cy - r * 0.1]).fill(0x1f1f1f);
       g.circle(cx - r * 0.35, cy - r * 0.15, 3).circle(cx + r * 0.35, cy - r * 0.15, 3).circle(cx, cy + r * 0.35, 5).fill(0x1f1f1f);
+      glint(g, w * 0.02 + 6, h * 0.08 + 6, w * 0.11 - 12, h * 0.42 - 12, 0.14);
       // TV on a dark wood stand
+      floorShadow(g, w * 0.14, w * 0.33, h * floor + 2, 22);
+      hangShadow(g, w * 0.15, h * 0.24, w * 0.17, h * 0.48 - 6, 8);
       g.rect(w * 0.15, h * 0.5, w * 0.17, h * 0.22 - 6).fill(0x3e2723).stroke({ width: 4, color: INK });
+      shadeBox(g, w * 0.15, h * 0.5, w * 0.17, h * 0.22 - 6);
+      edgeHighlight(g, w * 0.15, h * 0.5, w * 0.17);
       g.rect(w * 0.155, h * 0.24, w * 0.16, h * 0.24).fill(0x111111).stroke({ width: 4, color: INK });
       g.rect(w * 0.165, h * 0.26, w * 0.14, h * 0.2).fill(0x2b2d42);
+      g.rect(w * 0.165, h * 0.26, w * 0.14, h * 0.2).fill(gradient('down', [[0, 'rgba(255,255,255,0.1)'], [1, 'rgba(0,0,0,0.15)']]));
+      glint(g, w * 0.165, h * 0.26, w * 0.14, h * 0.2, 0.1);
       // tall mirror
+      hangShadow(g, w * 0.35, h * 0.14, w * 0.06, h * 0.34, 7);
       g.rect(w * 0.35, h * 0.14, w * 0.06, h * 0.34).fill(0xcfe3ee).stroke({ width: 8, color: 0x3e2723 });
-      g.moveTo(w * 0.36, h * 0.2).lineTo(w * 0.39, h * 0.16).stroke({ width: 4, color: 0xffffff, alpha: 0.8 });
+      glint(g, w * 0.35 + 4, h * 0.14 + 4, w * 0.06 - 8, h * 0.34 - 8, 0.3);
       // three black-and-white pictures
       const pics = [0.44, 0.52, 0.6];
       pics.forEach((px, i) => {
+        hangShadow(g, w * px, h * 0.12, w * 0.075, h * 0.13, 6);
         frame(g, w * px, h * 0.12, w * 0.075, h * 0.13);
         const fx = w * px, fy = h * 0.12, fw = w * 0.075, fh = h * 0.13;
         if (i === 0) g.rect(fx + fw * 0.2, fy + fh * 0.35, fw * 0.15, fh * 0.45).rect(fx + fw * 0.65, fy + fh * 0.35, fw * 0.15, fh * 0.45).fill(0x6c757d);
         if (i === 1) g.circle(fx + fw / 2, fy + fh / 2, fh * 0.28).fill(0x8d8d8d);
         if (i === 2) g.poly([fx + 8, fy + fh - 8, fx + fw * 0.4, fy + fh * 0.4, fx + fw - 8, fy + fh - 8]).fill(0x6c757d);
+        glint(g, fx + 5, fy + 5, fw - 10, fh - 10, 0.15);
       });
-      // floor lamp
+      // floor lamp, glowing warmly
+      lightPool(g, w * 0.615, h * 0.32, w * 0.12, h * 0.2, '255,236,190', 0.4);
+      floorShadow(g, w * 0.595, w * 0.635, h * floor + 2, 8);
       g.rect(w * 0.612, h * 0.36, 6, h * 0.36 - 6).fill(0x6c757d);
       g.poly([w * 0.583, h * 0.38, w * 0.647, h * 0.38, w * 0.632, h * 0.29, w * 0.598, h * 0.29]).fill(0xffffff).stroke({ width: 3, color: INK });
+      g.poly([w * 0.583, h * 0.38, w * 0.647, h * 0.38, w * 0.632, h * 0.29, w * 0.598, h * 0.29]).fill(gradient('down', [[0, 'rgba(255,240,200,0.0)'], [1, 'rgba(255,214,120,0.45)']]));
     },
   },
   {
@@ -630,52 +681,73 @@ export const PLACES: PlaceDef[] = [
       { name: 'stool', x: 0.62, y: 0.9 },
     ],
     drawBackdrop(g, w, h) {
+      // (lit and textured: see roomLook.ts; the sunbeam comes with the blind, in eggs/common.ts)
       const floor = 0.74, fy = h * floor;
+      const night = isNight();
       g.rect(0, 0, w, fy).fill(0xeef1f4);
+      litWall(g, 0, w, fy);
       darkWoodFloor(g, w, h, floor);
       const white = 0xfbfbf8;
-      const cupboard = (x: number, y: number, cw: number, ch: number, handle: 'v' | 'h') => {
+      const cupboard = (x: number, y: number, cw: number, ch: number, handle: 'v' | 'h', hanging = false) => {
+        if (hanging) hangShadow(g, x, y, cw, ch, 6);
         g.rect(x, y, cw, ch).fill(white).stroke({ width: 3, color: 0xadb5bd });
-        g.rect(x + 6, y + 6, cw - 12, ch - 12).stroke({ width: 2, color: 0xced4da });
-        if (handle === 'v') g.rect(x + cw - 14, y + ch * 0.35, 4, ch * 0.3).fill(0x8d99ae);
-        else g.rect(x + cw * 0.3, y + 12, cw * 0.4, 4).fill(0x8d99ae);
+        shadeBox(g, x, y, cw, ch);
+        g.moveTo(x + 6, y + ch - 6).lineTo(x + 6, y + 6).lineTo(x + cw - 6, y + 6).stroke({ width: 2, color: 0xc4cad1 });
+        g.moveTo(x + cw - 6, y + 6).lineTo(x + cw - 6, y + ch - 6).lineTo(x + 6, y + ch - 6).stroke({ width: 2, color: 0xffffff });
+        if (handle === 'v') g.rect(x + cw - 14, y + ch * 0.35, 4, ch * 0.3).fill(0x8d99ae).rect(x + cw - 13.5, y + ch * 0.36, 1.5, ch * 0.2).fill({ color: 0xffffff, alpha: 0.7 });
+        else g.rect(x + cw * 0.3, y + 12, cw * 0.4, 4).fill(0x8d99ae).rect(x + cw * 0.31, y + 12.5, cw * 0.25, 1.5).fill({ color: 0xffffff, alpha: 0.7 });
       };
-      // subway-tile splashback
+      // subway-tile splashback, a little glossy
       g.rect(w * 0.2, h * 0.3, w * 0.6, h * 0.17).fill(0xffffff);
       for (let r = 0, y = h * 0.3; y < h * 0.47; r++, y += 16) {
         g.moveTo(w * 0.2, y).lineTo(w * 0.8, y);
         for (let x = w * 0.2 + (r % 2) * 20; x < w * 0.8; x += 40) g.moveTo(x, y).lineTo(x, y + 16);
       }
       g.stroke({ width: 1.5, color: 0xadb5bd });
-      // window with blinds over the sink
+      g.rect(w * 0.2, h * 0.3, w * 0.6, h * 0.17).fill(gradient('down', [[0, 'rgba(0,0,0,0.12)'], [0.3, 'rgba(255,255,255,0)'], [1, 'rgba(0,0,0,0.05)']]));
+      // window with blinds over the sink, glowing
+      lightPool(g, w * 0.51, h * 0.26, w * 0.16, h * 0.2, night ? '170,190,240' : '255,250,235', night ? 0.16 : 0.3);
       blinds(g, w * 0.42, h * 0.15, w * 0.18, h * 0.22, 0xffffff);
       // upper cupboards and microwave
-      cupboard(w * 0.2, h * 0.08, w * 0.11, h * 0.22, 'v');
-      cupboard(w * 0.31, h * 0.08, w * 0.11, h * 0.22, 'v');
-      cupboard(w * 0.6, h * 0.08, w * 0.06, h * 0.22, 'v');
+      cupboard(w * 0.2, h * 0.08, w * 0.11, h * 0.22, 'v', true);
+      cupboard(w * 0.31, h * 0.08, w * 0.11, h * 0.22, 'v', true);
+      cupboard(w * 0.6, h * 0.08, w * 0.06, h * 0.22, 'v', true);
       g.rect(w * 0.66, h * 0.08, w * 0.14, h * 0.1).fill(white).stroke({ width: 3, color: 0xadb5bd });
+      shadeBox(g, w * 0.66, h * 0.08, w * 0.14, h * 0.1);
       g.roundRect(w * 0.66, h * 0.18, w * 0.14, h * 0.1, 4).fill(0xc0c4c8).stroke({ width: 3, color: INK });
       g.rect(w * 0.675, h * 0.195, w * 0.09, h * 0.07).fill(0x495057);
-      // counter and lower cupboards
+      glint(g, w * 0.675, h * 0.195, w * 0.09, h * 0.07, 0.14);
+      // counter and lower cupboards (in the counter's shadow at the top)
       g.rect(w * 0.2, h * 0.47, w * 0.6, h * 0.025).fill(0xffffff).stroke({ width: 3, color: 0xadb5bd });
+      edgeHighlight(g, w * 0.2, h * 0.47, w * 0.6);
       for (let i = 0; i < 4; i++) cupboard(w * (0.2 + i * 0.1), h * 0.495, w * 0.1, fy - h * 0.495, 'h');
       // steel oven
       g.roundRect(w * 0.6, h * 0.47, w * 0.12, fy - h * 0.47, 4).fill(0xc0c4c8).stroke({ width: 4, color: INK });
+      shadeBox(g, w * 0.6, h * 0.47, w * 0.12, fy - h * 0.47);
       g.roundRect(w * 0.615, h * 0.56, w * 0.09, h * 0.12, 4).fill(0x343a40);
+      glint(g, w * 0.615, h * 0.56, w * 0.09, h * 0.12, 0.12);
       g.rect(w * 0.6, h * 0.47, w * 0.12, h * 0.035).fill(0x212529);
       cupboard(w * 0.72, h * 0.495, w * 0.08, fy - h * 0.495, 'h');
+      g.rect(w * 0.2, h * 0.495, w * 0.6, 10).fill(gradient('down', [[0, 'rgba(0,0,0,0.14)'], [1, 'rgba(0,0,0,0)']]));
       // tall pantry cupboards on the right
       cupboard(w * 0.82, h * 0.08, w * 0.08, fy - h * 0.08, 'v');
       cupboard(w * 0.9, h * 0.08, w * 0.08, fy - h * 0.08, 'v');
       // tap
       g.moveTo(w * 0.51, h * 0.47).lineTo(w * 0.51, h * 0.41).lineTo(w * 0.535, h * 0.41).stroke({ width: 5, color: 0x8d99ae });
-      // island: white top, dark base
+      g.moveTo(w * 0.509, h * 0.465).lineTo(w * 0.509, h * 0.415).stroke({ width: 1.5, color: 0xffffff, alpha: 0.7 });
+      // island: white top, dark base, standing on the floor
+      floorShadow(g, w * 0.2, w * 0.74, fy + h * 0.1, 26);
       g.rect(w * 0.22, h * 0.6, w * 0.5, fy + h * 0.1 - h * 0.6).fill(0x1b1f2e).stroke({ width: 5, color: 0xffffff });
+      shadeBox(g, w * 0.22, h * 0.6, w * 0.5, fy + h * 0.1 - h * 0.6);
+      g.rect(w * 0.22, h * 0.61, w * 0.5, 12).fill(gradient('down', [[0, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]));
       g.rect(w * 0.2, h * 0.58, w * 0.54, h * 0.03).fill(0xffffff).stroke({ width: 3, color: INK });
+      edgeHighlight(g, w * 0.2, h * 0.58, w * 0.54);
       // (the three black pendant lights are drawn in front of everything, in eggs/house.ts)
       // a black-and-white picture on the left wall
+      hangShadow(g, w * 0.01, h * 0.12, w * 0.12, h * 0.2, 7);
       frame(g, w * 0.01, h * 0.12, w * 0.12, h * 0.2);
       g.moveTo(w * 0.04, h * 0.3).quadraticCurveTo(w * 0.07, h * 0.12, w * 0.1, h * 0.3).fill(0x9a9a9a);
+      glint(g, w * 0.01 + 6, h * 0.12 + 6, w * 0.12 - 12, h * 0.2 - 12, 0.15);
     },
   },
   {

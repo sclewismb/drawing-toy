@@ -13,7 +13,7 @@ import { ARENA, drawArena } from './arena';
 import { drawPigCottage, PIGS } from './pigs';
 import { drawNiagara, drawNiagaraFar, drawNinja, NIAGARA, NINJA } from './destinations';
 import type { Season } from './seasons';
-import { edgeHighlight, floorShadow, glint, hangShadow, litCarpet, litWall, shadeBox, skirting, softCorner } from './roomLook';
+import { edgeHighlight, floorShadow, glint, gradient, hangShadow, lightPool, litCarpet, litWall, litWoodFloor, shadeBox, skirting, softCorner } from './roomLook';
 
 /**
  * The wide rooms: each house room carries on to the left and right of its
@@ -254,24 +254,35 @@ function kitchen(g: Graphics, w: number, h: number) {
   const wall = 0xeef1f4;
   // left
   g.rect(-0.85 * w, 0, 0.85 * w, fy).fill(wall);
+  litWall(g, -0.85 * w, 0, fy);
   darkFloor(g, -0.85 * w, 0, h, fy);
+  lightPool(g, -0.35 * w, h * 0.02, 0.24 * w, h * 0.3, '255,244,214', 0.3);
   g.ellipse(-0.35 * w, 0, 0.04 * w, h * 0.025).fill(0xfff3c4).stroke({ width: 3, color: INK }); // ceiling light
-  doorFrame(g, -0.82 * w, h * 0.12, 0.16 * w, fy - h * 0.12);
+  litDoorFrame(g, -0.82 * w, h * 0.12, 0.16 * w, fy - h * 0.12);
+  floorShadow(g, -0.86 * w, -0.6 * w, fy + 6, 10);
   g.rect(-0.85 * w, fy + 4, 0.24 * w, h * 0.09).fill(0x343a40); // door mat
   // coat hooks
+  hangShadow(g, -0.6 * w, h * 0.18, 0.09 * w, 10, 4);
   g.rect(-0.6 * w, h * 0.18, 0.09 * w, 10).fill(0x6c757d).stroke({ width: 2, color: INK });
-  // the dining window's frame and sill (its blind is in eggs/wide.ts)
+  // the dining window's frame and sill (its blind is in eggs/wide.ts), glowing
   const wx = -0.48 * w, wy = h * 0.16, ww = 0.2 * w, wh = h * 0.26;
+  lightPool(g, wx + ww / 2, wy + wh / 2, ww * 1.1, wh * 0.95, '255,250,235', 0.26);
+  hangShadow(g, wx - 10, wy - 10, ww + 20, wh + 20, 5);
   g.rect(wx - 10, wy - 10, ww + 20, wh + 20).fill(0xffffff).stroke({ width: 3, color: 0xc9cdd2 });
+  g.rect(wx - 14, wy + wh + 18, ww + 28, 8).fill(gradient('down', [[0, 'rgba(0,0,0,0.16)'], [1, 'rgba(0,0,0,0)']]));
   g.rect(wx - 14, wy + wh + 8, ww + 28, 10).fill(0xffffff).stroke({ width: 2, color: INK });
+  edgeHighlight(g, wx - 14, wy + wh + 8, ww + 28);
   // a black-and-white picture: a tall tower
   const fx = -0.22 * w, fyy = h * 0.14, fw = 0.09 * w, fh = h * 0.2;
+  hangShadow(g, fx, fyy, fw, fh, 6);
   frame(g, fx, fyy, fw, fh);
   g.rect(fx + 7, fyy + 7, fw - 14, fh - 14).fill(0xdcdcdc);
   g.poly([fx + fw * 0.5, fyy + fh * 0.15, fx + fw * 0.62, fyy + fh - 8, fx + fw * 0.38, fyy + fh - 8]).fill(0x3a3a3a);
   g.rect(fx + 7, fyy + fh * 0.78, fw - 14, fh * 0.22 - 7).fill(0x8d8d8d);
+  glint(g, fx + 7, fyy + 7, fw - 14, fh - 14, 0.15);
   // round dining table (its food is a surprise) and two chairs behind it
   const tx = -0.2 * w, ty = h * 0.57, tr = 0.1 * w;
+  floorShadow(g, tx - tr * 1.3, tx + tr * 1.3, fy + h * 0.05, 18);
   for (const cx of [tx - tr * 0.75, tx + tr * 0.75]) {
     g.moveTo(cx - 0.03 * w, ty).lineTo(cx - 0.03 * w, h * 0.42).arc(cx, h * 0.42, 0.03 * w, Math.PI, 0).lineTo(cx + 0.03 * w, ty);
     g.stroke({ width: 5, color: 0x1f1f1f });
@@ -281,11 +292,13 @@ function kitchen(g: Graphics, w: number, h: number) {
   g.rect(tx - 5, ty, 10, fy + h * 0.05 - ty).fill(0x1f1f1f);
   g.ellipse(tx, fy + h * 0.05, tr * 0.4, 8).fill(0x1f1f1f);
   g.ellipse(tx, ty, tr, h * 0.025).fill(0x262626).stroke({ width: 3, color: INK });
+  g.ellipse(tx - tr * 0.2, ty - h * 0.006, tr * 0.6, h * 0.009).fill({ color: 0xffffff, alpha: 0.16 }); // a shine on the table
 
   // right
   g.rect(w, 0, 0.55 * w, fy).fill(wall);
+  litWall(g, w, 1.55 * w, fy);
   darkFloor(g, w, 1.55 * w, h, fy);
-  doorFrame(g, 1.04 * w, h * 0.1, 0.18 * w, fy - h * 0.1);
+  litDoorFrame(g, 1.04 * w, h * 0.1, 0.18 * w, fy - h * 0.1);
   // the stairs, going up to the right, with a black-and-white stripy runner
   const sx = 1.28 * w, steps = 7, stepH = (fy - h * 0.16) / steps, stepW = (0.27 * w) / steps;
   const outline: number[] = [sx, fy];
@@ -298,17 +311,18 @@ function kitchen(g: Graphics, w: number, h: number) {
   for (let i = 0; i < steps; i++) {
     const x = sx + i * stepW, y = fy - (i + 1) * stepH;
     g.rect(x, y, stepW, stepH * 0.45).fill(0x1f1f1f);
+    g.rect(x, y + 2, stepW, 2).fill({ color: 0xffffff, alpha: 0.18 }); // light on the tread's edge
     g.rect(x, y + stepH * 0.45, stepW, stepH * 0.55).fill(0xfbfbfb).stroke({ width: 1.5, color: 0xadb5bd });
+    g.rect(x, y + stepH * 0.45, stepW, stepH * 0.55).fill(gradient('down', [[0, 'rgba(0,0,0,0.12)'], [1, 'rgba(0,0,0,0)']])); // the step above's shadow
   }
   // handrail
   g.moveTo(sx + stepW * 0.5, fy - stepH * 2.2).lineTo(1.55 * w, fy - (steps + 1.4) * stepH).stroke({ width: 7, color: 0x6b4226, cap: 'round' });
 }
 
+/** The house's dark wooden floor across a stretch (lit, with planks and grain) and its skirting board. */
 function darkFloor(g: Graphics, x0: number, x1: number, h: number, fy: number) {
-  g.rect(x0, fy, x1 - x0, h - fy).fill(0x3b2620);
-  for (let y = fy + 24; y < h; y += 30) g.moveTo(x0, y).lineTo(x1, y);
-  g.stroke({ width: 2, color: 0x2a1b17 });
-  g.rect(x0, fy - 6, x1 - x0, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+  litWoodFloor(g, x0, x1, fy, h, 0x3b2620);
+  skirting(g, x0, x1, fy);
 }
 
 // ---------------------------------------------------------------------------
@@ -324,13 +338,13 @@ function lounge(g: Graphics, w: number, h: number) {
   g.rect(-0.6 * w, 0, 0.6 * w, fy).fill(wall);
   g.rect(-0.6 * w, h * 0.06, 0.42 * w, landY - h * 0.06).fill(0xc9ced6); // hallway, a bit darker
   g.rect(-0.6 * w, h * 0.06, 0.42 * w, 8).fill(0xb4bac4);
-  doorFrame(g, -0.56 * w, h * 0.12, 0.1 * w, landY - h * 0.12); // a closed door
-  doorFrame(g, -0.4 * w, h * 0.12, 0.1 * w, landY - h * 0.12); // an open bedroom door (see eggs/wide.ts)
+  litWall(g, -0.6 * w, 0, fy);
+  g.rect(-0.6 * w, h * 0.06 + 8, 0.42 * w, 18).fill(gradient('down', [[0, 'rgba(0,0,0,0.18)'], [1, 'rgba(0,0,0,0)']])); // under the landing's ceiling
+  litDoorFrame(g, -0.56 * w, h * 0.12, 0.1 * w, landY - h * 0.12); // a closed door
+  litDoorFrame(g, -0.4 * w, h * 0.12, 0.1 * w, landY - h * 0.12); // an open bedroom door (see eggs/wide.ts)
   g.rect(-0.6 * w, landY, 0.44 * w, 14).fill(0x2a1b17); // landing floor
-  g.rect(-0.6 * w, fy, 0.6 * w, h - fy).fill(0x3b2620);
-  for (let y = fy + 24; y < h; y += 30) g.moveTo(-0.6 * w, y).lineTo(0, y);
-  g.stroke({ width: 2, color: 0x2a1b17 });
-  g.rect(-0.6 * w, fy - 6, 0.6 * w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+  g.rect(-0.6 * w, landY + 1, 0.44 * w, 2).fill({ color: 0xffffff, alpha: 0.16 });
+  darkFloor(g, -0.6 * w, 0, h, fy);
   // steps down from the landing to the lounge floor
   const steps = 5, sx0 = -0.16 * w, sx1 = -0.02 * w, stepW = (sx1 - sx0) / steps, stepH = (fy - landY) / steps;
   const outline: number[] = [sx0, landY];
@@ -346,24 +360,33 @@ function lounge(g: Graphics, w: number, h: number) {
   }
   // the half wall with a wooden handrail beside the stairs
   g.rect(-0.2 * w, landY - h * 0.08, 0.04 * w, fy - landY + h * 0.08).fill(0xffffff).stroke({ width: 3, color: INK });
+  shadeBox(g, -0.2 * w, landY - h * 0.08, 0.04 * w, fy - landY + h * 0.08);
   g.rect(-0.21 * w, landY - h * 0.09, 0.06 * w, 10).fill(0xffffff).stroke({ width: 2, color: INK });
   g.moveTo(-0.16 * w, landY - h * 0.06).lineTo(-0.02 * w, fy - h * 0.1).stroke({ width: 7, color: 0x8d5a3b, cap: 'round' });
 
   // right
   g.rect(w, 0, 0.6 * w, fy).fill(wall);
+  litWall(g, w, 1.6 * w, fy);
+  lightPool(g, 1.4 * w, h * 0.02, 0.18 * w, h * 0.26, '255,244,214', 0.3);
   darkFloor(g, w, 1.6 * w, h, fy);
   // small mirror in a dark wood frame
+  hangShadow(g, 1.03 * w, h * 0.12, 0.08 * w, h * 0.2, 7);
   g.rect(1.03 * w, h * 0.12, 0.08 * w, h * 0.2).fill(0xcfe3ee).stroke({ width: 8, color: 0x3e2723 });
+  glint(g, 1.03 * w + 4, h * 0.12 + 4, 0.08 * w - 8, h * 0.2 - 8, 0.3);
   // little black table with iron legs (its candles are a surprise)
   const tx = 1.02 * w, ty = h * 0.5, tw = 0.12 * w;
+  floorShadow(g, tx, tx + tw, fy + h * 0.04, 14);
   g.rect(tx, ty, tw, 12).fill(0x3e2723).stroke({ width: 3, color: INK });
+  edgeHighlight(g, tx, ty, tw);
   for (const lx of [tx + 10, tx + tw - 10]) g.moveTo(lx, ty + 12).lineTo(lx, fy + h * 0.04);
   g.stroke({ width: 5, color: 0x1f1f1f });
   g.circle(tx + tw / 2, ty + (fy - ty) * 0.55, (fy - ty) * 0.22).stroke({ width: 4, color: 0x1f1f1f });
   // the front door (it opens: see eggs/wide.ts) and its mat
-  doorFrame(g, 1.2 * w, h * 0.1, 0.17 * w, fy - h * 0.1);
+  litDoorFrame(g, 1.2 * w, h * 0.1, 0.17 * w, fy - h * 0.1);
+  floorShadow(g, 1.16 * w, 1.42 * w, fy + 8, 10);
   g.rect(1.17 * w, fy + 6, 0.24 * w, h * 0.08).fill(0x7a6a58);
   // coats on hooks
+  hangShadow(g, 1.43 * w, h * 0.18, 0.12 * w, h * 0.36, 6);
   g.rect(1.43 * w, h * 0.18, 0.1 * w, 10).fill(0x6c757d).stroke({ width: 2, color: INK });
   g.poly([1.44 * w, h * 0.2, 1.48 * w, h * 0.2, 1.49 * w, h * 0.52, 1.43 * w, h * 0.52]).fill(0x1f1f1f).stroke({ width: 2, color: INK });
   g.poly([1.48 * w, h * 0.2, 1.52 * w, h * 0.2, 1.53 * w, h * 0.46, 1.47 * w, h * 0.46]).fill(0x2b2d42).stroke({ width: 2, color: INK });

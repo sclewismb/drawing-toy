@@ -2,6 +2,7 @@ import { Container, Graphics, Rectangle, Sprite, Text, Texture, type FederatedPo
 import type { HouseGeom } from './eggs';
 import { ROOMS, type RoomId } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
+import { floorShadow, glint, gradient, innerShadow, lightPool, litCarpet, litLawn, litWall, litWoodFloor, shadeBox, sunWash } from './roomLook';
 import { Sky } from './sky';
 import { ease, tween } from './tween';
 
@@ -156,6 +157,7 @@ export class HouseView extends Container {
     this.bg.ellipse(w * 0.8, ground, w * 0.45, h * 0.28).fill(pal.hillFront);
     hillDots(this.bg, w * 0.8, ground, w * 0.45, h * 0.28, pal.dots, 6);
     this.bg.rect(0, ground, w, h - ground).fill(pal.grass);
+    litLawn(this.bg, 0, w, ground, h, season === 'winter');
 
     // the house: dark roof, brick walls, four rooms inside
     // (a little left of the middle, to leave room for the garden gate)
@@ -169,9 +171,14 @@ export class HouseView extends Container {
     g.poly([x0 - 30, top, x0 + houseW * 0.18, h * 0.08, x0 + houseW * 0.82, h * 0.08, x0 + houseW + 30, top])
       .fill(0x33333b)
       .stroke({ width: 6, color: 0x3a3a3a });
+    // (lit: see roomLook.ts; the sun is up and to the right)
+    floorShadow(g, x0 - 20, x0 + houseW + 40, ground, 22);
+    g.poly([x0 - 30, top, x0 + houseW * 0.18, h * 0.08, x0 + houseW * 0.82, h * 0.08, x0 + houseW + 30, top]).fill(gradient('down', [[0, 'rgba(255,255,255,0.1)'], [1, 'rgba(0,0,0,0.12)']]));
     g.rect(x0, top, houseW, bodyH).fill(0xeadbc8).stroke({ width: 6, color: 0x3a3a3a });
     for (let y = top + 14; y < top + bodyH; y += 14) g.moveTo(x0, y).lineTo(x0 + houseW, y);
     g.stroke({ width: 1.5, color: 0xcbb79c });
+    sunWash(g, x0, top, houseW, bodyH, 'right');
+    g.rect(x0, top + 3, houseW, 14).fill(gradient('down', [[0, 'rgba(0,0,0,0.22)'], [1, 'rgba(0,0,0,0)']])); // under the eaves
 
     const innerW = houseW - wall * 3;
     const innerH = bodyH - wall * 3;
@@ -252,39 +259,55 @@ export class HouseView extends Container {
         g.poly([L + w * 0.45, T, L + w * 0.62, T, L + w * 0.56, floorY, L + w * 0.45, floorY]).fill(0xd4e94a);
         g.poly([L + w * 0.62, T, L + w, T, L + w * 0.56, floorY]).fill(0xfbfbfb);
         g.poly([L + w, T, L + w, floorY, L + w * 0.56, floorY]).fill(0x9fd8e8);
+        litWall(g, L, L + w, floorY, T);
         g.rect(L + w * 0.12, T + h * 0.14, w * 0.22, h * 0.24).fill(0x1f1f1f);
-        g.rect(L, floorY, w, T + h - floorY).fill(0x5f5a57);
+        litCarpet(g, L, L + w, floorY, T + h, 0x5f5a57);
         break;
       case 'bedroom-b':
         g.rect(L, T, w * 0.45, h).fill(0x7fdde0);
         g.rect(L + w * 0.45, T, w * 0.55, h).fill(0xf6f6f8);
+        litWall(g, L, L + w, floorY, T);
         for (const [fx, fy, c] of [[0.6, 0.2, 0xff8fb1], [0.75, 0.12, 0xb07de8], [0.88, 0.25, 0x7fdde0], [0.68, 0.34, 0xffd166], [0.82, 0.4, 0xc3b1ff]] as const) {
           g.circle(L + w * fx - 4, T + h * fy, 5).circle(L + w * fx + 4, T + h * fy, 5).fill(c);
         }
+        lightPool(g, L + w * 0.25, T + h * 0.26, w * 0.24, h * 0.3, '255,250,235', 0.35);
         g.rect(L + w * 0.15, T + h * 0.12, w * 0.2, h * 0.28).fill(0xdff3ff).stroke({ width: 3, color: 0xffffff });
-        g.rect(L, floorY, w, T + h - floorY).fill(0x6b625c);
+        glint(g, L + w * 0.15, T + h * 0.12, w * 0.2, h * 0.28, 0.3);
+        litCarpet(g, L, L + w, floorY, T + h, 0x6b625c);
         g.ellipse(L + w * 0.18, T + h * 0.88, w * 0.12, h * 0.06).fill(0xc8a2e8);
+        g.ellipse(L + w * 0.17, T + h * 0.87, w * 0.08, h * 0.035).fill({ color: 0xffffff, alpha: 0.18 });
         break;
       case 'lounge':
         g.rect(L, T, w, h).fill(0xe9ecef);
+        litWall(g, L, L + w, floorY, T);
+        lightPool(g, L + w * 0.78, T + h * 0.28, w * 0.3, h * 0.32, '255,250,235', 0.3);
         g.rect(L + w * 0.62, T + h * 0.1, w * 0.32, h * 0.36).fill(0xf4f4f4).stroke({ width: 4, color: 0xffffff });
         for (let y = T + h * 0.14; y < T + h * 0.44; y += 9) g.rect(L + w * 0.63, y, w * 0.3, 4).fill(0xc9cdd2);
         g.rect(L + w * 0.1, T + h * 0.24, w * 0.18, h * 0.2).fill(0x111111);
-        g.rect(L, floorY, w, T + h - floorY).fill(0x3b2620);
+        glint(g, L + w * 0.1, T + h * 0.24, w * 0.18, h * 0.2, 0.12);
+        litWoodFloor(g, L, L + w, floorY, T + h, 0x3b2620, 14);
         g.roundRect(L + w * 0.25, floorY + h * 0.06, w * 0.55, h * 0.16, 6).fill(0xd6ccc2);
+        g.roundRect(L + w * 0.25, floorY + h * 0.06, w * 0.55, h * 0.16, 6).fill(gradient('down', [[0, 'rgba(255,255,255,0.12)'], [1, 'rgba(0,0,0,0.12)']]));
         break;
       case 'kitchen':
         g.rect(L, T, w, h).fill(0xeef1f4);
+        litWall(g, L, L + w, floorY, T);
         g.rect(L + w * 0.3, T + h * 0.06, w * 0.62, h * 0.22).fill(0xfbfbf8).stroke({ width: 2, color: 0xadb5bd });
+        shadeBox(g, L + w * 0.3, T + h * 0.06, w * 0.62, h * 0.22);
         g.rect(L + w * 0.3, T + h * 0.44, w * 0.62, floorY - (T + h * 0.44)).fill(0xfbfbf8).stroke({ width: 2, color: 0xadb5bd });
+        shadeBox(g, L + w * 0.3, T + h * 0.44, w * 0.62, floorY - (T + h * 0.44));
         g.rect(L + w * 0.3, T + h * 0.42, w * 0.62, 6).fill(0xffffff).stroke({ width: 2, color: 0xadb5bd });
         for (const px of [0.45, 0.6, 0.75]) {
+          lightPool(g, L + w * px, T + h * 0.22, w * 0.09, h * 0.12, '255,236,190', 0.35);
           g.moveTo(L + w * px, T).lineTo(L + w * px, T + h * 0.12).stroke({ width: 2, color: 0x1f1f1f });
           g.poly([L + w * px - 8, T + h * 0.18, L + w * px + 8, T + h * 0.18, L + w * px + 4, T + h * 0.12, L + w * px - 4, T + h * 0.12]).fill(0x2b2b2b);
         }
-        g.rect(L, floorY, w, T + h - floorY).fill(0x3b2620);
+        litWoodFloor(g, L, L + w, floorY, T + h, 0x3b2620, 14);
         break;
     }
+    // a soft glow from the ceiling, and the cut-away walls' shadows just inside
+    lightPool(g, 0, T + h * 0.04, w * 0.42, h * 0.36, '255,246,222', 0.2);
+    innerShadow(g, L, T, w, h, Math.max(8, h * 0.07));
     g.rect(L, T, w, h).stroke({ width: 5, color: ink });
 
     // furniture, standing on the floor
@@ -302,6 +325,7 @@ export class HouseView extends Container {
       const k = Math.min(maxW / tex.width, maxH / tex.height);
       s.scale.set(k);
       s.position.set(L + w * spots[t.id][i], base);
+      floorShadow(g, s.x - (tex.width * k) / 2, s.x + (tex.width * k) / 2, base - 2, Math.max(6, h * 0.035));
     });
   }
 

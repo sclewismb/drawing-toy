@@ -1,6 +1,7 @@
 import { Container, Graphics, Rectangle, Ticker, type FederatedPointerEvent } from 'pixi.js';
 import { markEggTouch, touchState } from '../gestures';
-import { windowView } from '../places';
+import { isNight, windowView } from '../places';
+import { glint, gradient, sunbeam } from '../roomLook';
 import type { Bus, SecretsApi } from '../secrets';
 import type { Sky } from '../sky';
 import type { Season } from '../seasons';
@@ -266,8 +267,14 @@ export function lightSwitch(kit: EggKit, x: number, y: number, lights: { on: boo
 export function raisableBlinds(kit: EggKit, x: number, y: number, ww: number, wh: number, frame: number, style: 'slats' | 'blackout') {
   const view = new Graphics();
   windowView(view, x, y, ww, wh);
+  // the wall's thickness round the glass, and a glint on it (see roomLook.ts)
+  view.rect(x, y, ww, 12).fill(gradient('down', [[0, 'rgba(0,0,0,0.28)'], [1, 'rgba(0,0,0,0)']]));
+  view.rect(x, y, 10, wh).fill(gradient('right', [[0, 'rgba(0,0,0,0.2)'], [1, 'rgba(0,0,0,0)']]));
+  glint(view, x, y, ww, wh, 0.12);
   view.visible = false;
   kit.under.addChild(view);
+  // sunlight (or moonlight) slanting in when the blind's up
+  const beam = windowBeam(kit, x, y, ww, wh, kit.h * 0.73);
   const cover = new Graphics();
   kit.under.addChild(cover);
   let down = 1;
@@ -285,6 +292,7 @@ export function raisableBlinds(kit: EggKit, x: number, y: number, ww: number, wh
       cover.roundRect(x - 6, bottom - 7, ww + 12, 14, 6).fill(0x2b2b2b).stroke({ width: 3, color: INK });
     }
     view.visible = down < 0.98;
+    beam.open((1 - down) / 0.92);
   };
   draw();
   tappable(
@@ -301,6 +309,43 @@ export function raisableBlinds(kit: EggKit, x: number, y: number, ww: number, wh
     },
     new Rectangle(x - 10, y - 10, ww + 20, wh + 20),
   );
+}
+
+/**
+ * The light slanting in through a window and onto the floor: sunlight by
+ * day, moonlight at night, and moonlight too when the room's lights are
+ * switched off in the daytime. `open(k)`: how much the blind or curtains let
+ * through (0..1).
+ */
+export function windowBeam(kit: EggKit, x: number, y: number, ww: number, wh: number, fy: number) {
+  const night = isNight();
+  const day = new Graphics();
+  day.eventMode = 'none';
+  sunbeam(day, x, y, ww, wh, fy, kit.h, night);
+  const moon = night ? null : new Graphics();
+  if (moon) {
+    moon.eventMode = 'none';
+    sunbeam(moon, x, y, ww, wh, fy, kit.h, true);
+    kit.under.addChildAt(moon, 0);
+  }
+  kit.under.addChildAt(day, 0);
+  let open = 0, dark = 0;
+  const update = () => {
+    day.alpha = open * (moon ? 1 - dark : 1);
+    if (moon) moon.alpha = open * dark;
+  };
+  kit.events?.on('dark', (source: string, level: number) => {
+    if (source !== 'lights') return;
+    dark = Math.max(0, Math.min(1, level));
+    update();
+  });
+  update();
+  return {
+    open(k: number) {
+      open = Math.max(0, Math.min(1, k));
+      update();
+    },
+  };
 }
 
 /** Water spraying out in an arc, as drops. */

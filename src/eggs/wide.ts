@@ -759,6 +759,7 @@ export function kitchenWide(kit: EggKit, cleanups: Cleanups) {
   const backDoor = swingDoor(kit, {
     ...bd,
     hinge: 'right',
+    soft: true,
     window: true,
     inside(g, x, y, ww, hh) {
       windowView(g, x, y, ww, hh * 0.7);
@@ -993,6 +994,7 @@ export function kitchenWide(kit: EggKit, cleanups: Cleanups) {
   swingDoor(kit, {
     ...ld,
     hinge: 'right',
+    soft: true,
     inside(g, x, y, ww, hh) {
       g.rect(x, y, ww, hh).fill(0xdfe7ef);
       g.rect(x, y + hh * 0.85, ww, hh * 0.15).fill(0xb8c4d0);
@@ -1081,6 +1083,7 @@ export function loungeWide(kit: EggKit, cleanups: Cleanups) {
   swingDoor(kit, {
     ...bath,
     hinge: 'left',
+    soft: true,
     inside(g, x, y, ww, hh) {
       g.rect(x, y, ww, hh).fill(0xe0f2fe);
       for (let ty = y + 12; ty < y + hh; ty += 16) g.moveTo(x, ty).lineTo(x + ww, ty);
@@ -1230,6 +1233,7 @@ export function loungeWide(kit: EggKit, cleanups: Cleanups) {
   const frontDoor = swingDoor(kit, {
     ...fd,
     hinge: 'right',
+    soft: true,
     window: true,
     inside(g, x, y, ww, hh) {
       windowView(g, x, y, ww, hh * 0.65);

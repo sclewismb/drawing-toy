@@ -18,7 +18,7 @@ import { setupGrownUpShare } from './photoShare';
 import { setupHouseSettings, upgradeHouseSettings, type HouseSettings } from './houseSettings';
 import { NO_PLAYERS, PLAYER_IDS, setupPlayers, type PlayerId, type Players } from './players';
 import { HouseView, ROOM_FURNITURE } from './houseView';
-import { BUILTIN, FLOOR, isNight, lookOutside, PLACES, placeById, placeTheSun, RESIDENTS, STREET, type PlaceId } from './places';
+import { BUILTIN, FLOOR, isNight, lookOutside, nightWindow, PLACES, placeById, placeTheSun, RESIDENTS, STREET, type PlaceId } from './places';
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
 import { MOTIONS } from './library';
 import { setupMaker, type MakerMode } from './maker';
@@ -1547,7 +1547,25 @@ function setupEggs(id: PlaceId) {
   events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
   events.on('adopt', (kind: PetKind) => adopt.open(kind)); // the vet's adoption corner
   eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events, wardrobe, gifts: giftWrap });
-  placeTheSun(panel); // one sun (or moon) for all the windows and doors here
+  const outside = placeTheSun(panel); // one sun (or moon) for all the windows and doors here
+  // Switch the lights off in the daytime and it's night outside the windows
+  // too: each window gets its night-time view laid over it, showing as the
+  // room goes dark (just above the window, under any blind or curtain).
+  if (!isNight() && outside.wins.length) {
+    const nights = outside.wins.map((win) => {
+      const n = nightWindow(win, outside.sun);
+      n.eventMode = 'none';
+      n.alpha = 0;
+      const parent = win.g.parent;
+      if (win.g !== backdrop && parent) parent.addChildAt(n, parent.getChildIndex(win.g) + 1);
+      else eggsUnder.addChildAt(n, 0);
+      return n;
+    });
+    events.on('dark', (source: string, level: number) => {
+      if (source !== 'lights') return;
+      for (const n of nights) if (!n.destroyed) n.alpha = Math.max(0, Math.min(1, level));
+    });
+  }
 }
 
 // --- Secrets: deeper surprises (see secrets.ts and eggs/secrets.ts) ---

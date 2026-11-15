@@ -107,14 +107,64 @@ const fluffPattern = () =>
     }
   });
 
+/** Wood grain: long faint streaks (drawn twice, so they run on across the tile's edges). */
+const woodPattern = () =>
+  pattern('wood', (c, n, rnd) => {
+    for (let i = 0; i < 80; i++) {
+      const y = rnd() * n, x = rnd() * n, len = 24 + rnd() * 70, wob = () => (rnd() - 0.5) * 3;
+      c.strokeStyle = rnd() < 0.45 ? `rgba(255,255,255,${0.03 + rnd() * 0.05})` : `rgba(0,0,0,${0.07 + rnd() * 0.09})`;
+      c.lineWidth = 0.8 + rnd() * 1.3;
+      const a = wob(), b = wob(), d = wob();
+      for (const dx of [0, -n]) {
+        c.beginPath();
+        c.moveTo(x + dx, y);
+        c.bezierCurveTo(x + dx + len * 0.3, y + a, x + dx + len * 0.6, y + b, x + dx + len, y + d);
+        c.stroke();
+      }
+    }
+  });
+
+/** Grass: short blades in lighter and darker greens. */
+const grassPattern = () =>
+  pattern('grass', (c, n, rnd) => {
+    c.lineCap = 'round';
+    for (let i = 0; i < 1100; i++) {
+      const x = rnd() * n, y = rnd() * n, l = 2 + rnd() * 4, lean = (rnd() - 0.5) * 2.5;
+      c.strokeStyle = rnd() < 0.5 ? `rgba(255,255,230,${0.06 + rnd() * 0.08})` : `rgba(0,40,0,${0.06 + rnd() * 0.08})`;
+      c.lineWidth = 1 + rnd() * 0.6;
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x + lean, y - l);
+      c.stroke();
+    }
+  });
+
+/** Snow: soft blue-grey dips and little white sparkles. */
+const snowPattern = () =>
+  pattern('snow', (c, n, rnd) => {
+    for (let i = 0; i < 260; i++) {
+      c.fillStyle = `rgba(120,150,190,${0.04 + rnd() * 0.06})`;
+      c.beginPath();
+      c.ellipse(rnd() * n, rnd() * n, 2 + rnd() * 5, 1 + rnd() * 2, 0, 0, Math.PI * 2);
+      c.fill();
+    }
+    for (let i = 0; i < 90; i++) {
+      c.fillStyle = 'rgba(255,255,255,0.9)';
+      c.fillRect(rnd() * n, rnd() * n, 1.5, 1.5);
+    }
+  });
+
 // ---------------------------------------------------------------------------
 // Walls and floors
 // ---------------------------------------------------------------------------
 
-/** Walls from x0 to x1 down to the floor at fy: a paint texture, darker up by the ceiling and down by the skirting. */
-export function litWall(g: Graphics, x0: number, x1: number, fy: number) {
-  g.rect(x0, 0, x1 - x0, fy).fill(paintPattern());
-  g.rect(x0, 0, x1 - x0, fy).fill(
+/**
+ * Walls from x0 to x1, from `top` (the ceiling: 0 in a room) down to the
+ * floor at fy: a paint texture, darker up by the ceiling and down by the skirting.
+ */
+export function litWall(g: Graphics, x0: number, x1: number, fy: number, top = 0) {
+  g.rect(x0, top, x1 - x0, fy - top).fill(paintPattern());
+  g.rect(x0, top, x1 - x0, fy - top).fill(
     gradient('down', [
       [0, 'rgba(20,20,40,0.13)'],
       [0.07, 'rgba(20,20,40,0.05)'],
@@ -144,6 +194,57 @@ export function litCarpet(g: Graphics, x0: number, x1: number, fy: number, h: nu
       [1, 'rgba(0,0,0,0.16)'],
     ]),
   );
+}
+
+/**
+ * A wooden floor from x0 to x1, from fy down to `bottom`: planks running
+ * across (with staggered joints), wood grain, in shadow along the wall and a
+ * soft sheen where the light catches it.
+ */
+export function litWoodFloor(g: Graphics, x0: number, x1: number, fy: number, bottom: number, color: number, plank = 30) {
+  g.rect(x0, fy, x1 - x0, bottom - fy).fill(color);
+  g.rect(x0, fy, x1 - x0, bottom - fy).fill(woodPattern());
+  let row = 0;
+  for (let y = fy + plank * 0.8; y < bottom; y += plank, row++) {
+    g.moveTo(x0, y).lineTo(x1, y);
+    const start = x0 + ((row * 97) % 180);
+    for (let x = start; x < x1; x += 180) g.moveTo(x, y - plank).lineTo(x, y);
+  }
+  g.stroke({ width: 2, color: 0x000000, alpha: 0.28 });
+  g.rect(x0, fy, x1 - x0, bottom - fy).fill(
+    gradient('down', [
+      [0, 'rgba(0,0,0,0.32)'],
+      [0.14, 'rgba(0,0,0,0.06)'],
+      [0.38, 'rgba(255,240,220,0.09)'],
+      [0.55, 'rgba(255,240,220,0.02)'],
+      [1, 'rgba(0,0,0,0.18)'],
+    ]),
+  );
+}
+
+/** Grass (or snow, in winter) from `top` down to `bottom`: blades or sparkles, hazy far away, richer up close. */
+export function litLawn(g: Graphics, x0: number, x1: number, top: number, bottom: number, winter: boolean) {
+  g.rect(x0, top, x1 - x0, bottom - top).fill(winter ? snowPattern() : grassPattern());
+  g.rect(x0, top, x1 - x0, bottom - top).fill(
+    gradient('down', [
+      [0, winter ? 'rgba(220,232,245,0.35)' : 'rgba(225,240,255,0.22)'],
+      [0.3, 'rgba(255,255,255,0)'],
+      [0.75, 'rgba(0,0,0,0)'],
+      [1, 'rgba(0,30,0,0.12)'],
+    ]),
+  );
+}
+
+/** Soft shadows just inside the edges of a box (a cut-away room, seen into). */
+export function innerShadow(g: Graphics, x: number, y: number, w: number, h: number, d: number) {
+  g.rect(x, y, w, d).fill(gradient('down', [[0, 'rgba(0,0,0,0.24)'], [1, 'rgba(0,0,0,0)']]));
+  g.rect(x, y, d, h).fill(gradient('right', [[0, 'rgba(0,0,0,0.16)'], [1, 'rgba(0,0,0,0)']]));
+  g.rect(x + w - d, y, d, h).fill(gradient('left', [[0, 'rgba(0,0,0,0.12)'], [1, 'rgba(0,0,0,0)']]));
+}
+
+/** Warm sunlight across an outdoor wall from one side (`from` the side the sun is on), shade on the other. */
+export function sunWash(g: Graphics, x: number, y: number, w: number, h: number, from: 'left' | 'right') {
+  g.rect(x, y, w, h).fill(gradient(from === 'right' ? 'left' : 'right', [[0, 'rgba(255,236,190,0.22)'], [0.6, 'rgba(255,236,190,0)'], [1, 'rgba(0,0,30,0.1)']]));
 }
 
 /** The skirting board along the bottom of the walls: lit on top, with a little shadow on the carpet. */
@@ -222,6 +323,15 @@ export function edgeHighlight(g: Graphics, x: number, y: number, w: number) {
 export function floorShadow(g: Graphics, x0: number, x1: number, fy: number, depth = 26) {
   const cx = (x0 + x1) / 2, rx = (x1 - x0) * 0.62;
   g.ellipse(cx, fy + depth * 0.25, rx, depth).fill(glowGradient('0,0,0', 0.3));
+}
+
+/** A shaggy rug texture over a rounded rectangle: draw its shadow now, its colour, then call what this returns. */
+export function fluffyRect(g: Graphics, x: number, y: number, w: number, h: number, r: number) {
+  g.ellipse(x + w / 2, y + h * 0.6, w * 0.56, h * 0.75).fill(glowGradient('0,0,0', 0.22));
+  return () => {
+    g.roundRect(x, y, w, h, r).fill(fluffPattern());
+    g.ellipse(x + w * 0.45, y + h * 0.4, w * 0.4, h * 0.45).fill(glowGradient('255,255,255', 0.14));
+  };
 }
 
 /** A fluffy rug texture over an ellipse, with a soft lit middle and a shadowy rim. */

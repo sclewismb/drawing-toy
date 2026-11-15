@@ -1,10 +1,9 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
-import { isNight } from '../places';
-import { shadeBox, sunbeam } from '../roomLook';
+import { shadeBox } from '../roomLook';
 import { burst } from '../fx';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
-import { everyFrame, glow, INK, lightSwitch, MultiHit, rand, roomLights, roomSpan, tappable, type Cleanups, type EggKit } from './common';
+import { everyFrame, glow, INK, lightSwitch, MultiHit, rand, roomLights, roomSpan, tappable, windowBeam, type Cleanups, type EggKit } from './common';
 
 /**
  * Surprises in the two bedrooms (drawn after the family's photos).
@@ -30,14 +29,11 @@ export function bedroomA(kit: EggKit, cleanups: Cleanups) {
   const blind = new Graphics();
   kit.under.addChild(blind);
   // sunlight (or moonlight) slants in when the blind is up
-  const beam = new Graphics();
-  beam.eventMode = 'none';
-  sunbeam(beam, wx, wy, ww, wh, fy, h, isNight());
-  kit.under.addChildAt(beam, 0);
+  const beam = windowBeam(kit, wx, wy, ww, wh, fy);
   let down = 1;
   let isDown = true;
   const drawBlind = () => {
-    beam.alpha = Math.max(0, Math.min(1, (1 - down) / 0.94));
+    beam.open((1 - down) / 0.94);
     const bottom = top + (wy + wh - top) * down;
     blind.clear().rect(wx + 3, top, ww - 6, Math.max(2, bottom - top)).fill(0x1f1f1f);
     blind.roundRect(wx - 6, bottom - 7, ww + 12, 14, 6).fill(0x2b2b2b).stroke({ width: 3, color: INK });
@@ -359,15 +355,12 @@ export function bedroomB(kit: EggKit, cleanups: Cleanups) {
 
   const curtains = new Graphics();
   kit.under.addChild(curtains);
-  const beam = new Graphics();
-  beam.eventMode = 'none';
-  sunbeam(beam, wx, wy, ww, wh, fy, h, isNight());
-  kit.under.addChildAt(beam, 0);
+  const beam = windowBeam(kit, wx, wy, ww, wh, fy);
   let open = 0;
   let isOpen = false;
   let sway = 0;
   const drawCurtains = () => {
-    beam.alpha = 0.55 + 0.45 * open;
+    beam.open(0.55 + 0.45 * open);
     const leftW = ww * (0.58 - 0.4 * open) + 26;
     const rightW = ww * (0.58 - 0.4 * open) + 26;
     const ch = wh + h * 0.2;
