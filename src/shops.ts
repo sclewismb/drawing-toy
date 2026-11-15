@@ -1,6 +1,7 @@
 import type { Graphics } from 'pixi.js';
 import { ceilingLight, doorway, roomShade, rug, softShadow } from './depth';
 import { frame, INK, seeded, windowView } from './places';
+import { edgeHighlight, glint, gradient, hangShadow } from './roomLook';
 
 /**
  * The vet, the restaurant and the toy shop (made up). Wide like the rooms:
@@ -26,10 +27,17 @@ function room(g: Graphics, x0: number, x1: number, h: number, wall: number, floo
 
 /** A window onto the street outside, with a frame, a sill and curtains. */
 function shopWindow(g: Graphics, x: number, y: number, ww: number, wh: number, curtain: number) {
+  hangShadow(g, x - 6, y - 6, ww + 12, wh + 12, 5);
   windowView(g, x, y, ww, wh);
+  // the wall's thickness round the glass, and a glint (see roomLook.ts)
+  g.rect(x, y, ww, 12).fill(gradient('down', [[0, 'rgba(0,0,0,0.26)'], [1, 'rgba(0,0,0,0)']]));
+  g.rect(x, y, 10, wh).fill(gradient('right', [[0, 'rgba(0,0,0,0.18)'], [1, 'rgba(0,0,0,0)']]));
+  glint(g, x, y, ww, wh, 0.13);
   g.moveTo(x + ww / 2, y).lineTo(x + ww / 2, y + wh).moveTo(x, y + wh / 2).lineTo(x + ww, y + wh / 2).stroke({ width: 5, color: 0xffffff });
   g.rect(x, y, ww, wh).stroke({ width: 8, color: 0xffffff }).rect(x, y, ww, wh).stroke({ width: 3, color: INK });
+  g.rect(x - 10, y + wh + 12, ww + 20, 8).fill(gradient('down', [[0, 'rgba(0,0,0,0.16)'], [1, 'rgba(0,0,0,0)']]));
   g.rect(x - 10, y + wh, ww + 20, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+  edgeHighlight(g, x - 10, y + wh, ww + 20);
   for (const side of [-1, 1]) {
     const cx = side < 0 ? x - 6 : x + ww + 6;
     g.moveTo(cx, y - 10).lineTo(cx - side * ww * 0.18, y - 10).quadraticCurveTo(cx - side * ww * 0.08, y + wh * 0.5, cx - side * ww * 0.14, y + wh + 6).lineTo(cx, y + wh + 6).closePath().fill(curtain).stroke({ width: 3, color: INK });

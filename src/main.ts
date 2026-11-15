@@ -7,6 +7,7 @@ import { createEggs, createHouseEggs, createStreetEggs } from './eggs';
 import type { GiftWrap, Wardrobe } from './eggs/common';
 import { paperColours, renderGift, ribbonColour, type WrapRecipe } from './giftArt';
 import { setupWrapping } from './wrapping';
+import { ambientOutdoors, ambientRoom } from './roomLook';
 import { Character } from './character';
 import { cutoutFromBlob } from './cutout';
 import { burst, hearts } from './fx';
@@ -286,14 +287,24 @@ function sizeRoom(id: PlaceId) {
   camera.setRoom(x0, x1, app.screen.width, roomH);
 }
 
+/** Places drawn with their own light and shade (see roomLook.ts); every other place gets the same soft light laid over its picture. */
+const HAND_LIT = new Set<PlaceId>(['bedroom-a', 'bedroom-b', 'lounge', 'kitchen', 'backyard']);
+
 function drawBackdrop() {
   lookOutside(season); // (the windows show the season; the one sun goes in once the surprises are drawn too: setupEggs)
   backdrop.clear();
   if (current) {
     const place = placeById(current)!;
-    roomSky.set(place.sky?.(panel, roomH, season) ?? null);
+    const sky = place.sky?.(panel, roomH, season) ?? null;
+    roomSky.set(sky);
     place.drawBackdrop(backdrop, panel, roomH, season);
     WIDE[current]?.draw(backdrop, panel, roomH, season);
+    if (!HAND_LIT.has(current)) {
+      const { x0, x1 } = roomEdges(current, panel);
+      const fy = roomH * FLOOR[current];
+      if (place.outdoors || sky) ambientOutdoors(backdrop, x0, x1, fy, roomH, sky?.sun?.x ?? panel * 0.8);
+      else ambientRoom(backdrop, x0, x1, fy, roomH);
+    }
   }
   farPicture.clear();
   if (current) WIDE[current]?.far?.(farPicture, panel, roomH, season);
@@ -409,6 +420,11 @@ app.ticker.add((t) => {
   roomSky.update(t.deltaMS);
   if (current && !switching) {
     physics.update(t.deltaMS, physicsWorld());
+    // shadows on the ground: not while something's carried, flying through the air or a flyer
+    for (const ch of characters.children as Character[]) {
+      if (ch.destroyed) continue;
+      ch.shadow.visible = !gestures.isHeld(ch) && !physics.active(ch) && !floats(ch);
+    }
     // things riding on a furniture toy that's being carried go with it
     // keep a thrown thing (or the dog fetching it) in view
     if (follow) {

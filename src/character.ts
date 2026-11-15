@@ -1,5 +1,6 @@
 import { Container, Sprite, Texture } from 'pixi.js';
 import { playReaction, TAP_REACTIONS, type Reactable, type ReactionName } from './reactions';
+import { shadowTexture } from './roomLook';
 import { ease, tween } from './tween';
 
 /**
@@ -62,6 +63,8 @@ class TouchMap {
  *         sprite      - the picture itself, scaled to a sensible starting size.
  */
 export class Character extends Container implements Reactable {
+  /** A soft shadow on the ground at its feet (main.ts hides it while it's carried, falling or flying). */
+  readonly shadow = new Sprite(shadowTexture());
   readonly body = new Container();
   readonly fx = new Container();
   readonly sprite: Sprite;
@@ -111,7 +114,14 @@ export class Character extends Container implements Reactable {
 
     this.fx.addChild(this.sprite);
     this.body.addChild(this.fx);
-    this.addChild(this.body);
+    // the shadow lies on the ground, centred under the feet
+    const sw = this.picW * this.sprite.scale.x * 0.8;
+    this.shadow.anchor.set(0.5, 0.5);
+    this.shadow.width = sw;
+    this.shadow.height = Math.min(Math.max(6, sw * 0.18), this.size * 0.3);
+    this.shadow.position.set(0, this.restY);
+    this.shadow.eventMode = 'none';
+    this.addChild(this.shadow, this.body);
 
     // Touchable only where there's drawing, not the see-through corners.
     this.touchMap = TouchMap.fromCanvas(picture);

@@ -325,6 +325,9 @@ export function floorShadow(g: Graphics, x0: number, x1: number, fy: number, dep
   g.ellipse(cx, fy + depth * 0.25, rx, depth).fill(glowGradient('0,0,0', 0.3));
 }
 
+/** The fluffy rug texture, to fill any shape with (over its colour). */
+export const fluffFill = () => fluffPattern();
+
 /** A shaggy rug texture over a rounded rectangle: draw its shadow now, its colour, then call what this returns. */
 export function fluffyRect(g: Graphics, x: number, y: number, w: number, h: number, r: number) {
   g.ellipse(x + w / 2, y + h * 0.6, w * 0.56, h * 0.75).fill(glowGradient('0,0,0', 0.22));
@@ -332,6 +335,79 @@ export function fluffyRect(g: Graphics, x: number, y: number, w: number, h: numb
     g.roundRect(x, y, w, h, r).fill(fluffPattern());
     g.ellipse(x + w * 0.45, y + h * 0.4, w * 0.4, h * 0.45).fill(glowGradient('255,255,255', 0.14));
   };
+}
+
+// ---------------------------------------------------------------------------
+// Light over a whole place (for the places drawn before this kit: laid over
+// their picture, so everywhere gets the same soft light and depth)
+// ---------------------------------------------------------------------------
+
+/** Indoors, from x0 to x1, floor at fy: the ceiling and the corners in shadow, a faint paint texture, a sheen on the floor. */
+export function ambientRoom(g: Graphics, x0: number, x1: number, fy: number, h: number) {
+  const W = x1 - x0;
+  g.rect(x0, 0, W, fy).fill(paintPattern());
+  g.rect(x0, 0, W, fy).fill(
+    gradient('down', [
+      [0, 'rgba(20,20,40,0.15)'],
+      [0.08, 'rgba(20,20,40,0.05)'],
+      [0.3, 'rgba(255,255,255,0.05)'],
+      [0.75, 'rgba(0,0,0,0)'],
+      [1, 'rgba(20,20,40,0.09)'],
+    ]),
+  );
+  g.rect(x0, fy, W, h - fy).fill(
+    gradient('down', [
+      [0, 'rgba(0,0,0,0.24)'],
+      [0.14, 'rgba(0,0,0,0.05)'],
+      [0.45, 'rgba(255,248,235,0.06)'],
+      [1, 'rgba(0,0,0,0.15)'],
+    ]),
+  );
+  const edge = Math.min(90, W * 0.06);
+  g.rect(x0, 0, edge, h).fill(gradient('right', [[0, 'rgba(0,0,0,0.13)'], [1, 'rgba(0,0,0,0)']]));
+  g.rect(x1 - edge, 0, edge, h).fill(gradient('left', [[0, 'rgba(0,0,0,0.13)'], [1, 'rgba(0,0,0,0)']]));
+}
+
+/**
+ * Outdoors, from x0 to x1, the ground from `ground` down: a haze where it
+ * meets the sky far away, richer and darker close up, and warm sunlight on
+ * the ground below the sun.
+ */
+export function ambientOutdoors(g: Graphics, x0: number, x1: number, ground: number, h: number, sunX: number) {
+  const W = x1 - x0;
+  const top = ground - h * 0.08;
+  g.rect(x0, top, W, h - top).fill(
+    gradient('down', [
+      [0, 'rgba(225,238,255,0.2)'],
+      [0.25, 'rgba(255,255,255,0)'],
+      [0.72, 'rgba(0,0,0,0)'],
+      [1, 'rgba(0,25,0,0.14)'],
+    ]),
+  );
+  lightPool(g, sunX, h * 0.86, Math.min(W * 0.3, h * 1.2), h * 0.24, '255,244,200', 0.16);
+  const edge = Math.min(90, W * 0.05);
+  g.rect(x0, 0, edge, h).fill(gradient('right', [[0, 'rgba(0,0,0,0.08)'], [1, 'rgba(0,0,0,0)']]));
+  g.rect(x1 - edge, 0, edge, h).fill(gradient('left', [[0, 'rgba(0,0,0,0.08)'], [1, 'rgba(0,0,0,0)']]));
+}
+
+let shadowTex: Texture | null = null;
+/** A soft round shadow, to stretch under someone's feet. */
+export function shadowTexture() {
+  if (!shadowTex) {
+    const cv = document.createElement('canvas');
+    cv.width = 128;
+    cv.height = 32;
+    const c = cv.getContext('2d')!;
+    const grd = c.createRadialGradient(64, 16, 0, 64, 16, 64);
+    grd.addColorStop(0, 'rgba(0,0,0,0.3)');
+    grd.addColorStop(0.5, 'rgba(0,0,0,0.16)');
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    c.setTransform(1, 0, 0, 0.25, 0, 12); // squashed into an ellipse
+    c.fillStyle = grd;
+    c.fillRect(0, -48, 128, 128);
+    shadowTex = Texture.from(cv);
+  }
+  return shadowTex;
 }
 
 /** A fluffy rug texture over an ellipse, with a soft lit middle and a shadowy rim. */

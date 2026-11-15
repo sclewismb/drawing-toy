@@ -1,5 +1,6 @@
 import type { Graphics } from 'pixi.js';
 import { seeded } from './places';
+import { floorShadow, fluffFill, gradient } from './roomLook';
 
 /**
  * Helpers for making outdoor places feel deep: far things are paler and
@@ -134,14 +135,19 @@ export function doorway(g: Graphics, x: number, top: number, dw: number, fy: num
 /** A rug on the floor, seen at a slant (wider at the front). */
 export function rug(g: Graphics, cx: number, y: number, rw: number, rh: number, color: number, border: number, ink = 0x3a3a3a) {
   const pts = (k: number) => [cx - rw * 0.42 * k, y - rh / 2 * k, cx + rw * 0.42 * k, y - rh / 2 * k, cx + rw / 2 * k, y + rh / 2 * k, cx - rw / 2 * k, y + rh / 2 * k];
+  floorShadow(g, cx - rw * 0.55, cx + rw * 0.55, y + rh * 0.42, rh * 0.25); // (it's a little thick)
   g.poly(pts(1)).fill(border).stroke({ width: 3, color: ink });
   g.poly(pts(0.8)).fill(color);
+  g.poly(pts(1)).fill(fluffFill()); // soft and fluffy
   g.poly(pts(0.45)).stroke({ width: 3, color: border });
+  g.poly(pts(1)).fill(gradient('down', [[0, 'rgba(0,0,0,0.1)'], [0.5, 'rgba(255,255,255,0.06)'], [1, 'rgba(0,0,0,0.06)']]));
 }
 
 /** A potted plant (for the front corners), drawn round the bottom of its pot. */
 export function pottedPlant(g: Graphics, x: number, y: number, size: number, pot: number, ink = 0x3a3a3a) {
+  floorShadow(g, x - size * 0.3, x + size * 0.3, y, size * 0.07);
   frontLeaves(g, x, y - size * 0.32, size * 0.9, [0x2d6a4f, 0x52b788], 0, ink);
   g.poly([x - size * 0.22, y - size * 0.36, x + size * 0.22, y - size * 0.36, x + size * 0.17, y, x - size * 0.17, y]).fill(pot).stroke({ width: 3, color: ink });
   g.rect(x - size * 0.25, y - size * 0.4, size * 0.5, size * 0.07).fill(mix(pot, 0x000000, 0.15)).stroke({ width: 3, color: ink });
+  g.poly([x - size * 0.22, y - size * 0.33, x + size * 0.22, y - size * 0.33, x + size * 0.17, y, x - size * 0.17, y]).fill(gradient('right', [[0, 'rgba(255,255,255,0.18)'], [0.5, 'rgba(255,255,255,0)'], [1, 'rgba(0,0,0,0.16)']]));
 }

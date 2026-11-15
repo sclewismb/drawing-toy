@@ -7,6 +7,7 @@ import { INK, seeded, STREET, type PlaceId } from './places';
 import { hillDots, PALETTE, type Season } from './seasons';
 import { Sky, SwayingTrees } from './sky';
 import { ease, tween } from './tween';
+import { floorShadow, gradient, litLawn } from './roomLook';
 
 type StreetId = PlaceId | 'house';
 
@@ -302,6 +303,7 @@ export class StreetView extends Container {
     // the town's ground
     const groundTop = h * 0.445;
     g.rect(0, groundTop, M, h - groundTop).fill(pal.grass);
+    litLawn(g, 0, M, groundTop, h, winter); // blades of grass (or snow), hazy far off (see roomLook.ts)
     for (const [cx, seed] of [[0.1, 7], [0.5, 8], [0.95, 9], [1.4, 10]]) hillDots(g, B * cx, h * 0.985, B * 0.1, h * 0.04, pal.dots, seed);
     // the tunnel into the hill, at the top of the first cross street
     const tunnel = { x: B * CROSS[0], y: groundTop + 2, r: u * 0.05 };
@@ -382,6 +384,7 @@ export class StreetView extends Container {
       const x = B * fx, hw = u * 0.075, hh = u * 0.08;
       const base = span(x - hw, x + hw).lo - roadW / 2 - 14 - h * 0.02;
       g.rect(x - hw / 2, base - hh, hw, hh).fill(houseCols[i % houseCols.length]).stroke({ width: 3, color: INK });
+      floorShadow(g, x - hw * 0.6, x + hw * 0.7, base, hh * 0.12);
       g.poly([x - hw / 2 - 8, base - hh, x, base - hh - u * 0.06, x + hw / 2 + 8, base - hh]).fill([0xe76f51, 0x6d6875][i % 2]).stroke({ width: 3, color: INK });
       g.rect(x - hw * 0.12, base - hh * 0.5, hw * 0.24, hh * 0.5).fill(0xffffff).stroke({ width: 2, color: INK });
       g.rect(x - hw * 0.4, base - hh * 0.8, hw * 0.22, hh * 0.24).rect(x + hw * 0.18, base - hh * 0.8, hw * 0.22, hh * 0.24).fill(0xbfe8ff).stroke({ width: 2, color: INK });
@@ -466,8 +469,10 @@ export class StreetView extends Container {
       b.sprite.scale.set(k);
       b.holder.position.set(x, y);
       placed[b.id] = { x, y, w: bw, h: bh };
-      // a paved patch to stand on
+      // a paved patch to stand on, and the building's soft shadow on it
       g.roundRect(x - bw * 0.58, y - Math.max(8, bh * 0.06), bw * 1.16, Math.max(16, bh * 0.12), 10).fill(pave).stroke({ width: 2, color: 0xbdb5a6 });
+      g.roundRect(x - bw * 0.58, y - Math.max(8, bh * 0.06), bw * 1.16, Math.max(16, bh * 0.12), 10).fill(gradient('down', [[0, 'rgba(0,0,0,0.12)'], [1, 'rgba(255,255,255,0.08)']]));
+      floorShadow(g, x - bw * 0.5, x + bw * 0.56, y - 2, Math.max(6, bh * 0.07));
     }
     // the buildings further down the screen stand in front
     const view = this.camera.view;
@@ -500,6 +505,7 @@ export class StreetView extends Container {
     }
     const trees: { x: number; y: number; r: number }[] = [];
     for (const [fx, fy, s] of FRONT_TREES) {
+      floorShadow(g, B * fx - u * s * 0.9, B * fx + u * s * 1.3, h * fy, u * s * 0.3);
       tree(fx, fy, s);
       trees.push({ x: B * fx, y: h * fy - u * s * 1.1, r: u * s });
     }
