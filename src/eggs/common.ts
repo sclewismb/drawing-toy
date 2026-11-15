@@ -39,6 +39,54 @@ export interface EggKit {
   wardrobe?: Wardrobe;
   /** The Christmas wrapping shop's counter: wrapping things up as presents. */
   gifts?: GiftWrap;
+  /** People, animals and drawings having a go on things (the ninja gym's equipment). */
+  actors?: Actors;
+}
+
+/** Where someone is: their feet (room coordinates) and how big their drawing is. */
+export interface Spot {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Having a go on things: borrowing someone from the room for a bit (see main.ts). */
+export interface Actors {
+  /** Can this one have a go (people, animals, drawings, made toys, soft toys) and isn't busy? */
+  canUse(ch: unknown): boolean;
+  where(ch: unknown): Spot | null;
+  /** Borrow them: they stop walking about and go where they're put until `done()`. */
+  borrow(ch: unknown): Puppet | null;
+  /** People and animals walking about the floor, free just now. */
+  idle(): unknown[];
+  /** Is this spot (room x) on the screen just now? */
+  seen(x: number): boolean;
+}
+
+/** Someone borrowed for a go on something. */
+export interface Puppet {
+  /** Still ours? (not once they're dragged off, put away or the room's gone) */
+  readonly ok: boolean;
+  /** How big their drawing is in the room (h = from their feet to the top of it). */
+  readonly w: number;
+  readonly h: number;
+  /** Where their feet are now. */
+  readonly feet: { x: number; y: number };
+  /** For their sounds: higher for little ones. */
+  readonly voice: number;
+  /**
+   * Put them so that the point `along` the way up their drawing (0 = feet,
+   * 1 = the top: hands, for hanging) is at (x, y), turned by `rotation` round it.
+   */
+  pin(x: number, y: number, along?: number, rotation?: number): void;
+  /** Turn to face left (-1) or right (1). */
+  face(dir: number): void;
+  react(name: 'wobble' | 'bounce' | 'spin' | 'squish' | 'jiggle' | 'giggle' | 'stretch' | 'dizzy'): void;
+  /** Hide them below this line (sunk in the foam pit); nothing = all of them again. */
+  clipBelow(y?: number): void;
+  /** Their go's over: they're free again (and drop to the floor if they're up in the air). */
+  done(): void;
 }
 
 /** Wrapping things up as presents, as the wrapping shop's counter sees it (see main.ts). */

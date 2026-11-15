@@ -4,7 +4,7 @@ import { Camera } from './camera';
 import { Chalkboard, startingDoodles, type ChalkStroke } from './chalkboard';
 import { drawClockHands } from './clock';
 import { createEggs, createHouseEggs, createStreetEggs } from './eggs';
-import type { GiftWrap, Wardrobe } from './eggs/common';
+import type { Actors, GiftWrap, Puppet, Wardrobe } from './eggs/common';
 import { paperColours, renderGift, ribbonColour, type WrapRecipe } from './giftArt';
 import { setupWrapping } from './wrapping';
 import { ambientOutdoors, ambientRoom } from './roomLook';
@@ -340,7 +340,9 @@ async function saveNow() {
   for (const ch of characters.children as Character[]) {
     if (ch.destroyed || ch.eventMode === 'none') continue; // being put away
     if (ch.ref.kind === 'photo' && !ch.ref.id) continue; // still being saved
-    items.push({ ...itemOf(ch), x: ch.x / panel, y: ch.y / roomH });
+    const busy = inUse.get(ch); // (on the monkey bars or a trampoline: saved standing on the floor below)
+    if (busy) items.push({ ...itemOf(ch), rotation: 0, x: busy.home.x / panel, y: busy.home.y / roomH });
+    else items.push({ ...itemOf(ch), x: ch.x / panel, y: ch.y / roomH });
   }
   try {
     await storage.saveScene(place, { version: 1, items, scroll: camera.x / panel, residents: true });
@@ -423,7 +425,7 @@ app.ticker.add((t) => {
     // shadows on the ground: not while something's carried, flying through the air or a flyer
     for (const ch of characters.children as Character[]) {
       if (ch.destroyed) continue;
-      ch.shadow.visible = !gestures.isHeld(ch) && !physics.active(ch) && !floats(ch);
+      ch.shadow.visible = !gestures.isHeld(ch) && !physics.active(ch) && !floats(ch) && (!inUse.has(ch) || onTheFloor(ch));
     }
     // things riding on a furniture toy that's being carried go with it
     // keep a thrown thing (or the dog fetching it) in view
@@ -484,7 +486,7 @@ const floats = (ch: Character) => wanderers.get(ch) instanceof Flyer;
 
 /** Let go: falls if it's up in the air, flies if it was flicked. */
 function letGo(ch: Character, vx = 0, vy = 0) {
-  if (!current || ch.destroyed || ch.eventMode === 'none' || floats(ch)) return false;
+  if (!current || ch.destroyed || ch.eventMode === 'none' || floats(ch) || inUse.has(ch)) return false;
   restingOn.delete(ch);
   return physics.release(ch, vx, vy, physicsWorld());
 }
@@ -1153,7 +1155,7 @@ app.ticker.add((t) => {
   const everyone = characters.children as Character[];
   for (const ch of everyone) {
     const w = wanderers.get(ch);
-    if (!w || ch.destroyed || ch.eventMode === 'none') continue;
+    if (!w || ch.destroyed || ch.eventMode === 'none' || inUse.has(ch)) continue;
     const sx = ch.x - camera.x;
     w.update(Math.min(t.deltaMS, 50), area, gestures.isHeld(ch) || physics.active(ch), sx > 0 && sx < app.screen.width, now, everyone);
     if (w instanceof Wanderer) list.push(w);
@@ -1562,7 +1564,7 @@ function setupEggs(id: PlaceId) {
   events.on('dark', (source: string, level: number) => darkFrom.set(source, Math.max(0, Math.min(1, level)))); // lights off, night...: glow sticks glow
   events.on('make', (what: MakerMode) => maker.open(what)); // the workshop's maker
   events.on('adopt', (kind: PetKind) => adopt.open(kind)); // the vet's adoption corner
-  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events, wardrobe, gifts: giftWrap });
+  eggsCleanup = createEggs(id, { under: eggsUnder, over: eggsOver, sparkles: roomSparkles, w: panel, h: roomH, season, x0, x1, sky: roomSky, far: WIDE[id]?.far ? farEggs : undefined, secrets, events, wardrobe, gifts: giftWrap, actors });
   const outside = placeTheSun(panel); // one sun (or moon) for all the windows and doors here
   // Switch the lights off in the daytime and it's night outside the windows
   // too: each window gets its night-time view laid over it, showing as the
@@ -1661,6 +1663,113 @@ const wardrobe: Wardrobe = {
       onClose();
     });
     return true;
+  },
+};
+
+// --- Having a go on things (the ninja gym's equipment: see eggs/gym.ts) ---
+// The gym borrows someone: their brain rests and the gym moves them about
+// until they're done (or someone drags them off). Meanwhile they're saved
+// standing on the floor below, in case the app's closed mid-go.
+const inUse = new WeakMap<Character, { home: { x: number; y: number }; stop: () => void }>();
+/** Feet where the floor is (not up on something, not upside down). */
+function onTheFloor(ch: Character) {
+  if (!current || Math.abs(ch.rotation) > 0.3) return false;
+  return ch.y + ch.restY * ch.scale.y * Math.cos(ch.rotation) >= roomH * FLOOR[current] - 4;
+}
+/** Where someone's feet are, and how big their drawing is (from the feet to the top of what's drawn). */
+function spotOf(ch: Character) {
+  const s = ch.scale.y, d = ch.restY * s;
+  const drawn = ch.size * (1 - topOf(ch.picture) / ch.picture.height);
+  return { x: ch.x - Math.sin(ch.rotation) * d, y: ch.y + Math.cos(ch.rotation) * d, w: Math.abs(ch.sprite.width) * ch.scale.x, h: drawn * s };
+}
+const actors: Actors = {
+  canUse: (ch) => ch instanceof Character && !ch.destroyed && ch.eventMode !== 'none' && !inUse.has(ch) && isSomeone(ch),
+  where: (ch) => (ch instanceof Character && !ch.destroyed ? spotOf(ch) : null),
+  seen(x) {
+    const sx = x - camera.x;
+    return sx > 0 && sx < app.screen.width;
+  },
+  idle() {
+    return (characters.children as Character[]).filter((ch) => {
+      const brain = wanderers.get(ch);
+      return brain instanceof Wanderer && !brain.isFetching && actors.canUse(ch) && !gestures.isHeld(ch) && !physics.active(ch) && onTheFloor(ch);
+    });
+  },
+  borrow(x) {
+    if (!current || !actors.canUse(x)) return null;
+    const ch = x as Character;
+    physics.stop(ch);
+    restingOn.delete(ch);
+    wanderers.get(ch)?.rest(1e9);
+    ch.sprite.position.set(0, 0);
+    ch.sprite.rotation = 0;
+    const floor = roomH * FLOOR[current];
+    const { x0, x1 } = roomEdges(current, panel);
+    const spot = spotOf(ch);
+    const lift = ch.restY * ch.scale.y; // from the middle of the picture down to the feet
+    const home = { x: ch.x, y: floor + (roomH - floor) * 0.3 - lift };
+    let mask: Graphics | undefined;
+    const unmask = () => {
+      if (!mask) return;
+      if (!ch.destroyed) ch.mask = null;
+      mask.destroy();
+      mask = undefined;
+    };
+    const finish = (fall: boolean) => {
+      if (inUse.get(ch) !== entry) return;
+      inUse.delete(ch);
+      unmask();
+      if (ch.destroyed) return;
+      ch.sprite.position.set(0, 0);
+      ch.sprite.rotation = 0;
+      ch.rotation = 0;
+      wanderers.get(ch)?.rest(1500);
+      if (fall) letGo(ch);
+      saveSoon();
+    };
+    const entry = { home, stop: () => finish(false) };
+    inUse.set(ch, entry);
+    const pup: Puppet = {
+      get ok() {
+        if (inUse.get(ch) !== entry) return false;
+        if (ch.destroyed || ch.eventMode === 'none') return (finish(false), false);
+        return true;
+      },
+      w: spot.w,
+      h: spot.h,
+      get feet() {
+        const s = spotOf(ch);
+        return { x: s.x, y: s.y };
+      },
+      get voice() {
+        return voice(ch);
+      },
+      pin(px, py, along = 0, rotation = 0) {
+        if (!pup.ok) return;
+        const d = lift - along * spot.h; // from the middle of the picture down to the pinned point
+        ch.rotation = rotation;
+        ch.position.set(px + Math.sin(rotation) * d, py - Math.cos(rotation) * d);
+        home.x = Math.max(x0 + 40, Math.min(x1 - 40, px));
+      },
+      face(dir) {
+        if (pup.ok && dir && Math.sign(dir) !== ch.facing) ch.flip();
+      },
+      react(name) {
+        if (pup.ok) ch.react(name);
+      },
+      clipBelow(y) {
+        if (!pup.ok) return;
+        if (y === undefined) return unmask();
+        if (!mask) {
+          mask = new Graphics();
+          roomSparkles.addChild(mask);
+          ch.mask = mask;
+        }
+        mask.clear().rect(x0 - panel, y - roomH * 3, x1 - x0 + panel * 2, roomH * 3).fill(0xffffff);
+      },
+      done: () => finish(true),
+    };
+    return pup;
   },
 };
 
@@ -2407,6 +2516,7 @@ gestures.onDragStart = (ch) => {
   gallery.hint(true);
 };
 gestures.onDragMove = (ch, x, y) => {
+  inUse.get(ch)?.stop(); // pulled off the monkey bars (or whatever they were on)
   gallery.highlight(gallery.isOver(x, y));
   faceTheWay(ch, x);
   if (ch.ref.kind === 'sample' && ch.ref.name === 'hockey-stick') swingStick(ch, x, y);
@@ -2613,7 +2723,7 @@ if (import.meta.env.DEV) {
     eggsOver,
     secrets: () => ({ found, locks, events, checkTargets }),
     place: () => current, setSeason, weather, setMuted, audioState, sfx, Ticker,
-    maker, putOnGlow, glowers, interact, wearFit, dressup, wrapScreen, giftWrap,
+    maker, putOnGlow, glowers, interact, wearFit, dressup, wrapScreen, giftWrap, actors, inUse,
     /** Put a saved drawing (or something made in the app) into the room at a screen point. */
     addPhoto: async (id: string, x = app.screen.width / 2, y = app.screen.height * 0.75) => {
       const pic = await pictureFor({ kind: 'photo', id });

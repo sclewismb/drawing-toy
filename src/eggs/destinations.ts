@@ -5,6 +5,7 @@ import { burst } from '../fx';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
 import { cloudRain, drawBird, everyFrame, frontPiece, hotspot, INK, later, oneAtATime, rand, tappable, tumble, type Cleanups, type EggKit } from './common';
+import { gymGoes, type GymRope } from './gym';
 
 /** Leafy bushes at the very front, at both ends of the path (they rustle when tapped). */
 function frontBushes(kit: EggKit, cleanups: Cleanups, xs: [number, number, number][]) {
@@ -236,7 +237,10 @@ export function ninjaGym(kit: EggKit, cleanups: Cleanups) {
   foamBlocks(kit, cleanups, (1 + NINJA.right) * w - 0.06 * w, -1);
 
   // --- monkey bars: a little ninja swings across ---
+  // (people dropped on any of the equipment have a go themselves: see eggs/gym.ts)
   const mb0 = 0.08 * w, mb1 = 0.52 * w, top = h * 0.22;
+  const rungs: number[] = [];
+  for (let x = mb0 + 20; x < mb1 - 10; x += 0.04 * w) rungs.push(x);
   hotspot(kit, new Rectangle(mb0, top - 20, mb1 - mb0, h * 0.2), oneAtATime((done) => {
     const kid = drawNinjaKid(new Graphics());
     kid.scale.set(1.3, -1.3); // hanging by the hands
@@ -312,6 +316,7 @@ export function ninjaGym(kit: EggKit, cleanups: Cleanups) {
   }));
 
   // --- rope swings ---
+  const ropes: GymRope[] = [];
   for (const rx of [-0.53, -0.44, -0.35]) {
     const rope = new Container();
     rope.position.set(rx * w, h * 0.1 + 16);
@@ -322,9 +327,16 @@ export function ninjaGym(kit: EggKit, cleanups: Cleanups) {
     rg.circle(0, len, 10).fill(0xa47e4b).stroke({ width: 2, color: INK });
     rope.addChild(rg);
     kit.under.addChild(rope);
+    const r: GymRope = { rope, x: rope.x, y: rope.y, len, busy: false };
+    ropes.push(r);
     tappable(rope, oneAtATime((done) => {
       sfx.whoosh();
-      tween(2000, (t) => (rope.rotation = Math.sin(t * Math.PI * 5) * 0.5 * (1 - t)), done);
+      if (r.busy) return done(); // someone's swinging on it
+      r.busy = true;
+      tween(2000, (t) => (rope.rotation = Math.sin(t * Math.PI * 5) * 0.5 * (1 - t)), () => {
+        r.busy = false;
+        done();
+      });
     }), new Rectangle(-24, len * 0.2, 48, len * 0.85));
   }
 
@@ -338,16 +350,22 @@ export function ninjaGym(kit: EggKit, cleanups: Cleanups) {
     kit.under.addChild(c);
     cubes.push(c);
   }
-  hotspot(kit, new Rectangle(px0, fy - 20, pw, h * 0.2), oneAtATime((done) => {
-    sfx.poof();
+  let splashing = false;
+  const splash = () => {
+    if (splashing) return;
+    splashing = true;
     for (const c of cubes) {
       const x0 = c.x, y0 = c.y, vx = rand(-0.12, 0.12), up = rand(0.6, 1);
       tween(1100, (t) => {
         c.x = x0 + vx * t * 1100 * (1 - t);
         c.y = y0 - Math.sin(t * Math.PI) * h * 0.25 * up;
         c.rotation += 0.15;
-      });
+      }, () => (splashing = false));
     }
+  };
+  hotspot(kit, new Rectangle(px0, fy - 20, pw, h * 0.2), oneAtATime((done) => {
+    sfx.poof();
+    splash();
     later(1200, done, cleanups);
   }));
 
@@ -410,18 +428,25 @@ export function ninjaGym(kit: EggKit, cleanups: Cleanups) {
   // --- the salmon ladder: the bar jumps up rung by rung ---
   const lx0 = 1.62 * w + 10, lx1 = 1.69 * w - 10;
   const bar = new Graphics().rect(lx0 - 16, -5, lx1 - lx0 + 32, 10).fill(0xe5383b).stroke({ width: 2, color: INK });
-  const rungs: number[] = [];
-  for (let y = h * 0.2; y < fy - 10; y += h * 0.08) rungs.push(y);
-  bar.y = rungs[rungs.length - 1] - 8;
+  const steps: number[] = [];
+  for (let y = h * 0.2; y < fy - 10; y += h * 0.08) steps.push(y);
+  bar.y = steps[steps.length - 1] - 8;
   kit.under.addChild(bar);
+  const ladder = { x: (lx0 + lx1) / 2, x0: 1.6 * w, x1: 1.71 * w, rungs: steps, bar, busy: false };
   hotspot(kit, new Rectangle(1.6 * w, h * 0.12, 0.11 * w, fy - h * 0.12), oneAtATime((done) => {
-    let i = rungs.length - 1;
+    if (ladder.busy) return (sfx.clank(), done()); // someone's on it
+    ladder.busy = true;
+    const finish = () => {
+      ladder.busy = false;
+      done();
+    };
+    let i = steps.length - 1;
     const up = () => {
       if (i <= 0) {
-        later(500, () => tween(600, (t) => (bar.y = rungs[0] - 8 + (rungs[rungs.length - 1] - rungs[0]) * t), done), cleanups);
+        later(500, () => tween(600, (t) => (bar.y = steps[0] - 8 + (steps[steps.length - 1] - steps[0]) * t), finish), cleanups);
         return;
       }
-      const from = rungs[i] - 8, to = rungs[i - 1] - 8;
+      const from = steps[i] - 8, to = steps[i - 1] - 8;
       i--;
       tween(180, (t) => (bar.y = from + (to - from) * t - Math.sin(t * Math.PI) * 16), () => {
         sfx.clank();
@@ -430,4 +455,30 @@ export function ninjaGym(kit: EggKit, cleanups: Cleanups) {
     };
     up();
   }));
+
+  // --- and anyone can have a go on all of it ---
+  gymGoes(kit, cleanups, {
+    fy,
+    bars: { rungs, y: top + 14 },
+    wall: { x0: wx0, x1: wx1, x2: wx1 + 0.12 * w, top: wtop, ring },
+    ropes,
+    pit: { x0: px0, x1: px0 + pw, splash },
+    tramps: [1.06, 1.2].map((tx) => ({ x0: tx * w, x1: tx * w + 0.12 * w, y: fy + h * 0.07 })),
+    climb: {
+      x0: cw0,
+      x1: cw0 + cw,
+      top: ch0,
+      touch(x, y) {
+        let best = 0;
+        holds.forEach((p, i) => Math.hypot(p.x - x, p.y - y) < Math.hypot(holds[best].x - x, holds[best].y - y) && (best = i));
+        lit = best;
+        drawHolds();
+      },
+      untouch() {
+        lit = -1;
+        drawHolds();
+      },
+    },
+    ladder,
+  });
 }
