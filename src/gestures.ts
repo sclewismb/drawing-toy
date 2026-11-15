@@ -124,9 +124,37 @@ export class GestureController {
     stage.on('globalpointermove', this.move, this);
     stage.on('pointerup', this.up, this);
     stage.on('pointerupoutside', this.up, this);
-    stage.on('pointercancel', this.up, this);
+
+    // Pixi never passes on the browser's pointercancel. A phone sometimes
+    // takes fingers over in the middle of a pinch and cancels them instead of
+    // lifting them; then the pinched character stayed "held" for good and
+    // nothing could slide the room any more.
+    window.addEventListener('pointercancel', (e) => this.lift(e.pointerId, null, true), true);
+    // Safety net: when the screen says no fingers are touching at all, any
+    // finger still counted as down has gone without telling us.
+    const allUp = (e: TouchEvent) => {
+      if (e.touches.length > 0) return;
+      this.allUpAt = performance.now();
+      setTimeout(() => this.forgetStaleTouches(), 300);
+    };
+    window.addEventListener('touchend', allUp, { capture: true, passive: true });
+    window.addEventListener('touchcancel', allUp, { capture: true, passive: true });
+    // Fingers can't still be down after the app was put away.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) for (const id of [...this.pointers.keys()]) this.lift(id, null, true);
+    });
 
     app.canvas.addEventListener('wheel', (e) => this.wheel(e), { passive: false });
+  }
+
+  /** Touch fingers: when each went down. */
+  private touchDown = new Map<number, number>();
+  /** The last moment no finger at all was on the screen. */
+  private allUpAt = 0;
+
+  /** Let go of fingers that went down before the screen last said "no fingers". */
+  private forgetStaleTouches() {
+    for (const [id, t] of [...this.touchDown]) if (t < this.allUpAt) this.lift(id, null, true);
   }
 
   private static findCharacter(target: unknown): Character | null {
@@ -141,6 +169,10 @@ export class GestureController {
   private down(e: FederatedPointerEvent) {
     const id = e.pointerId;
     const pos = { x: e.global.x, y: e.global.y };
+    if (e.pointerType === 'touch') {
+      this.forgetStaleTouches();
+      this.touchDown.set(id, performance.now());
+    }
     this.pointers.set(id, pos);
     if (this.pointers.size === 1) touchState.panned = false;
     const onEgg = eggTouches.delete(id);
@@ -339,17 +371,26 @@ export class GestureController {
   }
 
   private up(e: FederatedPointerEvent) {
-    const id = e.pointerId;
-    const lastPos = this.pointers.get(id) ?? { x: e.global.x, y: e.global.y };
+    this.lift(e.pointerId, { x: e.global.x, y: e.global.y }, false);
+  }
+
+  /**
+   * A finger has gone: lifted, or (cancelled) taken away by the phone or the
+   * app being put away. A cancelled finger never counts as a tap or a throw.
+   */
+  private lift(id: number, at: Pt | null, cancelled: boolean) {
+    const known = this.pointers.get(id);
     this.pointers.delete(id);
+    this.touchDown.delete(id);
     eggTouches.delete(id);
+    const lastPos = known ?? at;
 
     const pan = this.pan;
     if (pan && pan.id === id) {
       this.pan = null;
       if (pan.moved) {
-        this.onPanEnd(performance.now() - pan.lastT < 80 ? pan.vx : 0);
-      } else if (!pan.egg) {
+        this.onPanEnd(!cancelled && performance.now() - pan.lastT < 80 ? pan.vx : 0);
+      } else if (!pan.egg && !cancelled) {
         // Tapping empty space: deselect (and a little sparkle).
         this.select(null);
         this.onTapEmpty(pan.start.x, pan.start.y);
@@ -366,10 +407,11 @@ export class GestureController {
       this.gestures.delete(ch);
       ch.setHeld(false);
       const quick = performance.now() - g.startT < TAP_MAX_MS;
-      if (!g.moved && !g.pinched && quick) this.onTap(ch);
+      if (!g.moved && !g.pinched && quick && !cancelled) this.onTap(ch);
       else if (g.moved && !g.pinched) {
-        const fresh = performance.now() - g.velT < 90; // still moving when it let go?
-        this.onDrop(ch, lastPos.x, lastPos.y, fresh ? g.vx : 0, fresh ? g.vy : 0);
+        const fresh = !cancelled && performance.now() - g.velT < 90; // still moving when it let go?
+        const p = lastPos ?? ch.getGlobalPosition();
+        this.onDrop(ch, p.x, p.y, fresh ? g.vx : 0, fresh ? g.vy : 0);
       }
       this.onGestureEnd(ch);
     } else {
