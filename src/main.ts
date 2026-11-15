@@ -93,6 +93,29 @@ for (const type of ['pointerdown', 'pointerup', 'touchend', 'click']) {
   document.addEventListener(type, unlockAudio, { capture: true, passive: true });
 }
 
+// --- Like an app in a browser tab too (the kids' Amazon tablet opens it in
+// its web browser): a touch makes it full screen, hiding the tabs and the
+// address bar. Not in the Home Screen app (already full screen), and only for
+// fingers, so a computer's browser is left alone.
+const asApp = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
+if (!asApp) {
+  document.addEventListener(
+    'pointerup',
+    (e) => {
+      const doc = document as Document & { webkitFullscreenElement?: Element };
+      if (e.pointerType !== 'touch' || doc.fullscreenElement || doc.webkitFullscreenElement) return;
+      const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
+      try {
+        if (el.requestFullscreen) void el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+        else el.webkitRequestFullscreen?.();
+      } catch {
+        // not allowed here: it just stays in the browser
+      }
+    },
+    { capture: true, passive: true },
+  );
+}
+
 /** Each character's "voice": bigger ones sound lower, with a little variety. */
 const voice = (ch: Character) =>
   Math.min(1.6, Math.max(0.6, Math.pow(ch.scale.x, -0.35))) * (0.92 + Math.random() * 0.18);
