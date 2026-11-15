@@ -4,6 +4,7 @@ import { sfx } from '../sound';
 import { ease, tween } from '../tween';
 import { everyFrame, glow, INK, later, oneAtATime, rand, roomSpan, tappable, tumble, type Cleanups, type EggKit } from './common';
 import type { StreetGeom } from './views';
+import { frontYardInflatables } from './inflatables';
 
 /**
  * Christmas (the winter season): fairy lights on every building, a big tree
@@ -123,6 +124,9 @@ export function christmasStreet(kit: EggKit, geom: StreetGeom, cleanups: Cleanup
       });
     }), new Rectangle(tx - ht * 0.35, ty - ht, ht * 0.7, ht));
   }
+
+  // --- Christmas inflatables on the front lawn of the family's house (see inflatables.ts) ---
+  frontYardInflatables(kit, geom, cleanups);
 
   // --- snowmen by the big trees at the front ---
   for (const tr of geom.trees.slice(0, 4)) {
