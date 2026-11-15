@@ -18,7 +18,16 @@ export interface DressRecipe {
   head: string;
   /** Anything behind them (long hair at the back), the same way. */
   back?: string;
+  /** Which version of the drawing style their picture was drawn with (see LOOK). */
+  look?: number;
 }
+
+/**
+ * The drawing style's version. Raise it when bodies or clothes are drawn
+ * differently: the app then redraws everyone's picture once (keeping what
+ * they're wearing). 2 = soft light, shading and texture (2026-11-15).
+ */
+export const LOOK = 2;
 
 /** The canvas everything is drawn on (the figure is 50 down from its top), and the part kept for the picture. */
 export const CANVAS = { w: 420, h: 980, top: 50 };
@@ -81,14 +90,9 @@ export function drawFull(d: DressRecipe, outfit: Outfit, layers: Layers): HTMLCa
     for (const g of list) g?.[stage]?.(c, P, dc);
     c.restore();
   };
-  // a soft shadow
-  c.save();
-  c.globalAlpha = 0.14;
-  c.beginPath();
-  c.ellipse(CX, 895 + CANVAS.top, P.kind === 'child' ? 96 : 116, 13, 0, 0, TAU);
-  c.fillStyle = '#000';
-  c.fill();
-  c.restore();
+  // a soft shadow on the ground, darker right under the feet
+  softBlob(c, CX, 895 + CANVAS.top, P.kid ? (P.kind === 'baby' ? 84 : 96) : 116, 15, 0.2);
+  for (const s of [-1, 1]) softBlob(c, CX + s * (P.legX + 6), 896 + CANVAS.top, P.legW * 0.9, 6, 0.22);
   each([w.back, w.costume, w.dress], 'back');
   if (layers.back) c.drawImage(layers.back, 0, 0);
   c.save();
@@ -102,12 +106,44 @@ export function drawFull(d: DressRecipe, outfit: Outfit, layers: Layers): HTMLCa
   each([w.top, w.dress, w.costume, w.back], 'outer');
   c.save();
   c.translate(0, CANVAS.top);
-  drawHands(c, P, w.costume?.hands ?? d.skin);
+  drawHands(c, P, w.costume?.hands ?? d.skin, !!w.costume?.hands);
   c.restore();
   each([w.neck, w.back], 'neck');
+  // the head's soft shadow on the neck and shoulders (only on what's drawn)
+  c.save();
+  c.globalCompositeOperation = 'source-atop';
+  softBlob(c, CX, P.chin + CANVAS.top + 14, P.hw * 1.05, P.hw * 0.42, 0.24);
+  c.restore();
   c.drawImage(layers.head, 0, 0);
   each([w.costume, w.dress, w.face, w.hat], 'front');
+  // light over the whole person: a little brighter up top, deeper down by the floor
+  c.save();
+  c.globalCompositeOperation = 'source-atop';
+  const g = c.createLinearGradient(0, CANVAS.top + P.top, 0, CANVAS.top + 900);
+  g.addColorStop(0, 'rgba(255,250,235,0.06)');
+  g.addColorStop(0.45, 'rgba(255,250,235,0)');
+  g.addColorStop(0.8, 'rgba(30,24,48,0)');
+  g.addColorStop(1, 'rgba(30,24,48,0.12)');
+  c.fillStyle = g;
+  c.fillRect(0, 0, CANVAS.w, CANVAS.h);
+  c.restore();
   return cv;
+}
+
+/** A soft-edged dark oval (a shadow), fading out from the middle. */
+function softBlob(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, alpha: number) {
+  c.save();
+  c.translate(x, y);
+  c.scale(1, ry / rx);
+  const g = c.createRadialGradient(0, 0, 0, 0, 0, rx);
+  g.addColorStop(0, `rgba(30,24,48,${alpha})`);
+  g.addColorStop(0.55, `rgba(30,24,48,${alpha * 0.6})`);
+  g.addColorStop(1, 'rgba(30,24,48,0)');
+  c.fillStyle = g;
+  c.beginPath();
+  c.arc(0, 0, rx, 0, TAU);
+  c.fill();
+  c.restore();
 }
 
 const padOf = (d: DressRecipe) => Math.round((CROP.h * d.pad) / (1 - d.pad));

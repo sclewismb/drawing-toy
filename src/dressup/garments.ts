@@ -12,6 +12,7 @@ import { SHOES } from './clothes/shoes';
 import { COSTUMES } from './clothes/costumes';
 import { HATS } from './clothes/hats';
 import { EXTRAS } from './clothes/extras';
+import { BABY } from './clothes/baby';
 export type { DrawCtx, Garment, Outfit, Slot } from './types';
 
 /**
@@ -19,7 +20,7 @@ export type { DrawCtx, Garment, Outfit, Slot } from './types';
  * first ones are here; the rest are in clothes/. Original designs only (no
  * logos or anyone's characters).
  */
-const kid = (P: Plan) => P.kind === 'child';
+const kid = (P: Plan) => P.kid;
 const between = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // ------------------------------------------------------------------ tops
@@ -479,7 +480,7 @@ const floral: Garment = {
 };
 
 // ------------------------------------------------------------------ shoes
-const feetOf = (P: Plan) => ({ k: kid(P) ? 0.84 : P.kind === 'woman' ? 0.92 : 1, top: P.ankle - 6 });
+const feetOf = (P: Plan) => ({ k: P.kind === 'baby' ? 0.74 : kid(P) ? 0.84 : P.kind === 'woman' ? 0.92 : 1, top: P.ankle - 6 });
 const trainers = (id: string, col: string, o: { stripe?: string; lace?: string; sole?: string; inside?: (x: number) => (p: Ctx) => void } = {}): Garment => ({
   id, slot: 'shoes',
   feet(c, P) {
@@ -692,6 +693,7 @@ export const GARMENTS: Garment[] = [
   wizardRobe, redCape, koalaOnesie, heroSuit, ...COSTUMES,
   ...HATS,
   scarfOf('scarf-blue', ['#2f5fa8', '#e9eef5']), scarfOf('scarf-red', ['#a8232f', '#e8b830']), scarfOf('scarf-green', ['#2e7d4f', '#eef1ec']), ...EXTRAS,
+  ...BABY,
 ];
 export const garment = (id: string | undefined) => (id ? GARMENTS.find((g) => g.id === id) : undefined);
 /** The tabs in the dress-up screen, in order. */

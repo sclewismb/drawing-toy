@@ -98,7 +98,7 @@ function onesie(id: string, col: string, belly: string, o: { ears: Ears; inner?:
 // ------------------------------------------------------------------ dressing-up outfits
 const boots = (c: Ctx, P: Plan, col: string, height = 100) => {
   for (const s of [-1, 1]) {
-    const x = CX + s * P.legX, k = P.kind === 'child' ? 0.84 : 1, M = (dx: number) => x + s * dx * k;
+    const x = CX + s * P.legX, k = P.kind === 'baby' ? 0.74 : P.kid ? 0.84 : 1, M = (dx: number) => x + s * dx * k;
     group(c, [limb([[x, 896 - height, P.legW + 8], [x, 870, P.legW + 4]]), (p) => {
       p.moveTo(M(-26), 858);
       p.lineTo(M(22), 858);

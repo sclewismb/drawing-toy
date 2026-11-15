@@ -23,7 +23,7 @@ import { BUILTIN, FLOOR, isNight, lookOutside, nightWindow, PLACES, placeById, p
 import { CRITTERS, DRAWN_FLY, DRAWN_HOP, DRAWN_WALK, Flyer, sayHellos, Wanderer } from './critters';
 import { MOTIONS } from './library';
 import { setupMaker, type MakerMode } from './maker';
-import { dressSpots, renderDressed, type DressRecipe } from './dressup/dress';
+import { dressSpots, LOOK, renderDressed, type DressRecipe } from './dressup/dress';
 import { setupDressup } from './dressup/screen';
 import { setupAdopt } from './adopt';
 import type { PetKind, PetRecipe } from './petArt';
@@ -164,6 +164,10 @@ const PEOPLE: Record<PersonRecipe['age'], CritterKind> = {
   little: { url: '', size: 0.75, gait: 'walk', speed: 0.08, trick: 'jump', voice: () => sfx.giggle(1.4) },
   older: { url: '', size: 0.95, gait: 'walk', speed: 0.045, trick: 'wave', voice: () => sfx.yippee(0.75) },
 };
+/** A baby (a dress-up person with a baby's shape): small, toddles slowly, bounces and giggles. */
+const BABY: CritterKind = { url: '', size: 0.56, gait: 'waddle', speed: 0.025, trick: 'jump', voice: () => sfx.giggle(1.9) };
+const personKind = (r: PersonRecipe): CritterKind =>
+  (r as { dress?: DressRecipe }).dress?.plan === 'baby' ? BABY : PEOPLE[r.age] ?? PEOPLE.big;
 
 /** An adopted pet's kind (and name), if this character is one. */
 function petOf(ch: Character): PetRecipe | null {
@@ -228,6 +232,13 @@ setupHouseSettings({
   savePlayers(p) {
     players = p;
     void storage.setSetting('players', p).catch(() => {});
+  },
+  // people who are already here keep what they're wearing (and get redrawn in it)
+  keepOutfit(c) {
+    const now = library.get(c.id)?.recipe as { dress?: DressRecipe } | undefined;
+    const incoming = c.recipe as { dress?: DressRecipe } | undefined;
+    if (c.made !== 'person' || !now?.dress || !incoming?.dress) return c;
+    return { ...c, recipe: { ...incoming, dress: { ...incoming.dress, outfit: now.dress.outfit, look: 0 } } };
   },
   // press and hold the house; with a master code set, it's asked for first
   open: (fn) => (street.onHouseHold = () => picker.grownUp(fn)),
@@ -1103,7 +1114,7 @@ function startMoving(ch: Character, justChanged = false) {
   const pet = petOf(ch);
   if (ch.ref.kind === 'sample' && CRITTERS[ch.ref.name]) brain = new Wanderer(ch, CRITTERS[ch.ref.name]);
   else if (pet && PETS[pet.kind]) brain = PETS[pet.kind].fly ? new Flyer(ch, PETS[pet.kind]) : new Wanderer(ch, PETS[pet.kind]);
-  else if (personOf(ch)) brain = new Wanderer(ch, PEOPLE[personOf(ch)!.age] ?? PEOPLE.big);
+  else if (personOf(ch)) brain = new Wanderer(ch, personKind(personOf(ch)!));
   else if (ch.ref.kind === 'photo') {
     const m = library.motion(ch.ref.id);
     if (m === 'walk') brain = new Wanderer(ch, DRAWN_WALK);
@@ -1202,13 +1213,13 @@ interface Placement {
 function sizeFor(ref: Ref) {
   const made = ref.kind === 'photo' ? library.get(ref.id)?.made : undefined;
   const petKind = made === 'pet' ? (library.get((ref as { id: string }).id)?.recipe as PetRecipe | undefined)?.kind : undefined;
-  const personAge = made === 'person' ? (library.get((ref as { id: string }).id)?.recipe as PersonRecipe | undefined)?.age : undefined;
+  const person = made === 'person' ? (library.get((ref as { id: string }).id)?.recipe as PersonRecipe | undefined) : undefined;
   return ref.kind === 'sample' ? (BUILTIN[ref.name]?.size ?? 1)
     : made === 'squishy' ? 0.5
     : made === 'bear' ? 0.7
     : made === 'glow' ? 0.45
     : petKind ? (PETS[petKind]?.size ?? 0.5)
-    : personAge ? (PEOPLE[personAge]?.size ?? 0.85)
+    : person ? personKind(person).size
     : 1;
 }
 
@@ -1607,6 +1618,30 @@ const adopt = setupAdopt({
 });
 
 // --- Dress-up (the wardrobe): people who can be dressed change their clothes (see dressup/) ---
+/**
+ * When the way people are drawn changes (dress.ts LOOK), redraw everyone who
+ * can be dressed, once, in what they're wearing now (quietly, after the app
+ * has opened; anyone already in the room changes straight away).
+ */
+async function redrawPeople() {
+  for (const e of [...library.entries]) {
+    const recipe = e.recipe as { dress?: DressRecipe } | undefined;
+    if (e.made !== 'person' || !recipe?.dress || recipe.dress.look === LOOK) continue;
+    try {
+      const next = { ...recipe, dress: { ...recipe.dress, look: LOOK } };
+      const picture = await renderDressed(next.dress);
+      await library.update(e.id, picture, next);
+      for (const ch of characters.children as Character[]) {
+        if (!ch.destroyed && ch.ref.kind === 'photo' && ch.ref.id === e.id) ch.setPicture(picture);
+      }
+    } catch (err) {
+      console.warn('Could not redraw', e.id, err);
+    }
+    await new Promise((r) => setTimeout(r, 30)); // (let the app breathe between people)
+  }
+}
+setTimeout(() => void redrawPeople(), 2500);
+
 const dressup = setupDressup({
   people: () =>
     library
@@ -1617,7 +1652,7 @@ const dressup = setupDressup({
     const e = library.get(id);
     const recipe = e?.recipe as { dress?: DressRecipe } | undefined;
     if (!e || !recipe?.dress) return;
-    const next = { ...recipe, dress: { ...recipe.dress, outfit } };
+    const next = { ...recipe, dress: { ...recipe.dress, outfit, look: LOOK } };
     const picture = await renderDressed(next.dress);
     await library.update(id, picture, next);
     // everyone here who's them changes too, with a twirl

@@ -1,7 +1,7 @@
 import { makeBackup, readBackup, sendBackup } from './backup';
 import type { RoomId } from './places';
 import { isCode, PLAYER_IDS, type PlayerId, type Players } from './players';
-import { storage } from './storage';
+import { storage, type StoredCharacter } from './storage';
 
 export interface HouseSettings {
   /** The house number painted on the house. */
@@ -22,6 +22,8 @@ export function setupHouseSettings(opts: {
   getPlayers: () => Players;
   savePlayers: (p: Players) => void;
   open: (fn: () => void) => void;
+  /** A drawing in a backup that's about to replace one here (a dressed-up person keeps their clothes). */
+  keepOutfit?: (c: StoredCharacter) => StoredCharacter;
 }) {
   const dialog = document.getElementById('house-settings') as HTMLDialogElement;
   const form = dialog.querySelector('form')!;
@@ -67,7 +69,7 @@ export function setupHouseSettings(opts: {
       const b = await readBackup(file);
       const when = b.made.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
       if (!confirm(`Put back the backup from ${when} (${b.drawings} drawing${b.drawings === 1 ? '' : 's'})? Drawings, worlds and settings in it replace the ones here with the same name.`)) return;
-      await storage.restoreAll(b.all);
+      await storage.restoreAll(opts.keepOutfit ? { ...b.all, characters: b.all.characters.map(opts.keepOutfit) } : b.all);
       say('Backup put back. Opening it now...');
       setTimeout(() => location.reload(), 800);
     } catch (err) {

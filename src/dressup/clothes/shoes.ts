@@ -2,7 +2,7 @@ import { blob, CX, group, limb, sh, shape, sockFoot, stroke, TAU, trainer, type 
 import type { Garment } from '../types';
 
 /** More shoes: wellies (one pair with frog eyes), cowboy boots, ballet slippers, flip-flops, bunny slippers, party shoes, skates... */
-const kOf = (P: Plan) => (P.kind === 'child' ? 0.84 : P.kind === 'woman' ? 0.92 : 1);
+const kOf = (P: Plan) => (P.kind === 'baby' ? 0.74 : P.kid ? 0.84 : P.kind === 'woman' ? 0.92 : 1);
 const both = (P: Plan, fn: (x: number, s: number, k: number, M: (dx: number) => number) => void) => {
   for (const s of [-1, 1]) {
     const x = CX + s * P.legX, k = kOf(P);

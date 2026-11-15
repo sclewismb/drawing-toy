@@ -271,7 +271,7 @@ const BACK: Garment[] = [
       for (const s of [-1, 1]) {
         const x = CX + s * (P.sh + 14), top = P.sy - 74, bottom = P.waist + 16;
         // long flames, flaring out a little so they show below the hands
-        const tipX = x + s * 16, tipY = bottom + (P.kind === 'child' ? 110 : 160);
+        const tipX = x + s * 16, tipY = bottom + (P.kind === 'baby' ? 70 : P.kid ? 110 : 160);
         shape(c, (p) => {
           p.moveTo(x - 18, bottom - 4);
           p.quadraticCurveTo(x - 10 + s * 6, (bottom + tipY) / 2, tipX, tipY);

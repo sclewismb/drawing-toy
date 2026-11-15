@@ -4,7 +4,7 @@ import type { Garment } from '../types';
 
 /** Tops: T-shirts in every colour with little prints, stripes, shirts, cardigans, a jacket, jumpers and hoodies. */
 type Print = (c: Ctx, P: Plan) => void;
-const chest = (P: Plan) => ({ x: CX, y: P.sy + (P.kind === 'child' ? 104 : 116), k: P.kind === 'child' ? 1 : 1.15 });
+const chest = (P: Plan) => ({ x: CX, y: P.sy + (P.kid ? 104 : 116), k: P.kid ? 1 : 1.15 });
 
 // ------------------------------------------------------------------ prints (all original)
 const heart = (col: string): Print => (c, P) => {
@@ -276,7 +276,7 @@ function hoodie(id: string, col: string, o: { print?: Print; zip?: string } = {}
         folds(p, [[CX - P.sh + 24, P.sy + 120, CX - P.sh + 44, P.sy + 190, 6], [CX + P.sh - 24, P.sy + 120, CX + P.sh - 44, P.sy + 190, -6]], sh(col, -0.22));
       } });
       for (const pts of arms) cuff(c, pts, sh(col, -0.08), 12, 20);
-      shape(c, (p) => p.roundRect(CX - P.sh * 0.6, hem - (P.kind === 'child' ? 90 : 110), P.sh * 1.2, P.kind === 'child' ? 60 : 70, 14), sh(col, -0.05), { cel: [4, 3, -0.12], line: 4.5 });
+      shape(c, (p) => p.roundRect(CX - P.sh * 0.6, hem - (P.kid ? 90 : 110), P.sh * 1.2, P.kid ? 60 : 70, 14), sh(col, -0.05), { cel: [4, 3, -0.12], line: 4.5 });
       if (o.zip) {
         stroke(c, line([[CX, P.sy + 6], [CX, hem]]), 8, INK);
         stroke(c, line([[CX, P.sy + 6], [CX, hem]]), 4, o.zip);

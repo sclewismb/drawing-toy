@@ -25,6 +25,135 @@ export const sh = (hex: string, amt: number) => {
   return `rgb(${ch[0]},${ch[1]},${ch[2]})`;
 };
 
+// ------------------------------------------------------------------ soft light
+// Light comes from the top left, as in the rooms (roomLook.ts): each lit part
+// gets a soft glow on its top left, a soft shade towards its bottom right, a
+// thin rim of light along the edges that face the light, and a soft core
+// shadow along the edges that face away (cool on cloth, warm on skin).
+
+type Box = { x0: number; y0: number; x1: number; y1: number };
+/** Rough bounds of a path, from its points and control points (no drawing). */
+export function boundsOf(fns: PathFn[]): Box | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const add = (x: number, y: number) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  };
+  const pts = (...a: number[]) => {
+    for (let i = 0; i + 1 < a.length; i += 2) add(a[i], a[i + 1]);
+  };
+  const round = (x: number, y: number, rx: number, ry = rx) => {
+    add(x - rx, y - ry);
+    add(x + rx, y + ry);
+  };
+  const rec: Record<string, unknown> = {
+    moveTo: pts, lineTo: pts, quadraticCurveTo: pts, bezierCurveTo: pts, arcTo: (a: number, b: number, x: number, y: number) => pts(a, b, x, y),
+    arc: (x: number, y: number, r: number) => round(x, y, r),
+    ellipse: (x: number, y: number, rx: number, ry: number) => round(x, y, Math.max(rx, ry)),
+    rect: (x: number, y: number, w: number, h: number) => pts(x, y, x + w, y + h),
+    roundRect: (x: number, y: number, w: number, h: number) => pts(x, y, x + w, y + h),
+  };
+  const fake = new Proxy(rec, { get: (t, k) => (k in t ? t[k as string] : () => {}) }) as unknown as Ctx;
+  try {
+    for (const fn of fns) fn(fake);
+  } catch {
+    return null;
+  }
+  return x1 > x0 && y1 > y0 ? { x0, y0, x1, y1 } : null;
+}
+
+let skinNow = 0;
+/** Draw bare skin (its shade is warmer than cloth's). */
+export function bare(f: () => void) {
+  skinNow++;
+  try {
+    f();
+  } finally {
+    skinNow--;
+  }
+}
+/** The colour of the soft shade: cool on cloth, warm on skin (and hair). */
+const shadeOf = (cloth: boolean) => (cloth ? '30,24,48' : '120,46,40');
+/** Just outside these parts (to keep a part's edge light off the parts it's joined to). */
+function clipOutside(c: Ctx, fns: PathFn[]) {
+  for (const fn of fns) {
+    c.beginPath();
+    c.rect(-2000, -2000, 5000, 5000);
+    fn(c);
+    c.clip('evenodd');
+  }
+}
+/** The soft glow and shade over the parts (call clipped to them). */
+function glowAndShade(c: Ctx, b: Box, cloth: boolean, strength = 1) {
+  const shade = shadeOf(cloth);
+  const g = c.createLinearGradient(b.x0, b.y0, b.x1, b.y1);
+  g.addColorStop(0, `rgba(255,255,255,${0.24 * strength})`);
+  g.addColorStop(0.38, 'rgba(255,255,255,0)');
+  g.addColorStop(0.58, `rgba(${shade},0)`);
+  g.addColorStop(1, `rgba(${shade},${(cloth ? 0.2 : 0.16) * strength})`);
+  c.fillStyle = g;
+  c.fillRect(b.x0 - 4, b.y0 - 4, b.x1 - b.x0 + 8, b.y1 - b.y0 + 8);
+}
+/** Light along the edges that face the light, a soft shadow along the ones that don't (call clipped to the part). */
+function edges(c: Ctx, fn: PathFn, b: Box, strength = 1, cloth = true) {
+  const shade = shadeOf(cloth);
+  const size = Math.min(b.x1 - b.x0, b.y1 - b.y0);
+  if (size < 10) return;
+  const d = Math.min(4, size * 0.12);
+  const along = (dx: number, dy: number, w: number, col: string) => {
+    c.save();
+    c.translate(dx, dy);
+    c.beginPath();
+    fn(c);
+    c.restore();
+    c.lineWidth = w;
+    c.strokeStyle = col;
+    c.lineJoin = 'round';
+    c.stroke();
+  };
+  along(d, d, Math.min(6, size * 0.2), `rgba(255,255,255,${0.3 * strength})`);
+  if (size > 26) {
+    along(-d * 2.4, -d * 2.4, Math.min(18, size * 0.45), `rgba(${shade},${0.07 * strength})`);
+    along(-d * 1.2, -d * 1.2, Math.min(8, size * 0.25), `rgba(${shade},${0.07 * strength})`);
+  }
+}
+/** Soft light over one part (call clipped to it). */
+export function softLight(c: Ctx, fn: PathFn, o: { cloth?: boolean; strength?: number } = {}) {
+  const b = boundsOf([fn]);
+  if (!b) return;
+  const k = o.strength ?? 1, cloth = o.cloth ?? skinNow === 0;
+  c.save();
+  glowAndShade(c, b, cloth, k);
+  edges(c, fn, b, k, cloth);
+  c.restore();
+}
+/** Soft light over several parts drawn as one: one glow across the lot, and each part's edges only where no other part covers them. */
+export function softLightGroup(c: Ctx, fns: PathFn[], o: { cloth?: boolean; strength?: number } = {}) {
+  const b = boundsOf(fns);
+  if (!b) return;
+  const k = o.strength ?? 1, cloth = o.cloth ?? skinNow === 0;
+  fns.forEach((fn, i) => {
+    c.save();
+    c.beginPath();
+    fn(c);
+    c.clip();
+    clipOutside(c, fns.slice(0, i)); // the glow once only where parts overlap
+    glowAndShade(c, b, cloth, k);
+    c.restore();
+    c.save();
+    c.beginPath();
+    fn(c);
+    c.clip();
+    clipOutside(c, fns.filter((_, j) => j !== i));
+    const own = boundsOf([fn]);
+    if (own) edges(c, fn, own, k, cloth);
+    c.restore();
+  });
+}
+
 export interface ShapeOpts {
   /** A cel shadow: the part shifted by (dx, dy) shows the lit colour; the rest is darker by `amount`. */
   cel?: [number, number, number?];
@@ -52,6 +181,7 @@ export function shape(c: Ctx, fn: PathFn, fill: string, o: ShapeOpts = {}) {
       c.restore();
     }
     o.inside?.(c);
+    if (o.cel) softLight(c, fn);
     c.restore();
   }
   if (o.line !== 0) {
@@ -105,6 +235,7 @@ export function group(c: Ctx, fns: PathFn[], fill: string, cel: [number, number,
       c.restore();
     }
   }
+  softLightGroup(c, fns);
 }
 export function stroke(c: Ctx, fn: PathFn, w: number, col: string, alpha = 1) {
   c.save();
@@ -172,30 +303,40 @@ export function knit(p: Ctx, top: number, bottom: number, alpha = 0.06) {
 }
 
 // ------------------------------------------------------------------ body plans
-export type PlanKind = 'man' | 'woman' | 'child';
+export type PlanKind = 'man' | 'woman' | 'child' | 'baby';
 export interface Plan {
   kind: PlanKind;
+  /** A child or a baby (smaller hands and feet, shorter scarves). */
+  kid: boolean;
   top: number; chin: number; hw: number; neckW: number; sy: number; sh: number; hem: number; waist: number;
   crotch: number; knee: number; ankle: number; legX: number; legW: number; armW: number; k: number;
   hh: number; eyeY: number; eyeX: number; eyeW: number; browY: number; noseY: number; mouthY: number; earY: number;
 }
-/** Where everything goes, for a grown man, a woman, and a child (a child is drawn to fill the picture too: the app makes children smaller). */
+/**
+ * Where everything goes, for a grown man, a woman, a child and a baby (a
+ * child or a baby is drawn to fill the picture too: the app makes them
+ * smaller). A baby has a big round head, almost no neck, a round tummy and
+ * short chubby arms and legs.
+ */
 export function plan(kind: PlanKind): Plan {
   const b =
-    kind === 'child'
+    kind === 'baby'
+      ? { top: 70, chin: 356, hw: 124, neckW: 30, sy: 372, sh: 96, hem: 650, waist: 640, crotch: 716, knee: 800, ankle: 860, legX: 47, legW: 64, armW: 50, k: 0.78 }
+      : kind === 'child'
       ? { top: 70, chin: 300, hw: 92, neckW: 22, sy: 332, sh: 80, hem: 596, waist: 590, crotch: 682, knee: 772, ankle: 852, legX: 35, legW: 44, armW: 38, k: 0.86 }
       : kind === 'woman'
         ? { top: 58, chin: 236, hw: 68, neckW: 23, sy: 256, sh: 86, hem: 520, waist: 500, crotch: 636, knee: 728, ankle: 846, legX: 38, legW: 50, armW: 40, k: 0.92 }
         : { top: 48, chin: 236, hw: 74, neckW: 27, sy: 264, sh: 98, hem: 522, waist: 500, crotch: 640, knee: 728, ankle: 846, legX: 45, legW: 58, armW: 46, k: 1 };
   const hh = b.chin - b.top;
-  const eyeY = b.top + hh * (kind === 'child' ? 0.56 : 0.52);
-  const eyeX = b.hw * (kind === 'child' ? 0.4 : 0.42);
+  const baby = kind === 'baby', kid = baby || kind === 'child';
+  const eyeY = b.top + hh * (baby ? 0.58 : kid ? 0.56 : 0.52);
+  const eyeX = b.hw * (baby ? 0.38 : kid ? 0.4 : 0.42);
   return {
-    kind, ...b, hh, eyeY, eyeX,
-    eyeW: b.hw * (kind === 'child' ? 0.25 : 0.235),
+    kind, kid, ...b, hh, eyeY, eyeX,
+    eyeW: b.hw * (baby ? 0.22 : kid ? 0.25 : 0.235),
     browY: eyeY - b.hw * 0.37,
-    noseY: b.top + hh * 0.72,
-    mouthY: b.top + hh * (kind === 'child' ? 0.84 : 0.83),
+    noseY: b.top + hh * (baby ? 0.71 : 0.72),
+    mouthY: b.top + hh * (baby ? 0.83 : kid ? 0.84 : 0.83),
     earY: eyeY + hh * 0.05,
   };
 }
@@ -203,6 +344,7 @@ export const headCY = (P: Plan) => P.top + P.hh * 0.5;
 /** Arms hanging at the sides: shoulder to wrist. */
 export function hangPts(P: Plan, s: number): Pt3[] {
   const x = (dx: number) => CX + s * dx;
+  if (P.kind === 'baby') return [[x(P.sh - 8), P.sy + 24, P.armW + 4], [x(P.sh + 6), P.sy + 74, P.armW + 2], [x(P.sh + 16), P.sy + 124, P.armW - 2], [x(P.sh + 24), P.sy + 168, P.armW - 6], [x(P.sh + 26), P.sy + 190, P.armW - 8]];
   if (P.kind === 'child') return [[x(P.sh - 6), P.sy + 22, P.armW + 2], [x(P.sh + 3), P.sy + 84, P.armW - 1], [x(P.sh + 9), P.sy + 152, P.armW - 4], [x(P.sh + 12), P.sy + 218, P.armW - 6], [x(P.sh + 12), P.sy + 256, P.armW - 8]];
   return [[x(P.sh - 6), P.sy + 24, P.armW + 2], [x(P.sh + 4), P.sy + 92, P.armW], [x(P.sh + 11), P.sy + 172, P.armW - 4], [x(P.sh + 15), P.sy + 242, P.armW - 8], [x(P.sh + 15), P.sy + 290, P.armW - 11]];
 }
@@ -285,7 +427,7 @@ export function hangHand(c: Ctx, x: number, y: number, s: number, skin: string, 
 export const legPts = (P: Plan, s: number): Pt3[] => [[CX + s * P.legX, P.waist + 10, P.legW + 6], [CX + s * P.legX, P.knee, P.legW - 2], [CX + s * P.legX, P.ankle + 4, P.legW - 14]];
 /** A bare foot (under the shoes), toe out to the side `s`. */
 export function bareFoot(c: Ctx, P: Plan, s: number, skin: string) {
-  const x = CX + s * P.legX, k = P.kind === 'child' ? 0.85 : 1, M = (dx: number) => x + s * dx * k;
+  const x = CX + s * P.legX, k = P.kind === 'baby' ? 0.74 : P.kid ? 0.85 : 1, M = (dx: number) => x + s * dx * k;
   shape(c, (p) => {
     p.moveTo(M(-14), P.ankle - 8);
     p.lineTo(M(14), P.ankle - 8);
@@ -304,6 +446,9 @@ export function bareFoot(c: Ctx, P: Plan, s: number, skin: string) {
 }
 /** The skin underneath: legs and bare feet, the body and arms in one, the neck (the hands come later, over the sleeves). */
 export function drawSkin(c: Ctx, P: Plan, skin: string) {
+  bare(() => skinParts(c, P, skin));
+}
+function skinParts(c: Ctx, P: Plan, skin: string) {
   group(c, [limb(legPts(P, -1)), limb(legPts(P, 1))], skin, [7, 0, -0.15]);
   for (const s of [-1, 1]) {
     const [x, y] = legPts(P, s)[1];
@@ -324,8 +469,12 @@ export function drawSkin(c: Ctx, P: Plan, skin: string) {
   }
   neck(c, P, skin);
 }
-export function drawHands(c: Ctx, P: Plan, col: string) {
-  for (const s of [-1, 1]) hangHand(c, ...handAt(hangPts(P, s)), s, col, P.k * (P.kind === 'man' ? 1.05 : 1));
+export function drawHands(c: Ctx, P: Plan, col: string, gloves = false) {
+  const draw = () => {
+    for (const s of [-1, 1]) hangHand(c, ...handAt(hangPts(P, s)), s, col, P.k * (P.kind === 'man' ? 1.05 : 1));
+  };
+  if (gloves) draw();
+  else bare(draw);
 }
 export function neck(c: Ctx, P: Plan, skin: string) {
   shape(c, (p) => {
@@ -353,7 +502,7 @@ export function neckline(c: Ctx, P: Plan, col: string, w = 5, dip = 20, wide = 8
 /** Trousers: from the waist to `hem` (the ankle for long ones), with the gap between the legs. */
 export function trousers(c: Ctx, P: Plan, col: string, o: { hem?: number; top?: number; wide?: number; hips?: number; dark?: number; inside?: (p: Ctx, t: { out0: number; outK: number; inn: number; hem: number; top: number }) => void } = {}) {
   const hem = o.hem ?? P.ankle, top = o.top ?? P.waist, wide = o.wide ?? 0;
-  const out0 = P.sh - (P.kind === 'child' ? 8 : 6) + (o.hips ?? 0), outK = P.legX + P.legW * 0.55 + wide, inn = P.legX - P.legW * 0.5 - wide * 0.3;
+  const out0 = P.sh - (P.kid ? 8 : 6) + (o.hips ?? 0), outK = P.legX + P.legW * 0.55 + wide, inn = P.legX - P.legW * 0.5 - wide * 0.3;
   const kneeY = Math.min(P.knee, hem - 10);
   const path: PathFn = (p) => {
     p.moveTo(CX - out0, top);
@@ -446,7 +595,7 @@ export function sockFoot(c: Ctx, x: number, s: number, col: string, o: { k?: num
 // ------------------------------------------------------------------ robes, scarves, hoods
 /** A long wizard's robe, open down the front. */
 export function robe(c: Ctx, P: Plan, col: string) {
-  const hem = P.ankle + 8, gap = P.kind === 'child' ? 24 : 30;
+  const hem = P.ankle + 8, gap = P.kid ? 24 : 30;
   for (const s of [-1, 1]) {
     const X = (dx: number) => CX + s * dx;
     shape(c, (p) => {
@@ -487,8 +636,8 @@ export function robeHood(c: Ctx, P: Plan, col: string) {
 }
 /** A long striped scarf: round the neck, the two ends hanging down the front. */
 export function scarf(c: Ctx, P: Plan, cols: string[]) {
-  const y = P.sy - 8, stripe = 30, gap = 34, wd = P.kind === 'child' ? 40 : 46;
-  const lenL = P.kind === 'child' ? 240 : 300, lenR = P.kind === 'child' ? 200 : 250;
+  const y = P.sy - 8, stripe = 30, gap = 34, wd = P.kid ? 40 : 46;
+  const lenL = P.kind === 'baby' ? 170 : P.kid ? 240 : 300, lenR = P.kind === 'baby' ? 140 : P.kid ? 200 : 250;
   const stripes = (p: Ctx, horizontal = true) => {
     for (let i = -4; i < 30; i++) {
       p.fillStyle = cols[((i % cols.length) + cols.length) % cols.length];
