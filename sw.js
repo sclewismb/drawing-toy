@@ -13,7 +13,7 @@ const CACHE = 'drawing-toy-v3'; // bump to refresh saved pictures and icons that
 // Filled in with a new value by every build (vite.config.ts), so each deploy
 // changes this file. That's how an open app notices there's a new version:
 // the browser only installs a new service worker when this file changes.
-const BUILD = '2026-11-15T18:50:09.078Z';
+const BUILD = '2026-11-15T19:19:45.896Z';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
