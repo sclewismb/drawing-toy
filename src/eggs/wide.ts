@@ -2,6 +2,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import { burst } from '../fx';
 import { windowView } from '../places';
 import { PALETTE } from '../seasons';
+import { gradient, shadeBox } from '../roomLook';
 import { fireWideEggs, parkWideEggs, policeWideEggs, schoolWideEggs } from './townWide';
 import { sfx } from '../sound';
 import { ease, tween } from '../tween';
@@ -31,6 +32,8 @@ interface DoorOptions {
   window?: boolean;
   /** A dark towel hanging over the top. */
   towel?: boolean;
+  /** Lit and shaded, with sunken panels (the bedrooms: see roomLook.ts). */
+  soft?: boolean;
 }
 
 /** A door that swings open when tapped (and shut again on the next tap). */
@@ -142,22 +145,40 @@ function wardrobeCloset(kit: EggKit, cleanups: Cleanups, o: Omit<DoorOptions, 'o
 function drawLeaf(g: Graphics, w: number, h: number, dir: 1 | -1, o: DoorOptions) {
   const x0 = dir > 0 ? 0 : -w;
   g.rect(x0, 0, w, h).fill(0xfbfbfb).stroke({ width: 3, color: INK });
+  if (o.soft) {
+    // lit from the room: a little shade towards the hinges and the bottom
+    g.rect(x0, 0, w, h).fill(gradient('down', [[0, 'rgba(255,255,255,0)'], [0.75, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.08)']]));
+    g.rect(dir > 0 ? x0 : x0 + w * 0.78, 0, w * 0.22, h).fill(gradient(dir > 0 ? 'right' : 'left', [[0, 'rgba(0,0,0,0.09)'], [1, 'rgba(0,0,0,0)']]));
+  }
   const px = x0 + w * 0.15, pw = w * 0.7;
+  /** A panel set into the door: shadow along its top and left, light along its bottom and right. */
+  const panel = (y: number, ph: number) => {
+    if (!o.soft) return void g.roundRect(px, y, pw, ph, 4).stroke({ width: 3, color: 0xd5d9de });
+    g.roundRect(px, y, pw, ph, 4).fill(gradient('down', [[0, 'rgba(0,0,0,0.05)'], [1, 'rgba(255,255,255,0.05)']]));
+    g.moveTo(px, y + ph).lineTo(px, y).lineTo(px + pw, y).stroke({ width: 3, color: 0xc9ced4 });
+    g.moveTo(px + pw, y).lineTo(px + pw, y + ph).lineTo(px, y + ph).stroke({ width: 3, color: 0xffffff });
+  };
   if (o.window) {
     g.rect(px, h * 0.06, pw, h * 0.3).fill(0xf4f4f4).stroke({ width: 3, color: 0xadb5bd });
     for (let y = h * 0.06 + 8; y < h * 0.36 - 6; y += 14) g.rect(px + 4, y, pw - 8, 6).fill(0xc9cdd2);
   } else {
-    g.roundRect(px, h * 0.06, pw, h * 0.38, 4).stroke({ width: 3, color: 0xd5d9de });
+    panel(h * 0.06, h * 0.38);
   }
-  g.roundRect(px, h * 0.54, pw, h * 0.4, 4).stroke({ width: 3, color: 0xd5d9de });
+  panel(h * 0.54, h * 0.4);
   // handle on the side away from the hinges
   const hx = dir > 0 ? w * 0.88 : -w * 0.88;
   g.circle(hx, h * 0.52, 7).fill(0xadb5bd).stroke({ width: 2, color: INK });
   g.roundRect(dir > 0 ? hx - 18 : hx, h * 0.52 - 3, 18, 6, 3).fill(0x8d99ae);
+  if (o.soft) g.circle(hx - 2, h * 0.52 - 2.5, 2.2).fill({ color: 0xffffff, alpha: 0.9 }); // a shine on the handle
   if (o.towel) {
     const tx = dir > 0 ? w * 0.18 : -w * 0.6;
     g.roundRect(tx, -10, w * 0.42, h * 0.55, 6).fill(0x1f1f1f).stroke({ width: 2, color: 0x000000 });
     g.moveTo(tx + 6, h * 0.12).lineTo(tx + w * 0.42 - 6, h * 0.12).stroke({ width: 2, color: 0x3a3a3a });
+    if (o.soft) {
+      // soft folds in the towel
+      g.roundRect(tx, -10, w * 0.42, h * 0.55, 6).fill(gradient('right', [[0, 'rgba(255,255,255,0.1)'], [0.5, 'rgba(255,255,255,0)'], [1, 'rgba(0,0,0,0.25)']]));
+      for (const k of [0.3, 0.62]) g.moveTo(tx + w * 0.42 * k, h * 0.14).lineTo(tx + w * 0.42 * k + 2, h * 0.52).stroke({ width: 2, color: 0x2e2e2e });
+    }
   }
 }
 
@@ -356,6 +377,7 @@ export function bedroomAWide(kit: EggKit, cleanups: Cleanups) {
   wardrobeCloset(kit, cleanups, {
     ...cl,
     hinge: 'left',
+    soft: true,
     inside: closet([0xe5383b, 0x4ea8ff, 0x52b788, 0xffd166]),
     wait: 1300,
     surprise(layer) {
@@ -513,11 +535,12 @@ export function bedroomAWide(kit: EggKit, cleanups: Cleanups) {
 
   // --- right: the bedroom door (a puppy says hello) and another closet ---
   const door = { x: 1.08 * w, y: h * 0.09, w: 0.18 * w, h: fy - h * 0.09 };
-  swingDoor(kit, { ...door, hinge: 'right', towel: true, inside: hallway, onOpen: puppyVisit(door) });
+  swingDoor(kit, { ...door, hinge: 'right', towel: true, soft: true, inside: hallway, onOpen: puppyVisit(door) });
   const cl2 = { x: 1.38 * w, y: h * 0.09, w: 0.18 * w, h: fy - h * 0.09 };
   wardrobeCloset(kit, cleanups, {
     ...cl2,
     hinge: 'right',
+    soft: true,
     inside: closet([0x264653, 0x6c757d, 0x2a9d8f, 0xe76f51]),
     wait: 2000,
     surprise(layer) {
@@ -567,6 +590,7 @@ export function bedroomBWide(kit: EggKit, cleanups: Cleanups) {
   wardrobeCloset(kit, cleanups, {
     ...cl,
     hinge: 'both',
+    soft: true,
     inside: closet([0xff8fb1, 0xc3b1ff, 0x7fdde0, 0xffd166, 0xb07de8]),
     wait: 1400,
     surprise(layer) {
@@ -622,7 +646,9 @@ export function bedroomBWide(kit: EggKit, cleanups: Cleanups) {
         front.clear();
         if (open > 0) front.rect(x0 + 3, y0, ww - 6, drop).fill(0x6d6875);
         front.rect(x0, y0 + drop, ww, hh).fill(0xffffff).stroke({ width: 2, color: INK });
+        shadeBox(front, x0, y0 + drop, ww, hh);
         front.circle(x0 + ww / 2, y0 + drop + hh / 2, 5).fill(0xadb5bd).stroke({ width: 1.5, color: INK });
+        front.circle(x0 + ww / 2 - 1.5, y0 + drop + hh / 2 - 1.5, 1.6).fill({ color: 0xffffff, alpha: 0.9 });
       };
       draw();
       kit.under.addChild(front);
@@ -697,7 +723,7 @@ export function bedroomBWide(kit: EggKit, cleanups: Cleanups) {
 
   // --- the bedroom door (a puppy says hello) ---
   const door = { x: 1.44 * w, y: h * 0.1, w: 0.18 * w, h: fy - h * 0.1 };
-  swingDoor(kit, { ...door, hinge: 'right', towel: true, inside: hallway, onOpen: puppyVisit(door) });
+  swingDoor(kit, { ...door, hinge: 'right', towel: true, soft: true, inside: hallway, onOpen: puppyVisit(door) });
 
   // --- the spotty dressing gown on its hook: swish... rawr! ---
   const gown = new Container();

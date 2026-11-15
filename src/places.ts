@@ -10,6 +10,7 @@ import { CRITTERS } from './critters';
 import { TREASURES } from './secrets';
 import type { SkyDef } from './sky';
 import { hillDots, PALETTE, type Season } from './seasons';
+import { edgeHighlight, floorShadow, fluffyRug, glint, gradient, hangShadow, lightPool, litCarpet, litWall, shadeBox, skirting, softCorner } from './roomLook';
 
 /**
  * Built-in pictures: the sample characters and every place's toys.
@@ -427,7 +428,9 @@ export const PLACES: PlaceDef[] = [
       { name: 'ball', x: 0.4, y: 0.9 },
     ],
     drawBackdrop(g, w, h) {
+      // (lit and textured: see roomLook.ts; the sunbeam through the window is in eggs/bedrooms.ts, so it goes with the blind)
       const floor = 0.74;
+      const night = isNight();
       g.rect(0, 0, w, h * floor).fill(0xe4e6ea);
       // the painted feature wall
       const x0 = w * 0.48, fy = h * floor;
@@ -435,30 +438,47 @@ export const PLACES: PlaceDef[] = [
       g.poly([w * 0.62, 0, w, 0, w * 0.56, fy]).fill(0xfbfbfb);
       g.poly([w, 0, w, fy, w * 0.56, fy]).fill(0x9fd8e8);
       g.moveTo(w * 0.62, 0).lineTo(w * 0.56, fy).moveTo(w, 0).lineTo(w * 0.56, fy).stroke({ width: 6, color: 0xffffff });
-      g.moveTo(x0, 0).lineTo(x0, fy).stroke({ width: 3, color: 0xc9cdd2 });
+      litWall(g, 0, w, fy);
+      softCorner(g, x0, fy, w * 0.035);
+      // the ceiling light's warm glow on the walls
+      lightPool(g, w * 0.3, h * 0.02, w * 0.26, h * 0.34, '255,244,214', 0.3);
       // grey carpet
-      g.rect(0, fy, w, h - fy).fill(0x5f5a57);
-      g.rect(0, fy - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+      litCarpet(g, 0, w, fy, h, 0x5f5a57);
+      skirting(g, 0, w, fy);
       // ceiling light
       g.ellipse(w * 0.3, 0, w * 0.07, h * 0.04).fill(0xdee2e6).stroke({ width: 4, color: INK });
       g.ellipse(w * 0.3, 0, w * 0.045, h * 0.022).fill(0xf8f9fa);
       // window (the blackout blind is drawn over it, so it can roll up) and a spotty valance
       const wx = w * 0.15, wy = h * 0.16, ww = w * 0.24, wh = h * 0.34;
+      lightPool(g, wx + ww / 2, wy + wh / 2, ww * 1.15, wh * 0.95, night ? '170,190,240' : '255,250,235', night ? 0.18 : 0.32);
       windowView(g, wx, wy, ww, wh);
+      // the wall's thickness round the glass: in shadow along the top and down one side
+      g.rect(wx, wy, ww, 12).fill(gradient('down', [[0, 'rgba(0,0,0,0.28)'], [1, 'rgba(0,0,0,0)']]));
+      g.rect(wx, wy, 10, wh).fill(gradient('right', [[0, 'rgba(0,0,0,0.2)'], [1, 'rgba(0,0,0,0)']]));
+      glint(g, wx, wy, ww, wh, 0.12);
       g.rect(wx, wy, ww, wh).stroke({ width: 6, color: INK });
+      // the sill catches the light, and throws a little shadow
+      g.rect(wx - 8, wy + wh + 10, ww + 16, 10).fill(gradient('down', [[0, 'rgba(0,0,0,0.18)'], [1, 'rgba(0,0,0,0)']]));
       g.rect(wx - 8, wy + wh, ww + 16, 10).fill(0xffffff).stroke({ width: 3, color: INK });
+      edgeHighlight(g, wx - 8, wy + wh, ww + 16);
+      hangShadow(g, wx - 14, wy - 30, ww + 28, h * 0.11, 7);
       g.rect(wx - 14, wy - 30, ww + 28, h * 0.11).fill(0xf6f7f2).stroke({ width: 4, color: INK });
       g.rect(wx - 14, wy - 30 + h * 0.11 - 14, ww + 28, 8).fill(0x9fd8e8);
       g.rect(wx - 14, wy - 30 + h * 0.11 - 6, ww + 28, 6).fill(0xd4e94a);
       const rnd = seeded(7);
       for (let i = 0; i < 40; i++) g.circle(wx - 10 + rnd() * (ww + 20), wy - 24 + rnd() * (h * 0.11 - 26), 2.5).fill(0x6c757d);
+      shadeBox(g, wx - 14, wy - 30, ww + 28, h * 0.11);
       g.moveTo(wx - 24, wy - 30).lineTo(wx + ww + 24, wy - 30).stroke({ width: 5, color: 0x6c757d });
       // turquoise dresser (its drawers, lamp and star projector are surprises: see eggs.ts)
       const dx = w * 0.0, dy = h * 0.46, dw = w * 0.17, dh = fy - dy;
+      floorShadow(g, dx - 10, dx + dw + 14, fy + 4, 26);
+      hangShadow(g, dx, dy, dw + 10, dh, 8);
       g.rect(dx, dy, dw, dh).fill(0x8ecdd0).stroke({ width: 5, color: INK });
       g.rect(dx, dy, dw + 10, 16).fill(0xa8dadc).stroke({ width: 4, color: INK });
+      edgeHighlight(g, dx, dy, dw + 10);
       // floor vent and a plug socket
       g.rect(w * 0.3, fy + 10, w * 0.06, 12).fill(0xdee2e6).stroke({ width: 2, color: INK });
+      hangShadow(g, w * 0.42, h * 0.64, 18, 26, 3);
       g.roundRect(w * 0.42, h * 0.64, 18, 26, 4).fill(0xffffff).stroke({ width: 2, color: INK });
     },
   },
@@ -473,23 +493,34 @@ export const PLACES: PlaceDef[] = [
       { name: 'books', x: 0.88, y: 0.66 },
     ],
     drawBackdrop(g, w, h) {
+      // (lit and textured: see roomLook.ts; the sunbeam through the window is in eggs/bedrooms.ts, so it goes with the curtains)
       const floor = 0.74, fy = h * floor;
+      const night = isNight();
       g.rect(0, 0, w * 0.45, fy).fill(0x7fdde0);
       g.rect(w * 0.45, 0, w * 0.55, fy).fill(0xf6f6f8);
-      g.moveTo(w * 0.45, 0).lineTo(w * 0.45, fy).stroke({ width: 3, color: 0xc9cdd2 });
-      g.rect(0, fy, w, h - fy).fill(0x6b625c);
-      g.rect(0, fy - 6, w, 12).fill(0xffffff).stroke({ width: 3, color: INK });
+      litWall(g, 0, w, fy);
+      softCorner(g, w * 0.45, fy, w * 0.035);
+      litCarpet(g, 0, w, fy, h, 0x6b625c);
+      skirting(g, 0, w, fy);
       // window (the sheer curtains are drawn over it, so they can open: see eggs.ts)
       const wx = w * 0.18, wy = h * 0.12, ww = w * 0.2, wh = h * 0.38;
+      lightPool(g, wx + ww / 2, wy + wh / 2, ww * 1.25, wh * 0.95, night ? '170,190,240' : '255,250,235', night ? 0.18 : 0.32);
       windowView(g, wx, wy, ww, wh);
+      g.rect(wx, wy, ww, 12).fill(gradient('down', [[0, 'rgba(0,0,0,0.28)'], [1, 'rgba(0,0,0,0)']]));
+      g.rect(wx, wy, 10, wh).fill(gradient('right', [[0, 'rgba(0,0,0,0.2)'], [1, 'rgba(0,0,0,0)']]));
+      glint(g, wx, wy, ww, wh, 0.12);
       g.rect(wx, wy, ww, wh).stroke({ width: 6, color: 0xffffff });
+      g.rect(wx - 8, wy + wh + 10, ww + 16, 10).fill(gradient('down', [[0, 'rgba(0,0,0,0.18)'], [1, 'rgba(0,0,0,0)']]));
       g.rect(wx - 8, wy + wh, ww + 16, 10).fill(0xffffff).stroke({ width: 3, color: INK });
+      edgeHighlight(g, wx - 8, wy + wh, ww + 16);
       g.moveTo(wx - 30, wy - 8).lineTo(wx + ww + 30, wy - 8).stroke({ width: 5, color: 0x1f1f1f });
-      // stripy framed art
+      // stripy framed art (behind glass)
       const art = (x: number, y: number, fw: number, fh: number) => {
+        hangShadow(g, x, y, fw, fh, 6);
         frame(g, x, y, fw, fh);
         const cols = [0x3a3a3a, 0xff8fa3, 0x2a9d8f, 0xe9ecef, 0x1d3557];
         cols.forEach((c, i) => g.rect(x + 8, y + 8 + ((fh - 16) * i) / cols.length, fw - 16, (fh - 16) / cols.length).fill(c));
+        glint(g, x + 8, y + 8, fw - 16, fh - 16, 0.16);
       };
       art(w * 0.03, h * 0.16, w * 0.11, h * 0.18);
       art(w * 0.4 - w * 0.035, h * 0.18, w * 0.035, h * 0.08);
@@ -504,20 +535,34 @@ export const PLACES: PlaceDef[] = [
         butterfly(g, x, y, 7 + rnd() * 6, colours[i % colours.length], (rnd() - 0.5) * 0.8);
       }
       // a few drawings pinned up
+      hangShadow(g, w * 0.52, h * 0.1, w * 0.04, h * 0.1, 4);
       g.rect(w * 0.52, h * 0.1, w * 0.04, h * 0.1).fill(0x9fd8e8).stroke({ width: 3, color: INK });
+      hangShadow(g, w * 0.86, h * 0.36, w * 0.08, h * 0.1, 4);
       g.rect(w * 0.86, h * 0.36, w * 0.08, h * 0.1).fill(0xffffff).stroke({ width: 3, color: INK });
       g.moveTo(w * 0.875, h * 0.39).lineTo(w * 0.925, h * 0.39).moveTo(w * 0.875, h * 0.42).lineTo(w * 0.915, h * 0.42).stroke({ width: 2, color: 0x9aa5b1 });
       // white desk (the sparkly purple lamp on it is a surprise: see eggs.ts)
       const dx = w * 0.82, dy = h * 0.52;
+      floorShadow(g, dx, w, fy + 4, 20);
+      hangShadow(g, dx, dy, w * 0.18, 16, 6);
       g.rect(dx, dy, w * 0.18, 16).fill(0xffffff).stroke({ width: 4, color: INK });
+      edgeHighlight(g, dx, dy, w * 0.18);
+      g.rect(dx, dy + 16, w * 0.18, 10).fill(gradient('down', [[0, 'rgba(0,0,0,0.14)'], [1, 'rgba(0,0,0,0)']])); // under the desk top
       g.rect(dx + 10, dy + 16, 12, fy - dy - 16).fill(0xffffff).stroke({ width: 3, color: INK });
       g.rect(w - 22, dy + 16, 12, fy - dy - 16).fill(0xffffff).stroke({ width: 3, color: INK });
+      shadeBox(g, dx + 10, dy + 16, 12, fy - dy - 16);
+      shadeBox(g, w - 22, dy + 16, 12, fy - dy - 16);
       // round black side table with a water bottle, and the purple fluffy rug
+      floorShadow(g, w * 0.665, w * 0.735, fy + 2, 12);
       g.ellipse(w * 0.7, h * 0.62, w * 0.04, h * 0.015).fill(0x1f1f1f);
+      g.ellipse(w * 0.695, h * 0.617, w * 0.024, h * 0.006).fill({ color: 0xffffff, alpha: 0.22 }); // a shine on the top
       g.moveTo(w * 0.68, h * 0.62).lineTo(w * 0.67, fy).moveTo(w * 0.72, h * 0.62).lineTo(w * 0.73, fy).stroke({ width: 4, color: 0x1f1f1f });
       g.roundRect(w * 0.705, h * 0.54, w * 0.016, h * 0.075, 5).fill(0xb07de8).stroke({ width: 2, color: INK });
+      g.roundRect(w * 0.708, h * 0.548, w * 0.004, h * 0.055, 2).fill({ color: 0xffffff, alpha: 0.45 }); // light on the bottle
       g.rect(w * 0.707, h * 0.53, w * 0.012, h * 0.015).fill(0x7fdde0).stroke({ width: 2, color: INK });
-      g.ellipse(w * 0.14, h * 0.9, w * 0.14, h * 0.08).fill(0xc8a2e8).stroke({ width: 4, color: 0xa77bd1 });
+      const fluff = fluffyRug(g, w * 0.14, h * 0.9, w * 0.14, h * 0.08);
+      g.ellipse(w * 0.14, h * 0.9, w * 0.14, h * 0.08).fill(0xc8a2e8);
+      fluff();
+      g.ellipse(w * 0.14, h * 0.9, w * 0.14, h * 0.08).stroke({ width: 4, color: 0xa77bd1 });
     },
   },
   {
