@@ -1,4 +1,4 @@
-import { Graphics } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import { drawClockFace } from './clock';
 import { backyardSky } from './backyard';
 import { fairSky } from './fair';
@@ -321,6 +321,8 @@ export interface WindowSpot {
   y: number;
   ww: number;
   wh: number;
+  /** Where the window starts showing (something drawn over its top, like a pelmet, hides the rest). */
+  shows?: number;
 }
 const outside: { season: Season; windows: WindowSpot[] } = { season: 'spring', windows: [] };
 const NIGHT_SKY = 0x1d2b53;
@@ -345,7 +347,9 @@ export function placeTheSun(panel: number): { wins: WindowSpot[]; sun: { x: numb
   const night = isNight();
   const pal = PALETTE[outside.season];
   const r = Math.min(best.ww, best.wh) * (night ? 0.12 : 0.1 * pal.sunSize);
-  const sx = best.x + best.ww * 0.72, sy = best.y + best.wh * 0.27;
+  // (below anything hung over the top of the window, like a pelmet: the sun is drawn after it)
+  const moonR = Math.min(best.ww, best.wh) * 0.12;
+  const sx = best.x + best.ww * 0.72, sy = Math.max(best.y + best.wh * 0.27, (best.shows ?? best.y) + Math.max(r, moonR) + 8);
   for (const w of wins) {
     if (sx - r < w.x - 1 || sx + r > w.x + w.ww + 1 || sy - r < w.y - 1 || sy + r > w.y + w.wh + 1) continue; // not looking at that bit of sky
     if (night) w.g.circle(sx, sy, r).fill(0xfff3c4).circle(sx + r * 0.35, sy - r * 0.25, r * 0.85).fill(NIGHT_SKY); // a crescent moon
@@ -360,15 +364,20 @@ export function placeTheSun(panel: number): { wins: WindowSpot[]; sun: { x: numb
  * was. (A little inside the window, so its frame still shows.)
  */
 export function nightWindow(win: WindowSpot, sun: { x: number; y: number; r: number } | null) {
+  const c = new Container();
   const g = new Graphics();
   const x = win.x + 3, y = win.y + 3, ww = win.ww - 6, wh = win.wh - 6;
   drawView(g, x, y, ww, wh, true);
   if (sun && sun.x - sun.r >= x && sun.x + sun.r <= x + ww && sun.y - sun.r >= y && sun.y + sun.r <= y + wh) {
     g.circle(sun.x, sun.y, sun.r).fill(0xfff3c4).circle(sun.x + sun.r * 0.35, sun.y - sun.r * 0.25, sun.r * 0.85).fill(NIGHT_SKY);
   }
-  g.rect(x, y, ww, 10).fill(gradient('down', [[0, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]));
+  const top = Math.max(y, win.shows ?? y); // (only the part of the window that shows: nothing over a pelmet)
+  g.rect(x, top, ww, 10).fill(gradient('down', [[0, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]));
   glint(g, x, y, ww, wh, 0.06);
-  return g;
+  const mask = new Graphics().rect(x, top, ww, y + wh - top).fill(0xffffff);
+  g.mask = mask;
+  c.addChild(mask, g);
+  return c;
 }
 
 /** Mix two colours (0 = all a, 1 = all b). */
@@ -377,10 +386,14 @@ function blend(a: number, b: number, t: number) {
   return ch(16) | ch(8) | ch(0);
 }
 
-/** The view out of a window or an open door: day or night by the real clock, in the season's colours. */
-export function windowView(g: Graphics, x: number, y: number, ww: number, wh: number) {
+/**
+ * The view out of a window or an open door: day or night by the real clock,
+ * in the season's colours. `shows` = where it starts showing, when something
+ * is drawn over the top of it afterwards (a pelmet).
+ */
+export function windowView(g: Graphics, x: number, y: number, ww: number, wh: number, shows?: number) {
   drawView(g, x, y, ww, wh, isNight());
-  outside.windows.push({ g, x, y, ww, wh });
+  outside.windows.push({ g, x, y, ww, wh, shows });
 }
 
 function drawView(g: Graphics, x: number, y: number, ww: number, wh: number, night: boolean) {
@@ -482,7 +495,7 @@ export const PLACES: PlaceDef[] = [
       // window (the blackout blind is drawn over it, so it can roll up) and a spotty valance
       const wx = w * 0.15, wy = h * 0.16, ww = w * 0.24, wh = h * 0.34;
       lightPool(g, wx + ww / 2, wy + wh / 2, ww * 1.15, wh * 0.95, night ? '170,190,240' : '255,250,235', night ? 0.18 : 0.32);
-      windowView(g, wx, wy, ww, wh);
+      windowView(g, wx, wy, ww, wh, wy - 30 + h * 0.11); // (the spotty pelmet hangs over its top)
       // the wall's thickness round the glass: in shadow along the top and down one side
       g.rect(wx, wy, ww, 12).fill(gradient('down', [[0, 'rgba(0,0,0,0.28)'], [1, 'rgba(0,0,0,0)']]));
       g.rect(wx, wy, 10, wh).fill(gradient('right', [[0, 'rgba(0,0,0,0.2)'], [1, 'rgba(0,0,0,0)']]));
